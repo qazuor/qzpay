@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Test outputs
+coverage/
+test-results/
+.nyc_output/
+
+# Turbo
+.turbo/
+
+# IDE
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+Thumbs.db
+
+# Temporary
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Package manager locks (keep only pnpm)
+package-lock.json
+yarn.lock
