@@ -19,3 +19,7 @@ export * from './utils/index.js';
 
 // Events
 export * from './events/index.js';
+
+// Billing Factory
+export * from './billing.js';
+export * from './billing-from-env.js';
