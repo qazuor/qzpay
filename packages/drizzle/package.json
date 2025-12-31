@@ -1,0 +1,83 @@
+{
+    "name": "@qazuor/qzpay-drizzle",
+    "version": "0.0.1",
+    "description": "Drizzle ORM storage adapter for QZPay billing library",
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
+        },
+        "./schema": {
+            "import": {
+                "types": "./dist/schema/index.d.ts",
+                "default": "./dist/schema/index.js"
+            },
+            "require": {
+                "types": "./dist/schema/index.d.cts",
+                "default": "./dist/schema/index.cjs"
+            }
+        }
+    },
+    "files": ["dist"],
+    "sideEffects": false,
+    "scripts": {
+        "build": "tsup",
+        "dev": "tsup --watch",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest",
+        "test:run": "vitest run",
+        "clean": "rm -rf dist",
+        "db:generate": "drizzle-kit generate",
+        "db:migrate": "drizzle-kit migrate",
+        "db:push": "drizzle-kit push",
+        "db:studio": "drizzle-kit studio"
+    },
+    "keywords": [
+        "billing",
+        "payments",
+        "subscriptions",
+        "drizzle",
+        "orm",
+        "postgres",
+        "storage"
+    ],
+    "author": "qazuor@gmail.com",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/qazuor/qzpay",
+        "directory": "packages/drizzle"
+    },
+    "bugs": {
+        "url": "https://github.com/qazuor/qzpay/issues"
+    },
+    "homepage": "https://github.com/qazuor/qzpay/tree/main/packages/drizzle#readme",
+    "engines": {
+        "node": ">=22"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "dependencies": {
+        "@qazuor/qzpay-core": "workspace:*"
+    },
+    "peerDependencies": {
+        "drizzle-orm": ">=0.35.0",
+        "postgres": ">=3.4.0"
+    },
+    "devDependencies": {
+        "drizzle-kit": "^0.28.0",
+        "drizzle-orm": "^0.35.0",
+        "postgres": "^3.4.0"
+    }
+}
