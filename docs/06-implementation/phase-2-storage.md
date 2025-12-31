@@ -5,8 +5,11 @@
 | Attribute | Value |
 |-----------|-------|
 | **Tasks** | 60 |
-| **Status** | Planning |
+| **Status** | 🔄 IN PROGRESS (50%) |
 | **Dependencies** | Phase 1 Complete |
+
+**Completed Sections:** 2.1, 2.2, 2.3
+**Next Section:** 2.4 Storage Adapter Implementation
 
 ---
 
@@ -14,12 +17,12 @@
 
 | ID | Task | Status | Dependencies |
 |----|------|--------|--------------|
-| 2.1.1 | Create packages/drizzle directory | ⬜ | 1.9.3 |
-| 2.1.2 | Create drizzle package.json | ⬜ | 2.1.1 |
-| 2.1.3 | Create drizzle tsconfig.json | ⬜ | 2.1.1 |
-| 2.1.4 | Setup tsup for bundling | ⬜ | 2.1.2 |
-| 2.1.5 | Create src/index.ts | ⬜ | 2.1.1 |
-| 2.1.6 | Setup Vitest for testing | ⬜ | 2.1.2 |
+| 2.1.1 | Create packages/drizzle directory | ✅ | 1.9.3 |
+| 2.1.2 | Create drizzle package.json | ✅ | 2.1.1 |
+| 2.1.3 | Create drizzle tsconfig.json | ✅ | 2.1.1 |
+| 2.1.4 | Setup tsup for bundling | ✅ | 2.1.2 |
+| 2.1.5 | Create src/index.ts | ✅ | 2.1.1 |
+| 2.1.6 | Setup Vitest for testing | ✅ | 2.1.2 |
 
 ---
 
@@ -27,23 +30,23 @@
 
 | ID | Task | Status | Dependencies |
 |----|------|--------|--------------|
-| 2.2.1 | Create schema/customers.schema.ts | ⬜ | 2.1.5 |
-| 2.2.2 | Create schema/subscriptions.schema.ts | ⬜ | 2.1.5 |
-| 2.2.3 | Create schema/payments.schema.ts | ⬜ | 2.1.5 |
-| 2.2.4 | Create schema/invoices.schema.ts | ⬜ | 2.1.5 |
-| 2.2.5 | Create schema/invoice-lines.schema.ts | ⬜ | 2.2.4 |
-| 2.2.6 | Create schema/payment-methods.schema.ts | ⬜ | 2.1.5 |
-| 2.2.7 | Create schema/promo-codes.schema.ts | ⬜ | 2.1.5 |
-| 2.2.8 | Create schema/promo-code-usage.schema.ts | ⬜ | 2.2.7 |
-| 2.2.9 | Create schema/vendors.schema.ts | ⬜ | 2.1.5 |
-| 2.2.10 | Create schema/vendor-payouts.schema.ts | ⬜ | 2.2.9 |
-| 2.2.11 | Create schema/usage-records.schema.ts | ⬜ | 2.1.5 |
-| 2.2.12 | Create schema/webhook-events.schema.ts | ⬜ | 2.1.5 |
-| 2.2.13 | Create schema/audit-logs.schema.ts | ⬜ | 2.1.5 |
-| 2.2.14 | Create schema/idempotency-keys.schema.ts | ⬜ | 2.1.5 |
-| 2.2.15 | Create schema/currencies.schema.ts | ⬜ | 2.1.5 |
-| 2.2.16 | Create schema/relations.ts | ⬜ | 2.2.1-2.2.15 |
-| 2.2.17 | Create schema/index.ts | ⬜ | 2.2.16 |
+| 2.2.1 | Create schema/customers.schema.ts | ✅ | 2.1.5 |
+| 2.2.2 | Create schema/subscriptions.schema.ts | ✅ | 2.1.5 |
+| 2.2.3 | Create schema/payments.schema.ts | ✅ | 2.1.5 |
+| 2.2.4 | Create schema/invoices.schema.ts | ✅ | 2.1.5 |
+| 2.2.5 | Create schema/invoice-lines.schema.ts | ✅ | 2.2.4 |
+| 2.2.6 | Create schema/payment-methods.schema.ts | ✅ | 2.1.5 |
+| 2.2.7 | Create schema/promo-codes.schema.ts | ✅ | 2.1.5 |
+| 2.2.8 | Create schema/promo-code-usage.schema.ts | ✅ | 2.2.7 |
+| 2.2.9 | Create schema/vendors.schema.ts | ✅ | 2.1.5 |
+| 2.2.10 | Create schema/vendor-payouts.schema.ts | ✅ | 2.2.9 |
+| 2.2.11 | Create schema/usage-records.schema.ts | ✅ | 2.1.5 |
+| 2.2.12 | Create schema/webhook-events.schema.ts | ✅ | 2.1.5 |
+| 2.2.13 | Create schema/audit-logs.schema.ts | ✅ | 2.1.5 |
+| 2.2.14 | Create schema/idempotency-keys.schema.ts | ✅ | 2.1.5 |
+| 2.2.15 | Create schema/currencies.schema.ts | ✅ | 2.1.5 |
+| 2.2.16 | Create schema/relations.ts | ✅ | 2.2.1-2.2.15 |
+| 2.2.17 | Create schema/index.ts | ✅ | 2.2.16 |
 
 ---
 
@@ -51,18 +54,18 @@
 
 | ID | Task | Status | Dependencies |
 |----|------|--------|--------------|
-| 2.3.1 | Create repositories/base.repository.ts | ⬜ | 2.2.17 |
-| 2.3.2 | Create repositories/customers.repository.ts | ⬜ | 2.3.1 |
-| 2.3.3 | Create repositories/subscriptions.repository.ts | ⬜ | 2.3.1 |
-| 2.3.4 | Create repositories/payments.repository.ts | ⬜ | 2.3.1 |
-| 2.3.5 | Create repositories/invoices.repository.ts | ⬜ | 2.3.1 |
-| 2.3.6 | Create repositories/payment-methods.repository.ts | ⬜ | 2.3.1 |
-| 2.3.7 | Create repositories/promo-codes.repository.ts | ⬜ | 2.3.1 |
-| 2.3.8 | Create repositories/vendors.repository.ts | ⬜ | 2.3.1 |
-| 2.3.9 | Create repositories/usage-records.repository.ts | ⬜ | 2.3.1 |
-| 2.3.10 | Create repositories/webhook-events.repository.ts | ⬜ | 2.3.1 |
-| 2.3.11 | Create repositories/audit-logs.repository.ts | ⬜ | 2.3.1 |
-| 2.3.12 | Create repositories/index.ts | ⬜ | 2.3.2-2.3.11 |
+| 2.3.1 | Create repositories/base.repository.ts | ✅ | 2.2.17 |
+| 2.3.2 | Create repositories/customers.repository.ts | ✅ | 2.3.1 |
+| 2.3.3 | Create repositories/subscriptions.repository.ts | ✅ | 2.3.1 |
+| 2.3.4 | Create repositories/payments.repository.ts | ✅ | 2.3.1 |
+| 2.3.5 | Create repositories/invoices.repository.ts | ✅ | 2.3.1 |
+| 2.3.6 | Create repositories/payment-methods.repository.ts | ✅ | 2.3.1 |
+| 2.3.7 | Create repositories/promo-codes.repository.ts | ✅ | 2.3.1 |
+| 2.3.8 | Create repositories/vendors.repository.ts | ✅ | 2.3.1 |
+| 2.3.9 | Create repositories/usage-records.repository.ts | ✅ | 2.3.1 |
+| 2.3.10 | Create repositories/webhook-events.repository.ts | ✅ | 2.3.1 |
+| 2.3.11 | Create repositories/audit-logs.repository.ts | ✅ | 2.3.1 |
+| 2.3.12 | Create repositories/index.ts | ✅ | 2.3.2-2.3.11 |
 
 ---
 
@@ -113,8 +116,8 @@
 
 | ID | Task | Status | Dependencies |
 |----|------|--------|--------------|
-| 2.7.1 | Create test/setup.ts | ⬜ | 2.1.6 |
-| 2.7.2 | Create test/helpers/db-helpers.ts | ⬜ | 2.7.1 |
+| 2.7.1 | Create test/setup.ts | ✅ | 2.1.6 |
+| 2.7.2 | Create test/helpers/db-helpers.ts | ✅ | 2.7.1 |
 | 2.7.3 | Create test/schema.test.ts | ⬜ | 2.2.17 |
 | 2.7.4 | Create test/customers.repository.test.ts | ⬜ | 2.3.2 |
 | 2.7.5 | Create test/subscriptions.repository.test.ts | ⬜ | 2.3.3 |
@@ -125,14 +128,42 @@
 
 ## Acceptance Criteria
 
-- [ ] Drizzle package builds successfully
-- [ ] All schemas match data model documentation
-- [ ] All repository methods implemented
+- [x] Drizzle package builds successfully
+- [x] All schemas match data model documentation
+- [x] All repository methods implemented
 - [ ] Storage adapter implements QZPayStorageAdapter interface
 - [ ] Migrations run successfully
 - [ ] Transaction support working
 - [ ] Tests pass with 90%+ coverage
 - [ ] Optimistic locking prevents concurrent update conflicts
+
+---
+
+## Implementation Notes
+
+### Completed Work (2.1-2.3)
+
+**Commits:**
+- `eb654c9` - Initialize @qazuor/qzpay-drizzle package
+- `17e41d7` - Add core entity schemas (customers, subscriptions, payments, invoices)
+- `40236b1` - Add supporting entity schemas (payment-methods, promo-codes, vendors, usage-records)
+- `e83a71f` - Add infrastructure schemas (webhook-events, audit-logs, idempotency)
+- `6d41d86` - Add relations and update exports for all billing schemas
+- `942490b` - Add standalone repository implementations for all billing entities
+
+**Technical Decisions:**
+- Repositories use standalone class pattern (not generic base class) for TypeScript strict mode compatibility
+- All tables use `billing_` prefix
+- All exports use `QZPay` prefix
+- Soft delete pattern with `deletedAt` column where applicable
+- Provider-agnostic columns (e.g., `providerPaymentId` instead of separate Stripe/MP columns)
+
+### Next Steps
+
+1. **Section 2.4:** Implement `createQZPayDrizzleAdapter()` to connect repositories with `QZPayStorageAdapter` interface from core
+2. **Section 2.5:** Setup Drizzle migrations infrastructure
+3. **Section 2.6:** Add utility helpers (connection, pagination, soft-delete, optimistic locking)
+4. **Section 2.7:** Complete test coverage for all components
 
 ---
 
