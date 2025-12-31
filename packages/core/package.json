@@ -1,0 +1,56 @@
+{
+    "name": "@qazuor/qzpay-core",
+    "version": "0.0.1",
+    "description": "Core types, constants, and utilities for QZPay billing library",
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
+        }
+    },
+    "files": ["dist"],
+    "sideEffects": false,
+    "scripts": {
+        "build": "tsup",
+        "dev": "tsup --watch",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest",
+        "test:run": "vitest run",
+        "clean": "rm -rf dist"
+    },
+    "keywords": [
+        "billing",
+        "payments",
+        "subscriptions",
+        "invoicing",
+        "stripe",
+        "mercadopago"
+    ],
+    "author": "qazuor@gmail.com",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/qazuor/qzpay",
+        "directory": "packages/core"
+    },
+    "bugs": {
+        "url": "https://github.com/qazuor/qzpay/issues"
+    },
+    "homepage": "https://github.com/qazuor/qzpay/tree/main/packages/core#readme",
+    "engines": {
+        "node": ">=22"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}
