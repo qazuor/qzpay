@@ -1,0 +1,348 @@
+{
+  "version": "0.1.0",
+  "templateSource": {
+    "type": "local",
+    "installedAt": "2025-12-26T12:51:15.126Z"
+  },
+  "project": {
+    "name": "qzpay",
+    "description": "Universal billing and payments library for Node.js applications",
+    "org": "qazuor",
+    "repo": "qzpay",
+    "entityType": "item",
+    "entityTypePlural": "items",
+    "author": "qazuor@gmail.com"
+  },
+  "preferences": {
+    "language": "en",
+    "responseLanguage": "es",
+    "includeCoAuthor": false,
+    "packageManager": "pnpm"
+  },
+  "mcp": {
+    "level": "user",
+    "servers": []
+  },
+  "modules": {
+    "agents": {
+      "selected": [
+        "tech-lead",
+        "product-functional",
+        "product-technical",
+        "api-engineer",
+        "database-engineer",
+        "frontend-engineer",
+        "node-typescript-engineer",
+        "ux-ui-designer",
+        "content-writer",
+        "qa-engineer",
+        "debugger",
+        "tech-writer",
+        "i18n-specialist",
+        "enrichment-agent"
+      ],
+      "excluded": []
+    },
+    "skills": {
+      "selected": [
+        "hono-patterns",
+        "drizzle-patterns",
+        "react-patterns",
+        "tdd-methodology",
+        "clean-architecture",
+        "web-app-testing",
+        "api-app-testing",
+        "performance-testing",
+        "security-testing",
+        "qa-criteria-validator",
+        "security-audit",
+        "performance-audit",
+        "accessibility-audit",
+        "error-handling-patterns",
+        "i18n-patterns",
+        "zustand-patterns",
+        "react-hook-form-patterns",
+        "git-commit-helper",
+        "markdown-formatter",
+        "add-memory",
+        "pdf-creator-editor",
+        "json-data-auditor",
+        "brand-guidelines",
+        "vercel-specialist",
+        "shadcn-specialist",
+        "mermaid-diagram-specialist"
+      ],
+      "excluded": []
+    },
+    "commands": {
+      "selected": [
+        "quality-check",
+        "code-check",
+        "run-tests",
+        "security-audit",
+        "performance-audit",
+        "accessibility-audit",
+        "start-feature-plan",
+        "start-refactor-plan",
+        "sync-planning",
+        "sync-planning-github",
+        "sync-todos-github",
+        "check-completed-tasks",
+        "planning-cleanup",
+        "cleanup-issues",
+        "add-new-entity",
+        "update-docs",
+        "five-why",
+        "commit",
+        "format-markdown",
+        "create-agent",
+        "create-command",
+        "create-skill",
+        "help"
+      ],
+      "excluded": []
+    },
+    "docs": {
+      "selected": [
+        "quick-start",
+        "decision-tree",
+        "quick-fix-protocol",
+        "atomic-task-protocol",
+        "phase-1-planning",
+        "phase-2-implementation",
+        "phase-3-validation",
+        "phase-4-finalization",
+        "code-standards",
+        "testing-standards",
+        "documentation-standards",
+        "architecture-patterns",
+        "design-standards",
+        "security-standards",
+        "performance-standards",
+        "pdr-template",
+        "tech-analysis-template",
+        "todos-template",
+        "workflow-diagrams",
+        "glossary",
+        "mcp-servers"
+      ],
+      "excluded": []
+    }
+  },
+  "extras": {
+    "schemas": false,
+    "scripts": false,
+    "hooks": {
+      "enabled": true,
+      "notification": {
+        "desktop": true,
+        "audio": true
+      },
+      "stop": {
+        "beep": true
+      },
+      "subagentStop": {
+        "beep": true
+      }
+    },
+    "sessions": false,
+    "codeStyle": {
+      "enabled": true,
+      "editorconfig": true,
+      "editorconfigOptions": {
+        "indentStyle": "space",
+        "indentSize": 4,
+        "endOfLine": "lf",
+        "insertFinalNewline": true,
+        "trimTrailingWhitespace": true,
+        "charset": "utf-8",
+        "maxLineLength": 140
+      },
+      "commitlint": true,
+      "commitlintOptions": {
+        "extends": [
+          "@commitlint/config-conventional"
+        ],
+        "types": [
+          "feat",
+          "fix",
+          "docs",
+          "style",
+          "refactor",
+          "perf",
+          "test",
+          "build",
+          "ci",
+          "chore",
+          "revert"
+        ],
+        "scopes": [],
+        "headerMaxLength": 100,
+        "scopeRequired": false,
+        "bodyRequired": false,
+        "bodyMaxLineLength": 100,
+        "huskyIntegration": true
+      },
+      "biome": true,
+      "biomeOptions": {
+        "formatter": {
+          "indentStyle": "space",
+          "indentWidth": 4,
+          "lineWidth": 140,
+          "quoteStyle": "single",
+          "semicolons": "always",
+          "trailingCommas": "none",
+          "quoteProperties": "asNeeded",
+          "bracketSpacing": true,
+          "bracketSameLine": false,
+          "arrowParentheses": "always"
+        },
+        "linter": {
+          "recommended": true,
+          "correctness": true,
+          "suspicious": true,
+          "style": true,
+          "complexity": true,
+          "security": true,
+          "performance": true,
+          "a11y": true
+        },
+        "organizeImports": true,
+        "ignorePatterns": [
+          "node_modules",
+          "dist",
+          "build",
+          ".next",
+          ".nuxt",
+          "coverage"
+        ]
+      },
+      "prettier": false
+    },
+    "folderPreferences": {
+      "cicd": {
+        "location": "github-workflows",
+        "workflows": [
+          "ci-node",
+          "ci-pnpm",
+          "quality-biome",
+          "quality-typecheck",
+          "security-codeql",
+          "security-dependency-review",
+          "security-audit"
+        ]
+      }
+    }
+  },
+  "scaffold": {
+    "type": "full-project",
+    "createdStructure": [
+      ".claude",
+      ".claude/agents",
+      ".claude/commands",
+      ".claude/skills",
+      ".claude/docs"
+    ]
+  },
+  "customizations": {
+    "placeholdersReplaced": true,
+    "lastUpdated": "2025-12-26T12:51:15.127Z",
+    "customFiles": [],
+    "permissions": {
+      "preset": "default",
+      "files": {
+        "readAll": true,
+        "writeCode": true,
+        "writeConfig": true,
+        "writeMarkdown": true,
+        "writeOther": false,
+        "editTool": true
+      },
+      "git": {
+        "readOnly": true,
+        "staging": false,
+        "commit": false,
+        "push": false,
+        "branching": false
+      },
+      "bash": {
+        "packageManager": true,
+        "testing": true,
+        "building": true,
+        "docker": false,
+        "arbitrary": false
+      },
+      "web": {
+        "fetch": true,
+        "search": true
+      },
+      "custom": {
+        "allow": [],
+        "deny": []
+      }
+    },
+    "selectedBundles": []
+  },
+  "templateConfig": {
+    "commands": {
+      "typecheck": "pnpm typecheck",
+      "lint": "pnpm lint",
+      "lintFix": "pnpm lint --fix",
+      "test": "pnpm test",
+      "testWatch": "pnpm test --watch",
+      "coverage": "pnpm test --coverage",
+      "build": "pnpm build",
+      "format": "pnpm format",
+      "securityScan": "pnpm audit",
+      "lighthouse": "npx lighthouse http://localhost:3000 --output=json",
+      "bundleAnalyze": "pnpm build --analyze"
+    },
+    "paths": {
+      "planningPath": ".claude/sessions/planning",
+      "refactorPath": ".claude/sessions/refactor",
+      "archivePath": ".claude/sessions/archive",
+      "schemasPath": ".claude/schemas",
+      "projectRoot": "/home/qazuor/projects/PACKAGES/qzpay"
+    },
+    "targets": {
+      "coverage": 90,
+      "bundleSize": 500,
+      "lcp": 2500,
+      "fid": 100,
+      "cls": 0.1,
+      "apiResponse": 200,
+      "dbQuery": 50,
+      "wcagLevel": "AA"
+    },
+    "tracking": {
+      "issueTracker": "none",
+      "trackingFile": ".claude/tracking/tasks.json",
+      "registryFile": ".claude/tracking/registry.json",
+      "taskCodePattern": "TASK-",
+      "closedDays": 30,
+      "staleDays": 14
+    },
+    "techStack": {
+      "frontendFramework": "None",
+      "databaseOrm": "None",
+      "validationLibrary": "None",
+      "authPattern": "None",
+      "stateManagement": "None",
+      "testFramework": "None",
+      "bundler": "None",
+      "apiFramework": "None"
+    },
+    "environment": {
+      "githubToken": "GITHUB_TOKEN",
+      "githubOwner": "GITHUB_OWNER",
+      "githubRepo": "GITHUB_REPO",
+      "issueTrackerToken": "GITHUB_TOKEN"
+    },
+    "brand": {
+      "primaryColor": "#3B82F6",
+      "secondaryColor": "#10B981",
+      "fontFamily": "Inter, system-ui, sans-serif",
+      "toneOfVoice": "professional"
+    }
+  }
+}
