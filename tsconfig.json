@@ -1,0 +1,18 @@
+{
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "@qazuor/qzpay-core": ["packages/core/src"],
+            "@qazuor/qzpay-stripe": ["packages/stripe/src"],
+            "@qazuor/qzpay-mercadopago": ["packages/mercadopago/src"],
+            "@qazuor/qzpay-drizzle": ["packages/drizzle/src"],
+            "@qazuor/qzpay-react": ["packages/react/src"],
+            "@qazuor/qzpay-hono": ["packages/hono/src"],
+            "@qazuor/qzpay-nestjs": ["packages/nestjs/src"]
+        }
+    },
+    "include": ["packages/*/src/**/*", "test/**/*"],
+    "exclude": ["node_modules", "dist", "**/dist/**"]
+}
