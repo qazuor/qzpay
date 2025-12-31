@@ -8,6 +8,9 @@
 // Export schema
 export * from './schema/index.js';
 
+// Export repositories
+export * from './repositories/index.js';
+
 // Adapter will be exported here once implemented
 // export { createQZPayDrizzleAdapter } from './adapter/index.js';
 
