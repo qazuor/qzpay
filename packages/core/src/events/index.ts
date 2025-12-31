@@ -1,6 +1,5 @@
 /**
- * Event system for QZPay
+ * Event system exports
  */
-
-// Placeholder - events will be added in section 1.7
-export {};
+export * from './event-emitter.js';
+export * from './event-handler.js';
