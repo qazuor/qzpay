@@ -1,73 +1,78 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "vcs": {
-    "enabled": true,
-    "clientKind": "git",
-    "useIgnoreFile": true
-  },
-  "files": {
-    "ignoreUnknown": true,
-    "ignore": [
-      "node_modules",
-      "dist",
-      "build",
-      ".next",
-      ".nuxt",
-      "coverage"
-    ]
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 4,
-    "lineWidth": 140
-  },
-  "organizeImports": {
-    "enabled": true
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "correctness": {
-        "recommended": true
-      },
-      "suspicious": {
-        "recommended": true
-      },
-      "style": {
-        "recommended": true
-      },
-      "complexity": {
-        "recommended": true
-      },
-      "security": {
-        "recommended": true
-      },
-      "performance": {
-        "recommended": true
-      },
-      "a11y": {
-        "recommended": true
-      }
-    }
-  },
-  "javascript": {
+    "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+    "vcs": {
+        "enabled": true,
+        "clientKind": "git",
+        "useIgnoreFile": true
+    },
+    "files": {
+        "ignoreUnknown": true,
+        "include": ["packages/**/*.ts", "packages/**/*.tsx", "test/**/*.ts"],
+        "ignore": ["node_modules", "**/node_modules", "dist", "**/dist", "build", ".next", ".nuxt", "coverage", ".turbo", ".changeset"]
+    },
     "formatter": {
-      "quoteStyle": "single",
-      "semicolons": "always",
-      "trailingCommas": "none",
-      "quoteProperties": "asNeeded",
-      "bracketSpacing": true,
-      "bracketSameLine": false,
-      "arrowParentheses": "always"
+        "enabled": true,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 140
+    },
+    "organizeImports": {
+        "enabled": true
+    },
+    "linter": {
+        "enabled": true,
+        "rules": {
+            "recommended": true,
+            "correctness": {
+                "recommended": true,
+                "noUnusedImports": "error",
+                "noUnusedVariables": "error"
+            },
+            "suspicious": {
+                "recommended": true,
+                "noExplicitAny": "error"
+            },
+            "style": {
+                "recommended": true,
+                "useConst": "error",
+                "noNonNullAssertion": "warn"
+            },
+            "complexity": {
+                "recommended": true,
+                "noExcessiveCognitiveComplexity": {
+                    "level": "warn",
+                    "options": {
+                        "maxAllowedComplexity": 15
+                    }
+                }
+            },
+            "security": {
+                "recommended": true
+            },
+            "performance": {
+                "recommended": true
+            },
+            "a11y": {
+                "recommended": true
+            }
+        }
+    },
+    "javascript": {
+        "formatter": {
+            "quoteStyle": "single",
+            "semicolons": "always",
+            "trailingCommas": "none",
+            "quoteProperties": "asNeeded",
+            "bracketSpacing": true,
+            "bracketSameLine": false,
+            "arrowParentheses": "always"
+        }
+    },
+    "json": {
+        "formatter": {
+            "indentStyle": "space",
+            "indentWidth": 4,
+            "lineWidth": 140
+        }
     }
-  },
-  "json": {
-    "formatter": {
-      "indentStyle": "space",
-      "indentWidth": 4,
-      "lineWidth": 140
-    }
-  }
 }
