@@ -41,7 +41,10 @@ export async function startTestDatabase(): Promise<{
  * Push schema to test database (faster than migrations for tests)
  */
 async function pushSchema(): Promise<void> {
-    const rawSql = sql!;
+    if (!sql) {
+        throw new Error('Database connection not initialized');
+    }
+    const rawSql = sql;
 
     // Create tables in order (respecting foreign key dependencies)
 
