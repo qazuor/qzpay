@@ -1,0 +1,68 @@
+{
+    "name": "@qazuor/qzpay-stripe",
+    "version": "0.0.1",
+    "description": "Stripe payment provider adapter for QZPay billing library",
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
+        }
+    },
+    "files": ["dist"],
+    "sideEffects": false,
+    "scripts": {
+        "build": "tsup",
+        "dev": "tsup --watch",
+        "typecheck": "tsc --noEmit",
+        "lint": "biome check --write src",
+        "test": "vitest",
+        "test:run": "vitest run",
+        "clean": "rm -rf dist"
+    },
+    "keywords": [
+        "billing",
+        "payments",
+        "subscriptions",
+        "stripe",
+        "qzpay"
+    ],
+    "author": "qazuor@gmail.com",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/qazuor/qzpay",
+        "directory": "packages/stripe"
+    },
+    "bugs": {
+        "url": "https://github.com/qazuor/qzpay/issues"
+    },
+    "homepage": "https://github.com/qazuor/qzpay/tree/main/packages/stripe#readme",
+    "engines": {
+        "node": ">=22"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "dependencies": {
+        "@qazuor/qzpay-core": "workspace:*",
+        "stripe": "^17.5.0"
+    },
+    "devDependencies": {
+        "typescript": "^5.7.0",
+        "tsup": "^8.3.0",
+        "vitest": "^2.1.0"
+    },
+    "peerDependencies": {
+        "stripe": ">=15.0.0"
+    }
+}
