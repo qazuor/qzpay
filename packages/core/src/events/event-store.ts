@@ -115,6 +115,7 @@ export class QZPayInMemoryEventStore {
             }
             // Check entity ID in data
             const data = event.data as Record<string, unknown>;
+            // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
             return data['id'] === entityId;
         });
     }
@@ -125,6 +126,7 @@ export class QZPayInMemoryEventStore {
     getByCustomer(customerId: string): QZPayEvent[] {
         return this.events.filter((event) => {
             const data = event.data as Record<string, unknown>;
+            // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
             return data['customerId'] === customerId || (event.type.startsWith('customer.') && data['id'] === customerId);
         });
     }

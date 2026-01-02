@@ -263,16 +263,20 @@ export function qzpayCreateEventMatcher(criteria: QZPayEventFilterCriteria): (ev
         const data = event.data as Record<string, unknown>;
 
         // Customer ID filter
+        // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
         if (criteria.customerId && data['customerId'] !== criteria.customerId) {
             // Also check if the event is a customer event with matching id
+            // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
             if (data['id'] !== criteria.customerId || !event.type.startsWith('customer.')) {
                 return false;
             }
         }
 
         // Subscription ID filter
+        // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
         if (criteria.subscriptionId && data['subscriptionId'] !== criteria.subscriptionId) {
             // Also check if the event is a subscription event with matching id
+            // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
             if (data['id'] !== criteria.subscriptionId || !event.type.startsWith('subscription.')) {
                 return false;
             }
@@ -288,6 +292,7 @@ export function qzpayCreateEventMatcher(criteria: QZPayEventFilterCriteria): (ev
 
         // Entity ID filter
         if (criteria.entityIds && criteria.entityIds.length > 0) {
+            // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
             const entityId = data['id'] as string | undefined;
             if (!entityId || !criteria.entityIds.includes(entityId)) {
                 return false;
@@ -397,6 +402,7 @@ export function qzpayGroupEventsByEntity<T extends QZPayEvent>(events: T[]): Map
 
     for (const event of events) {
         const data = event.data as Record<string, unknown>;
+        // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
         const entityId = data['id'] as string | undefined;
         if (!entityId) continue;
 

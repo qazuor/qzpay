@@ -127,30 +127,35 @@ function extractRelatedEntities<K extends keyof QZPayEventMap>(eventType: K, dat
 
     // Extract entity ID based on event type
     const entityType = eventType.split('.')[0] as QZPayRelatedEntity['type'];
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
     const id = dataObj['id'];
     if (id && typeof id === 'string') {
         entities.push({ type: entityType, id });
     }
 
     // Extract related customer
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
     const customerId = dataObj['customerId'];
     if (customerId && typeof customerId === 'string') {
         entities.push({ type: 'customer', id: customerId });
     }
 
     // Extract related subscription
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
     const subscriptionId = dataObj['subscriptionId'];
     if (subscriptionId && typeof subscriptionId === 'string') {
         entities.push({ type: 'subscription', id: subscriptionId });
     }
 
     // Extract related invoice
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
     const invoiceId = dataObj['invoiceId'];
     if (invoiceId && typeof invoiceId === 'string') {
         entities.push({ type: 'invoice', id: invoiceId });
     }
 
     // Extract related plan
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
     const planId = dataObj['planId'];
     if (planId && typeof planId === 'string') {
         entities.push({ type: 'plan', id: planId });
@@ -216,6 +221,7 @@ export interface QZPayEventSummary {
  */
 export function qzpayCreateEventSummary<T>(event: QZPayDetailedEvent<T>): QZPayEventSummary {
     const dataObj = event.data as unknown as Record<string, unknown>;
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
     const id = dataObj['id'];
 
     return {
