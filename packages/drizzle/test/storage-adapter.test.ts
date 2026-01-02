@@ -4,7 +4,7 @@
  * Tests the QZPayDrizzleStorageAdapter that bridges repositories to Core's storage interface.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { createQZPayDrizzleAdapter, type QZPayDrizzleStorageAdapter } from '../src/adapter/index.js';
+import { type QZPayDrizzleStorageAdapter, createQZPayDrizzleAdapter } from '../src/adapter/index.js';
 import { clearTestData, getTestDatabase, startTestDatabase, stopTestDatabase } from './helpers/db-helpers.js';
 
 describe('QZPayDrizzleStorageAdapter', () => {

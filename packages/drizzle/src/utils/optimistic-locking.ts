@@ -194,7 +194,7 @@ export function compareAndSwap<T extends PgColumn>(column: T, expectedValue: unk
  * // Use in SET clause for atomic increment
  * ```
  */
-export function atomicIncrement<T extends PgColumn>(column: T, incrementBy: number = 1): SQL {
+export function atomicIncrement<T extends PgColumn>(column: T, incrementBy = 1): SQL {
     return sql`${column} + ${incrementBy}`;
 }
 
@@ -207,7 +207,7 @@ export function atomicIncrement<T extends PgColumn>(column: T, incrementBy: numb
  * // Use in SET clause for atomic decrement
  * ```
  */
-export function atomicDecrement<T extends PgColumn>(column: T, decrementBy: number = 1): SQL {
+export function atomicDecrement<T extends PgColumn>(column: T, decrementBy = 1): SQL {
     return sql`${column} - ${decrementBy}`;
 }
 

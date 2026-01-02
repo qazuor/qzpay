@@ -6,14 +6,14 @@
 import { and, count, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
-    billingVendorPayouts,
-    billingVendors,
     type QZPayBillingVendor,
     type QZPayBillingVendorInsert,
     type QZPayBillingVendorPayout,
-    type QZPayBillingVendorPayoutInsert
+    type QZPayBillingVendorPayoutInsert,
+    billingVendorPayouts,
+    billingVendors
 } from '../schema/index.js';
-import { firstOrNull, firstOrThrow, type QZPayPaginatedResult } from './base.repository.js';
+import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
 
 /**
  * Onboarding status values

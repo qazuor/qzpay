@@ -3,7 +3,7 @@
  *
  * Provides helpers for managing PostgreSQL connections with Drizzle ORM.
  */
-import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js';
 import postgres, { type Sql } from 'postgres';
 
 /**

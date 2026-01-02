@@ -6,14 +6,14 @@
 import { and, count, eq, gt, isNull, or, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
-    billingCustomerEntitlements,
-    billingEntitlements,
     type QZPayBillingCustomerEntitlement,
     type QZPayBillingCustomerEntitlementInsert,
     type QZPayBillingEntitlement,
-    type QZPayBillingEntitlementInsert
+    type QZPayBillingEntitlementInsert,
+    billingCustomerEntitlements,
+    billingEntitlements
 } from '../schema/index.js';
-import { firstOrNull, firstOrThrow, type QZPayPaginatedResult } from './base.repository.js';
+import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
 
 /**
  * Entitlement search options

@@ -12,7 +12,7 @@ import { billingPaymentMethods } from './payment-methods.schema.js';
 import { billingPayments, billingRefunds } from './payments.schema.js';
 import { billingPlans } from './plans.schema.js';
 import { billingPrices } from './prices.schema.js';
-import { billingPromoCodes, billingPromoCodeUsage } from './promo-codes.schema.js';
+import { billingPromoCodeUsage, billingPromoCodes } from './promo-codes.schema.js';
 import { billingSubscriptions } from './subscriptions.schema.js';
 import { billingUsageRecords } from './usage-records.schema.js';
 import { billingVendorPayouts, billingVendors } from './vendors.schema.js';

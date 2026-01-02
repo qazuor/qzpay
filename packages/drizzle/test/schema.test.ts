@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+    QZPAY_DRIZZLE_SCHEMA_VERSION,
     billingAuditLogs,
     billingCustomerEntitlements,
     billingCustomerLimits,
@@ -19,16 +20,15 @@ import {
     billingPayments,
     billingPlans,
     billingPrices,
-    billingPromoCodes,
     billingPromoCodeUsage,
+    billingPromoCodes,
     billingRefunds,
     billingSubscriptions,
     billingUsageRecords,
     billingVendorPayouts,
     billingVendors,
     billingWebhookDeadLetter,
-    billingWebhookEvents,
-    QZPAY_DRIZZLE_SCHEMA_VERSION
+    billingWebhookEvents
 } from '../src/schema/index.js';
 
 describe('Schema Definitions', () => {

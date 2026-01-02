@@ -4,7 +4,7 @@
  * Provides PostgreSQL container management for integration tests.
  */
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
-import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
 let container: StartedPostgreSqlContainer | null = null;
