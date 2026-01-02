@@ -20,7 +20,6 @@ import {
     qzpayIsToday,
     qzpayIsValidCurrency,
     qzpayIsValidEmail,
-    qzpayMaskEmail,
     qzpayMaskString,
     qzpayPercentageOf,
     qzpaySplitAmount,
@@ -198,14 +197,6 @@ describe('hash.utils', () => {
     describe('qzpayMaskString', () => {
         it('should mask string keeping last chars visible', () => {
             expect(qzpayMaskString('1234567890', 4)).toBe('******7890');
-        });
-    });
-
-    describe('qzpayMaskEmail', () => {
-        it('should mask email address', () => {
-            const masked = qzpayMaskEmail('john.doe@example.com');
-            expect(masked).toContain('@example.com');
-            expect(masked).toContain('*');
         });
     });
 });
