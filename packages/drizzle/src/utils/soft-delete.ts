@@ -222,7 +222,14 @@ export function shouldPermanentlyDelete(deletedAt: Date | null, options?: QZPayR
 export function eligibleForPermanentDeletion<T extends PgColumn>(deletedAtColumn: T, options?: QZPayRetentionPolicyOptions): SQL {
     const maxRetentionDays = options?.maxRetentionDays ?? 365;
 
-    return and(isNotNull(deletedAtColumn), sql`${deletedAtColumn} < NOW() - INTERVAL '${sql.raw(String(maxRetentionDays))} days'`)!;
+    const condition = and(
+        isNotNull(deletedAtColumn),
+        sql`${deletedAtColumn} < NOW() - INTERVAL '${sql.raw(String(maxRetentionDays))} days'`
+    );
+    if (!condition) {
+        throw new Error('Failed to build retention policy condition');
+    }
+    return condition;
 }
 
 /**

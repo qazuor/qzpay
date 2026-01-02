@@ -36,7 +36,11 @@ export function generateVersion(): string {
  * ```
  */
 export function withVersionCheck<TVersion extends PgColumn>(idCondition: SQL, versionColumn: TVersion, expectedVersion: string): SQL {
-    return and(idCondition, eq(versionColumn, expectedVersion))!;
+    const condition = and(idCondition, eq(versionColumn, expectedVersion));
+    if (!condition) {
+        throw new Error('Failed to build version check condition');
+    }
+    return condition;
 }
 
 /**
