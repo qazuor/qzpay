@@ -43,6 +43,12 @@ export {
     mapCorePaymentUpdateToDrizzle,
     mapDrizzlePaymentToCore
 } from './payment.mapper.js';
+// Payment method mappers
+export {
+    mapCorePaymentMethodCreateToDrizzle,
+    mapCorePaymentMethodUpdateToDrizzle,
+    mapDrizzlePaymentMethodToCore
+} from './payment-method.mapper.js';
 // Plan mappers
 export {
     mapCorePlanCreateToDrizzle,
