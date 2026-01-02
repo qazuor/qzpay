@@ -43,17 +43,17 @@ import {
     // Types
     type QZPayRateLimitEntry,
     qzpayCalculateRateLimitWindow,
-    qzpayCheckIdempotencyKey,
     qzpayCheckIPAllowed,
+    qzpayCheckIdempotencyKey,
     qzpayCheckRateLimit,
     qzpayCompleteIdempotencyKey,
     // Audit
     qzpayCreateAuditEntry,
     qzpayCreateCustomerAuditEntry,
-    // Idempotency
-    qzpayCreateIdempotencyKey,
     // IP Restriction
     qzpayCreateIPRestrictionConfig,
+    // Idempotency
+    qzpayCreateIdempotencyKey,
     qzpayCreatePaymentAuditEntry,
     // Rate limiting
     qzpayCreateRateLimitConfig,
@@ -62,8 +62,8 @@ import {
     qzpayGenerateRateLimitKey,
     qzpayGenerateRequestHash,
     qzpayGetRateLimitHeaders,
-    qzpayIdempotencyKeyIsExpired,
     qzpayIPMatches,
+    qzpayIdempotencyKeyIsExpired,
     qzpayMaskCardNumber,
     qzpayMaskEmail,
     // Masking

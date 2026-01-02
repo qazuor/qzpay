@@ -223,8 +223,8 @@ export function qzpayCanCompleteCheckout(session: QZPayCheckoutSession): QZPayCh
 export function qzpayCalculateCheckoutTotals(
     lineItems: QZPayCheckoutLineItem[],
     prices: Map<string, QZPayPrice>,
-    discountAmount: number = 0,
-    taxRate: number = 0
+    discountAmount = 0,
+    taxRate = 0
 ): QZPayCheckoutTotals {
     let subtotal = 0;
     let currency: QZPayCurrency = 'USD';
@@ -254,7 +254,7 @@ export function qzpayCalculateCheckoutTotals(
 /**
  * Calculate simple checkout total without price lookup
  */
-export function qzpayCalculateSimpleTotal(amounts: number[], discountAmount: number = 0): number {
+export function qzpayCalculateSimpleTotal(amounts: number[], discountAmount = 0): number {
     const subtotal = amounts.reduce((sum, amount) => sum + amount, 0);
     return Math.max(0, subtotal - discountAmount);
 }

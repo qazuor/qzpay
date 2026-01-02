@@ -279,7 +279,7 @@ export function qzpayFilterActivePaymentMethods(paymentMethods: QZPayPaymentMeth
  */
 export function qzpayGetExpiringPaymentMethods(
     paymentMethods: QZPayPaymentMethod[],
-    withinDays: number = 30,
+    withinDays = 30,
     now: Date = new Date()
 ): QZPayPaymentMethod[] {
     return paymentMethods.filter((pm) => {

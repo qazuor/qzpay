@@ -156,7 +156,7 @@ export function qzpayCreateRenewalJob(subscriptionId: string, renewalDate: Date,
 /**
  * Create trial ending reminder job
  */
-export function qzpayCreateTrialEndingJob(subscriptionId: string, trialEndDate: Date, daysBeforeNotify: number = 3): QZPayJob {
+export function qzpayCreateTrialEndingJob(subscriptionId: string, trialEndDate: Date, daysBeforeNotify = 3): QZPayJob {
     const notifyDate = new Date(trialEndDate);
     notifyDate.setDate(notifyDate.getDate() - daysBeforeNotify);
 
@@ -373,7 +373,7 @@ export function qzpayCreateJobSchedule(
     name: string,
     cronExpression: string,
     payload?: Record<string, unknown>,
-    timezone: string = 'UTC'
+    timezone = 'UTC'
 ): QZPayJobSchedule {
     return {
         id: qzpayGenerateId('sched'),
@@ -419,12 +419,7 @@ export function qzpayUpdateScheduleLastRun(schedule: QZPayJobSchedule, runAt: Da
 /**
  * Calculate next retry delay (exponential backoff)
  */
-export function qzpayCalculateRetryDelay(
-    attempt: number,
-    baseDelayMs: number = 1000,
-    maxDelayMs: number = 3600000,
-    jitterFactor: number = 0.1
-): number {
+export function qzpayCalculateRetryDelay(attempt: number, baseDelayMs = 1000, maxDelayMs = 3600000, jitterFactor = 0.1): number {
     const exponentialDelay = baseDelayMs * 2 ** (attempt - 1);
     const cappedDelay = Math.min(exponentialDelay, maxDelayMs);
 

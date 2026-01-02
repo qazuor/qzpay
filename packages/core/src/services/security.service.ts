@@ -242,7 +242,7 @@ export function qzpayCreateIdempotencyKey(
     key: string,
     operation: string,
     requestHash: string,
-    expirationMs: number = 86400000 // 24 hours
+    expirationMs = 86400000 // 24 hours
 ): QZPayIdempotencyKey {
     const now = new Date();
 
@@ -562,7 +562,7 @@ function qzpayIPToNumber(ip: string): number | null {
 /**
  * Sanitize string input
  */
-export function qzpaySanitizeString(input: string, maxLength: number = 1000): string {
+export function qzpaySanitizeString(input: string, maxLength = 1000): string {
     // Remove null bytes
     let sanitized = input.replace(/\0/g, '');
 
@@ -635,8 +635,8 @@ export function qzpayValidateCurrency(currency: string): { valid: boolean; value
  */
 export function qzpayValidateMetadata(
     metadata: unknown,
-    maxKeys: number = 50,
-    maxValueLength: number = 500
+    maxKeys = 50,
+    maxValueLength = 500
 ): { valid: boolean; value: Record<string, unknown>; errors: string[] } {
     const errors: string[] = [];
 

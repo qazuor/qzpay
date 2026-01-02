@@ -844,7 +844,7 @@ class QZPayBillingImpl implements QZPayBilling {
             check: async (customerId, limitKey) => {
                 const limit = await storage.limits.check(customerId, limitKey);
                 if (!limit) {
-                    return { allowed: true, currentValue: 0, maxValue: Infinity, remaining: Infinity };
+                    return { allowed: true, currentValue: 0, maxValue: Number.POSITIVE_INFINITY, remaining: Number.POSITIVE_INFINITY };
                 }
                 const remaining = limit.maxValue - limit.currentValue;
                 return {

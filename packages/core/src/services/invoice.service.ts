@@ -112,9 +112,9 @@ export function qzpayCalculateLineItemAmount(lineItem: QZPayCreateInvoiceLineInp
  */
 export function qzpayCalculateInvoiceTotals(
     lines: QZPayInvoiceLine[],
-    taxRate: number = 0,
-    discountAmount: number = 0,
-    amountPaid: number = 0
+    taxRate = 0,
+    discountAmount = 0,
+    amountPaid = 0
 ): QZPayInvoiceCalculation {
     const subtotal = lines.reduce((sum, line) => sum + line.amount, 0);
     const discountedSubtotal = Math.max(0, subtotal - discountAmount);

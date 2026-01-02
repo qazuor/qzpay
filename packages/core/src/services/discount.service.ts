@@ -736,7 +736,7 @@ export function qzpayGetDiscountDescription(promoCode: QZPayPromoCode): string {
     parts.push(qzpayFormatDiscount(promoCode.discountType, promoCode.discountValue, promoCode.currency ?? undefined));
 
     if (promoCode.applicablePlanIds.length > 0) {
-        parts.push(`on select plans`);
+        parts.push('on select plans');
     }
 
     if (promoCode.validUntil) {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { QZPayStorageAdapter } from '../src/adapters/storage.adapter.js';
+import { QZPAY_ENV_VARS, createQZPayBillingFromEnv, qzpayDetectEnvConfig, qzpayGetDetectedProviders } from '../src/billing-from-env.js';
 import { createQZPayBilling } from '../src/billing.js';
-import { createQZPayBillingFromEnv, QZPAY_ENV_VARS, qzpayDetectEnvConfig, qzpayGetDetectedProviders } from '../src/billing-from-env.js';
 import type { QZPayCustomer } from '../src/types/customer.types.js';
 import type { QZPayCustomerEntitlement, QZPayEntitlementDefinition } from '../src/types/entitlements.types.js';
 import type { QZPayInvoice } from '../src/types/invoice.types.js';
@@ -276,7 +276,7 @@ function createMockStorage(): QZPayStorageAdapter {
                     const newLimit: QZPayCustomerLimit = {
                         customerId: input.customerId,
                         limitKey: input.limitKey,
-                        maxValue: Infinity,
+                        maxValue: Number.POSITIVE_INFINITY,
                         currentValue: input.incrementBy ?? 1,
                         resetAt: null,
                         source: 'manual',
@@ -1452,8 +1452,8 @@ describe('billing.limits', () => {
         const result = await billing.limits.check('cus_123', 'non_existent');
 
         expect(result.allowed).toBe(true);
-        expect(result.maxValue).toBe(Infinity);
-        expect(result.remaining).toBe(Infinity);
+        expect(result.maxValue).toBe(Number.POSITIVE_INFINITY);
+        expect(result.remaining).toBe(Number.POSITIVE_INFINITY);
     });
 
     it('should increment a limit', async () => {

@@ -269,7 +269,7 @@ export function qzpayVendorCanReceivePayments(vendor: QZPayVendor): boolean {
 /**
  * Get vendor effective commission rate
  */
-export function qzpayGetVendorCommissionRate(vendor: QZPayVendor, defaultRate: number = 10): number {
+export function qzpayGetVendorCommissionRate(vendor: QZPayVendor, defaultRate = 10): number {
     return vendor.commissionRate ?? defaultRate;
 }
 
@@ -388,11 +388,7 @@ export function qzpayCreatePayout(vendorId: string, amount: number, currency: QZ
 /**
  * Check if vendor is eligible for payout
  */
-export function qzpayCheckPayoutEligibility(
-    vendor: QZPayVendor,
-    pendingAmount: number,
-    minPayoutAmount: number = 0
-): QZPayPayoutEligibility {
+export function qzpayCheckPayoutEligibility(vendor: QZPayVendor, pendingAmount: number, minPayoutAmount = 0): QZPayPayoutEligibility {
     if (!qzpayVendorIsActive(vendor)) {
         return {
             eligible: false,

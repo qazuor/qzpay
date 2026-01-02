@@ -454,7 +454,7 @@ export function qzpayBulkheadCanAccept(
 /**
  * Start execution in bulkhead
  */
-export function qzpayBulkheadStartExecution(state: QZPayBulkheadState, fromQueue: boolean = false): QZPayBulkheadState {
+export function qzpayBulkheadStartExecution(state: QZPayBulkheadState, fromQueue = false): QZPayBulkheadState {
     return {
         ...state,
         executing: state.executing + 1,
