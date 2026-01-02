@@ -5,10 +5,14 @@
  */
 import { relations } from 'drizzle-orm';
 import { billingCustomers } from './customers.schema.js';
+import { billingCustomerEntitlements, billingEntitlements } from './entitlements.schema.js';
 import { billingInvoiceLines, billingInvoicePayments, billingInvoices } from './invoices.schema.js';
+import { billingCustomerLimits, billingLimits } from './limits.schema.js';
 import { billingPaymentMethods } from './payment-methods.schema.js';
 import { billingPayments, billingRefunds } from './payments.schema.js';
-import { billingPromoCodeUsage, billingPromoCodes } from './promo-codes.schema.js';
+import { billingPlans } from './plans.schema.js';
+import { billingPrices } from './prices.schema.js';
+import { billingPromoCodes, billingPromoCodeUsage } from './promo-codes.schema.js';
 import { billingSubscriptions } from './subscriptions.schema.js';
 import { billingUsageRecords } from './usage-records.schema.js';
 import { billingVendorPayouts, billingVendors } from './vendors.schema.js';
@@ -21,7 +25,9 @@ export const billingCustomersRelations = relations(billingCustomers, ({ many }) 
     payments: many(billingPayments),
     invoices: many(billingInvoices),
     paymentMethods: many(billingPaymentMethods),
-    promoCodeUsage: many(billingPromoCodeUsage)
+    promoCodeUsage: many(billingPromoCodeUsage),
+    entitlements: many(billingCustomerEntitlements),
+    limits: many(billingCustomerLimits)
 }));
 
 /**
@@ -154,5 +160,64 @@ export const billingUsageRecordsRelations = relations(billingUsageRecords, ({ on
     subscription: one(billingSubscriptions, {
         fields: [billingUsageRecords.subscriptionId],
         references: [billingSubscriptions.id]
+    })
+}));
+
+/**
+ * Plan relations
+ */
+export const billingPlansRelations = relations(billingPlans, ({ many }) => ({
+    prices: many(billingPrices)
+}));
+
+/**
+ * Price relations
+ */
+export const billingPricesRelations = relations(billingPrices, ({ one }) => ({
+    plan: one(billingPlans, {
+        fields: [billingPrices.planId],
+        references: [billingPlans.id]
+    })
+}));
+
+/**
+ * Entitlement definition relations
+ */
+export const billingEntitlementsRelations = relations(billingEntitlements, ({ many }) => ({
+    customerEntitlements: many(billingCustomerEntitlements)
+}));
+
+/**
+ * Customer entitlement relations
+ */
+export const billingCustomerEntitlementsRelations = relations(billingCustomerEntitlements, ({ one }) => ({
+    customer: one(billingCustomers, {
+        fields: [billingCustomerEntitlements.customerId],
+        references: [billingCustomers.id]
+    }),
+    entitlement: one(billingEntitlements, {
+        fields: [billingCustomerEntitlements.entitlementKey],
+        references: [billingEntitlements.key]
+    })
+}));
+
+/**
+ * Limit definition relations
+ */
+export const billingLimitsRelations = relations(billingLimits, ({ many }) => ({
+    customerLimits: many(billingCustomerLimits)
+}));
+
+/**
+ * Customer limit relations
+ */
+export const billingCustomerLimitsRelations = relations(billingCustomerLimits, ({ one }) => ({
+    customer: one(billingCustomers, {
+        fields: [billingCustomerLimits.customerId],
+        references: [billingCustomers.id]
+    }),
+    limit: one(billingLimits, {
+        fields: [billingCustomerLimits.limitKey],
+        references: [billingLimits.key]
     })
 }));
