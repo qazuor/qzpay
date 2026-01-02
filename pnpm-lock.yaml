@@ -81,6 +81,25 @@ importers:
         specifier: ^3.23.0
         version: 3.25.76
 
+  packages/hono:
+    dependencies:
+      '@qazuor/qzpay-core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      hono:
+        specifier: ^4.6.0
+        version: 4.11.3
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@25.0.3)(@vitest/ui@2.1.9)(msw@2.12.7(@types/node@25.0.3)(typescript@5.9.3))
+
   packages/stripe:
     dependencies:
       '@qazuor/qzpay-core':
@@ -1933,6 +1952,10 @@ packages:
 
   headers-polyfill@4.0.3:
     resolution: {integrity: sha512-IScLbePpkvO846sIwOtOTDjutRMWdXdJmXdMvk6gCBHxFO8d+QKOQedyZSxFTTFYRSmlgSTDtXqqq4pcenBXLQ==}
+
+  hono@4.11.3:
+    resolution: {integrity: sha512-PmQi306+M/ct/m5s66Hrg+adPnkD5jiO6IjA7WhWw0gSBSo1EcRegwuI1deZ+wd5pzCGynCcn2DprnE4/yEV4w==}
+    engines: {node: '>=16.9.0'}
 
   html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
@@ -4615,6 +4638,8 @@ snapshots:
       function-bind: 1.1.2
 
   headers-polyfill@4.0.3: {}
+
+  hono@4.11.3: {}
 
   html-escaper@2.0.2: {}
 
