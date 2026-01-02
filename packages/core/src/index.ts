@@ -18,7 +18,12 @@ export * from './events/index.js';
 
 // Helpers
 export * from './helpers/index.js';
+
+// Services
+export * from './services/index.js';
+
 // Types
 export * from './types/index.js';
+
 // Utilities
 export * from './utils/index.js';

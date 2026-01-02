@@ -5,6 +5,7 @@
 import type {
     QZPayCreateCustomerInput,
     QZPayCreateInvoiceInput,
+    QZPayCreatePaymentMethodInput,
     QZPayCreatePlanInput,
     QZPayCreatePriceInput,
     QZPayCreatePromoCodeInput,
@@ -19,12 +20,14 @@ import type {
     QZPayInvoice,
     QZPayLimit,
     QZPayPayment,
+    QZPayPaymentMethod,
     QZPayPlan,
     QZPayPrice,
     QZPayPromoCode,
     QZPaySetLimitInput,
     QZPaySubscription,
     QZPayUpdateCustomerInput,
+    QZPayUpdatePaymentMethodInput,
     QZPayUpdateSubscriptionInput,
     QZPayUpdateVendorInput,
     QZPayUsageRecord,
@@ -41,6 +44,9 @@ export interface QZPayStorageAdapter {
 
     // Payment operations
     payments: QZPayPaymentStorage;
+
+    // Payment method operations
+    paymentMethods: QZPayPaymentMethodStorage;
 
     // Invoice operations
     invoices: QZPayInvoiceStorage;
@@ -92,6 +98,17 @@ export interface QZPayPaymentStorage {
     findById(id: string): Promise<QZPayPayment | null>;
     findByCustomerId(customerId: string): Promise<QZPayPayment[]>;
     list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPayment>>;
+}
+
+export interface QZPayPaymentMethodStorage {
+    create(input: QZPayCreatePaymentMethodInput & { id: string }): Promise<QZPayPaymentMethod>;
+    update(id: string, input: QZPayUpdatePaymentMethodInput): Promise<QZPayPaymentMethod>;
+    delete(id: string): Promise<void>;
+    findById(id: string): Promise<QZPayPaymentMethod | null>;
+    findByCustomerId(customerId: string): Promise<QZPayPaymentMethod[]>;
+    findDefaultByCustomerId(customerId: string): Promise<QZPayPaymentMethod | null>;
+    setDefault(customerId: string, paymentMethodId: string): Promise<void>;
+    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPaymentMethod>>;
 }
 
 export interface QZPayInvoiceStorage {

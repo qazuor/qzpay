@@ -45,9 +45,9 @@ export async function qzpayHashString(input: string): Promise<string> {
 }
 
 /**
- * Create an idempotency key from operation details
+ * Create an idempotency hash from operation details
  */
-export async function qzpayCreateIdempotencyKey(...parts: string[]): Promise<string> {
+export async function qzpayCreateIdempotencyHash(...parts: string[]): Promise<string> {
     const input = parts.join(':');
     return qzpayHashString(input);
 }
@@ -62,17 +62,4 @@ export function qzpayMaskString(value: string, visibleChars = 4): string {
     const visible = value.slice(-visibleChars);
     const masked = '*'.repeat(value.length - visibleChars);
     return masked + visible;
-}
-
-/**
- * Mask email address
- */
-export function qzpayMaskEmail(email: string): string {
-    const [local, domain] = email.split('@');
-    if (!local || !domain) return '***@***';
-
-    const maskedLocal =
-        local.length > 2 ? `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}` : '*'.repeat(local.length);
-
-    return `${maskedLocal}@${domain}`;
 }

@@ -12,6 +12,7 @@ export * from './invoice.types.js';
 export * from './limits.types.js';
 export * from './metrics.types.js';
 export * from './payment.types.js';
+export * from './payment-method.types.js';
 export * from './plan.types.js';
 export * from './promo-code.types.js';
 export * from './subscription.types.js';
