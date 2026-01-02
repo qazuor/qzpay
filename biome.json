@@ -7,20 +7,18 @@
     },
     "files": {
         "ignoreUnknown": true,
-        "includes": [
-            "**/packages/**/*.ts",
-            "**/packages/**/*.tsx",
-            "**/test/**/*.ts",
-            "!**/node_modules",
-            "!**/node_modules",
-            "!**/dist",
-            "!**/dist",
-            "!**/build",
-            "!**/.next",
-            "!**/.nuxt",
-            "!**/coverage",
-            "!**/.turbo",
-            "!**/.changeset"
+        "include": ["packages/**/*.ts", "packages/**/*.tsx"],
+        "ignore": [
+            "node_modules",
+            "**/node_modules/**",
+            "dist",
+            "**/dist/**",
+            "build",
+            ".next",
+            ".nuxt",
+            "coverage",
+            ".turbo",
+            ".changeset"
         ]
     },
     "formatter": {
@@ -29,7 +27,7 @@
         "indentWidth": 4,
         "lineWidth": 140
     },
-    "assist": { "actions": { "source": { "organizeImports": "on" } } },
+    "organizeImports": { "enabled": true },
     "linter": {
         "enabled": true,
         "rules": {
