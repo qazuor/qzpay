@@ -210,17 +210,22 @@ export class QZPayEntitlementsRepository {
      * Find all entitlements for a customer
      */
     async findByCustomerId(customerId: string, includeExpired = false): Promise<QZPayBillingCustomerEntitlement[]> {
-        const conditions = [eq(billingCustomerEntitlements.customerId, customerId)];
+        const customerCondition = eq(billingCustomerEntitlements.customerId, customerId);
 
         if (!includeExpired) {
             const now = new Date();
-            conditions.push(or(isNull(billingCustomerEntitlements.expiresAt), gt(billingCustomerEntitlements.expiresAt, now))!);
+            const notExpiredCondition = or(isNull(billingCustomerEntitlements.expiresAt), gt(billingCustomerEntitlements.expiresAt, now));
+            return this.db
+                .select()
+                .from(billingCustomerEntitlements)
+                .where(and(customerCondition, notExpiredCondition))
+                .orderBy(sql`${billingCustomerEntitlements.entitlementKey} ASC`);
         }
 
         return this.db
             .select()
             .from(billingCustomerEntitlements)
-            .where(and(...conditions))
+            .where(customerCondition)
             .orderBy(sql`${billingCustomerEntitlements.entitlementKey} ASC`);
     }
 
@@ -296,17 +301,16 @@ export class QZPayEntitlementsRepository {
      * Count customer entitlements
      */
     async countCustomerEntitlements(customerId: string, includeExpired = false): Promise<number> {
-        const conditions = [eq(billingCustomerEntitlements.customerId, customerId)];
+        const customerCondition = eq(billingCustomerEntitlements.customerId, customerId);
 
-        if (!includeExpired) {
-            const now = new Date();
-            conditions.push(or(isNull(billingCustomerEntitlements.expiresAt), gt(billingCustomerEntitlements.expiresAt, now))!);
-        }
+        const whereClause = includeExpired
+            ? customerCondition
+            : and(
+                  customerCondition,
+                  or(isNull(billingCustomerEntitlements.expiresAt), gt(billingCustomerEntitlements.expiresAt, new Date()))
+              );
 
-        const result = await this.db
-            .select({ count: count() })
-            .from(billingCustomerEntitlements)
-            .where(and(...conditions));
+        const result = await this.db.select({ count: count() }).from(billingCustomerEntitlements).where(whereClause);
 
         return result[0]?.count ?? 0;
     }

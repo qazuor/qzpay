@@ -1,6 +1,7 @@
 import type {
     QZPayCreateCustomerInput,
     QZPayCreateInvoiceInput,
+    QZPayCreatePaymentMethodInput,
     QZPayCreatePlanInput,
     QZPayCreatePriceInput,
     QZPayCreatePromoCodeInput,
@@ -21,6 +22,8 @@ import type {
     QZPayListOptions,
     QZPayPaginatedResult,
     QZPayPayment,
+    QZPayPaymentMethod,
+    QZPayPaymentMethodStorage,
     QZPayPaymentStorage,
     QZPayPlan,
     QZPayPlanStorage,
@@ -33,6 +36,7 @@ import type {
     QZPaySubscription,
     QZPaySubscriptionStorage,
     QZPayUpdateCustomerInput,
+    QZPayUpdatePaymentMethodInput,
     QZPayUpdateSubscriptionInput,
     QZPayUpdateVendorInput,
     QZPayUsageRecord,
@@ -54,6 +58,8 @@ import {
     mapCoreInvoiceCreateToDrizzle,
     mapCoreInvoiceUpdateToDrizzle,
     mapCoreLimitToDrizzle,
+    mapCorePaymentMethodCreateToDrizzle,
+    mapCorePaymentMethodUpdateToDrizzle,
     mapCorePlanCreateToDrizzle,
     mapCorePlanUpdateToDrizzle,
     mapCorePriceCreateToDrizzle,
@@ -73,6 +79,7 @@ import {
     mapDrizzleEntitlementToCore,
     mapDrizzleInvoiceToCore,
     mapDrizzleLimitToCore,
+    mapDrizzlePaymentMethodToCore,
     mapDrizzlePaymentToCore,
     mapDrizzlePlanToCore,
     mapDrizzlePriceToCore,
@@ -88,6 +95,7 @@ import {
     QZPayEntitlementsRepository,
     QZPayInvoicesRepository,
     QZPayLimitsRepository,
+    QZPayPaymentMethodsRepository,
     QZPayPaymentsRepository,
     QZPayPlansRepository,
     QZPayPricesRepository,
@@ -136,6 +144,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
     private readonly customersRepo: QZPayCustomersRepository;
     private readonly subscriptionsRepo: QZPaySubscriptionsRepository;
     private readonly paymentsRepo: QZPayPaymentsRepository;
+    private readonly paymentMethodsRepo: QZPayPaymentMethodsRepository;
     private readonly invoicesRepo: QZPayInvoicesRepository;
     private readonly plansRepo: QZPayPlansRepository;
     private readonly pricesRepo: QZPayPricesRepository;
@@ -149,6 +158,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
     public readonly customers: QZPayCustomerStorage;
     public readonly subscriptions: QZPaySubscriptionStorage;
     public readonly payments: QZPayPaymentStorage;
+    public readonly paymentMethods: QZPayPaymentMethodStorage;
     public readonly invoices: QZPayInvoiceStorage;
     public readonly plans: QZPayPlanStorage;
     public readonly prices: QZPayPriceStorage;
@@ -165,6 +175,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
         this.customersRepo = new QZPayCustomersRepository(this.db);
         this.subscriptionsRepo = new QZPaySubscriptionsRepository(this.db);
         this.paymentsRepo = new QZPayPaymentsRepository(this.db);
+        this.paymentMethodsRepo = new QZPayPaymentMethodsRepository(this.db);
         this.invoicesRepo = new QZPayInvoicesRepository(this.db);
         this.plansRepo = new QZPayPlansRepository(this.db);
         this.pricesRepo = new QZPayPricesRepository(this.db);
@@ -178,6 +189,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
         this.customers = this.createCustomerStorage();
         this.subscriptions = this.createSubscriptionStorage();
         this.payments = this.createPaymentStorage();
+        this.paymentMethods = this.createPaymentMethodStorage();
         this.invoices = this.createInvoiceStorage();
         this.plans = this.createPlanStorage();
         this.prices = this.createPriceStorage();
@@ -343,6 +355,57 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 const offset = options?.offset ?? 0;
                 const result = await repo.search({ livemode, limit, offset });
                 return toPaginatedResult(result, mapDrizzlePaymentToCore, limit, offset);
+            }
+        };
+    }
+
+    // ==================== Payment Method Storage ====================
+
+    private createPaymentMethodStorage(): QZPayPaymentMethodStorage {
+        const repo = this.paymentMethodsRepo;
+        const livemode = this.livemode;
+
+        return {
+            async create(input: QZPayCreatePaymentMethodInput & { id: string }): Promise<QZPayPaymentMethod> {
+                const drizzleInput = mapCorePaymentMethodCreateToDrizzle(input, livemode);
+                const result = await repo.create(drizzleInput);
+                return mapDrizzlePaymentMethodToCore(result);
+            },
+
+            async update(id: string, input: QZPayUpdatePaymentMethodInput): Promise<QZPayPaymentMethod> {
+                const drizzleInput = mapCorePaymentMethodUpdateToDrizzle(input);
+                const result = await repo.update(id, drizzleInput);
+                return mapDrizzlePaymentMethodToCore(result);
+            },
+
+            async delete(id: string): Promise<void> {
+                await repo.softDelete(id);
+            },
+
+            async findById(id: string): Promise<QZPayPaymentMethod | null> {
+                const result = await repo.findById(id);
+                return result ? mapDrizzlePaymentMethodToCore(result) : null;
+            },
+
+            async findByCustomerId(customerId: string): Promise<QZPayPaymentMethod[]> {
+                const result = await repo.findByCustomerId(customerId);
+                return result.data.map(mapDrizzlePaymentMethodToCore);
+            },
+
+            async findDefaultByCustomerId(customerId: string): Promise<QZPayPaymentMethod | null> {
+                const result = await repo.findDefaultByCustomerId(customerId);
+                return result ? mapDrizzlePaymentMethodToCore(result) : null;
+            },
+
+            async setDefault(customerId: string, paymentMethodId: string): Promise<void> {
+                await repo.setDefault(customerId, paymentMethodId);
+            },
+
+            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPaymentMethod>> {
+                const limit = options?.limit ?? 20;
+                const offset = options?.offset ?? 0;
+                const result = await repo.search({ livemode, limit, offset });
+                return toPaginatedResult(result, mapDrizzlePaymentMethodToCore, limit, offset);
             }
         };
     }
