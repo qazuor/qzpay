@@ -6,14 +6,14 @@
 import { and, count, eq, gte, isNull, lte, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
+    billingWebhookDeadLetter,
+    billingWebhookEvents,
     type QZPayBillingWebhookDeadLetter,
     type QZPayBillingWebhookDeadLetterInsert,
     type QZPayBillingWebhookEvent,
-    type QZPayBillingWebhookEventInsert,
-    billingWebhookDeadLetter,
-    billingWebhookEvents
+    type QZPayBillingWebhookEventInsert
 } from '../schema/index.js';
-import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
+import { firstOrNull, firstOrThrow, type QZPayPaginatedResult } from './base.repository.js';
 
 /**
  * Webhook event status values
@@ -331,12 +331,7 @@ export class QZPayWebhookEventsRepository {
      * Get dead letter events
      */
     async getDeadLetterEvents(
-        options: {
-            resolved?: boolean;
-            provider?: QZPayProviderValue;
-            limit?: number;
-            offset?: number;
-        } = {}
+        options: { resolved?: boolean; provider?: QZPayProviderValue; limit?: number; offset?: number } = {}
     ): Promise<QZPayPaginatedResult<QZPayBillingWebhookDeadLetter>> {
         const { resolved, provider, limit = 100, offset = 0 } = options;
 

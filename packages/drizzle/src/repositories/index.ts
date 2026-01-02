@@ -7,64 +7,70 @@
  * Each repository handles its own entity with common patterns for CRUD operations.
  */
 
+export {
+    type QZPayActorTypeValue,
+    type QZPayAuditLogSearchOptions,
+    QZPayAuditLogsRepository,
+    type QZPayEntityTypeValue
+} from './audit-logs.repository.js';
 // Base types and utilities
 export {
-    QZPayEntityNotFoundError,
-    QZPayOptimisticLockError,
     assertExists,
     firstOrNull,
     firstOrThrow,
+    QZPayEntityNotFoundError,
     type QZPayFindManyOptions,
+    QZPayOptimisticLockError,
     type QZPayOrderBy,
     type QZPayPaginatedResult
 } from './base.repository.js';
-
 // Entity repositories
-export { QZPayCustomersRepository, type QZPayCustomerSearchOptions } from './customers.repository.js';
+export { type QZPayCustomerSearchOptions, QZPayCustomersRepository } from './customers.repository.js';
+// Entitlement repository
+export {
+    type QZPayCustomerEntitlementSearchOptions,
+    type QZPayEntitlementSearchOptions,
+    QZPayEntitlementsRepository
+} from './entitlements.repository.js';
 
 export {
-    QZPaySubscriptionsRepository,
-    type QZPaySubscriptionSearchOptions,
-    type QZPaySubscriptionStatusValue
-} from './subscriptions.repository.js';
-
-export {
-    QZPayPaymentsRepository,
-    type QZPayPaymentSearchOptions,
-    type QZPayPaymentStatusValue
-} from './payments.repository.js';
-
-export {
-    QZPayInvoicesRepository,
     type QZPayInvoiceSearchOptions,
-    type QZPayInvoiceStatusValue
+    type QZPayInvoiceStatusValue,
+    QZPayInvoicesRepository
 } from './invoices.repository.js';
-
-export { QZPayPaymentMethodsRepository, type QZPayPaymentMethodSearchOptions } from './payment-methods.repository.js';
-
-export { QZPayPromoCodesRepository, type QZPayDiscountTypeValue } from './promo-codes.repository.js';
-
+// Limit repository
 export {
-    QZPayVendorsRepository,
-    type QZPayOnboardingStatusValue,
-    type QZPayPayoutStatusValue
-} from './vendors.repository.js';
-
+    type QZPayCustomerLimitSearchOptions,
+    type QZPayLimitSearchOptions,
+    QZPayLimitsRepository
+} from './limits.repository.js';
+export { type QZPayPaymentMethodSearchOptions, QZPayPaymentMethodsRepository } from './payment-methods.repository.js';
 export {
-    QZPayUsageRecordsRepository,
+    type QZPayPaymentSearchOptions,
+    type QZPayPaymentStatusValue,
+    QZPayPaymentsRepository
+} from './payments.repository.js';
+// Plan and Price repositories
+export { type QZPayPlanSearchOptions, QZPayPlansRepository } from './plans.repository.js';
+export { type QZPayPriceSearchOptions, QZPayPricesRepository } from './prices.repository.js';
+export { type QZPayDiscountTypeValue, QZPayPromoCodesRepository } from './promo-codes.repository.js';
+export {
+    type QZPaySubscriptionSearchOptions,
+    type QZPaySubscriptionStatusValue,
+    QZPaySubscriptionsRepository
+} from './subscriptions.repository.js';
+export {
     type QZPayUsageActionValue,
-    type QZPayUsageAggregationOptions
+    type QZPayUsageAggregationOptions,
+    QZPayUsageRecordsRepository
 } from './usage-records.repository.js';
-
 export {
-    QZPayWebhookEventsRepository,
+    type QZPayOnboardingStatusValue,
+    type QZPayPayoutStatusValue,
+    QZPayVendorsRepository
+} from './vendors.repository.js';
+export {
     type QZPayProviderValue,
+    QZPayWebhookEventsRepository,
     type QZPayWebhookStatusValue
 } from './webhook-events.repository.js';
-
-export {
-    QZPayAuditLogsRepository,
-    type QZPayActorTypeValue,
-    type QZPayAuditLogSearchOptions,
-    type QZPayEntityTypeValue
-} from './audit-logs.repository.js';

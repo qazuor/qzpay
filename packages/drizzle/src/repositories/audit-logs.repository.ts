@@ -6,8 +6,8 @@
  */
 import { and, count, eq, gte, lte, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { type QZPayBillingAuditLog, type QZPayBillingAuditLogInsert, billingAuditLogs } from '../schema/index.js';
-import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
+import { billingAuditLogs, type QZPayBillingAuditLog, type QZPayBillingAuditLogInsert } from '../schema/index.js';
+import { firstOrNull, firstOrThrow, type QZPayPaginatedResult } from './base.repository.js';
 
 /**
  * Actor type values
@@ -267,11 +267,7 @@ export class QZPayAuditLogsRepository {
      * Get recent activity
      */
     async getRecentActivity(
-        options: {
-            entityType?: QZPayEntityTypeValue;
-            livemode?: boolean;
-            limit?: number;
-        } = {}
+        options: { entityType?: QZPayEntityTypeValue; livemode?: boolean; limit?: number } = {}
     ): Promise<QZPayBillingAuditLog[]> {
         const { entityType, livemode, limit = 50 } = options;
 
