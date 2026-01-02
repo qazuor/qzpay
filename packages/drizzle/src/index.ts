@@ -5,14 +5,15 @@
  * Provides PostgreSQL storage implementation using Drizzle ORM.
  */
 
-// Export schema
-export * from './schema/index.js';
-
+// Export adapter
+export { createQZPayDrizzleAdapter, QZPayDrizzleStorageAdapter, type QZPayDrizzleStorageConfig } from './adapter/index.js';
+// Export mappers
+export * from './mappers/index.js';
 // Export repositories
 export * from './repositories/index.js';
-
-// Adapter will be exported here once implemented
-// export { createQZPayDrizzleAdapter } from './adapter/index.js';
-
+// Export schema
+export * from './schema/index.js';
 // Types
 export type { QZPayDrizzleConfig } from './types.js';
+// Export utilities
+export * from './utils/index.js';
