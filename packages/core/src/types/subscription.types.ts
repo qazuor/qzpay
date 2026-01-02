@@ -40,6 +40,9 @@ export interface QZPayUpdateSubscriptionInput {
     quantity?: number;
     prorationBehavior?: QZPayProrationBehavior;
     metadata?: Record<string, unknown>;
+    status?: QZPaySubscriptionStatus;
+    canceledAt?: Date;
+    cancelAt?: Date;
 }
 
 export interface QZPayCancelSubscriptionInput {

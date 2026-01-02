@@ -1,7 +1,7 @@
 /**
  * Auto-configure QZPayBilling from environment variables
  */
-import { type QZPayBilling, type QZPayBillingConfig, type QZPayNotificationConfig, createQZPayBilling } from './billing.js';
+import { createQZPayBilling, type QZPayBilling, type QZPayBillingConfig, type QZPayNotificationConfig } from './billing.js';
 import type { QZPayCurrency } from './constants/index.js';
 import type { QZPayPlan } from './types/plan.types.js';
 
