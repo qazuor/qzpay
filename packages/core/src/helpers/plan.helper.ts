@@ -194,6 +194,73 @@ export function qzpayGetPlanLimit(plan: QZPayPlan, limitKey: string): number | n
 }
 
 /**
+ * Calculate limit change details
+ */
+function calculateLimitChange(currentLimit: number | null, newLimit: number | null): QZPayLimitChange | null {
+    let change: QZPayLimitChange['change'];
+    let changeAmount = 0;
+
+    if (currentLimit === null && newLimit !== null) {
+        change = 'added';
+        changeAmount = newLimit;
+    } else if (currentLimit !== null && newLimit === null) {
+        change = 'removed';
+        changeAmount = -currentLimit;
+    } else if (currentLimit !== null && newLimit !== null) {
+        if (newLimit > currentLimit) {
+            change = 'increased';
+            changeAmount = newLimit - currentLimit;
+        } else if (newLimit < currentLimit) {
+            change = 'decreased';
+            changeAmount = newLimit - currentLimit;
+        } else {
+            change = 'unchanged';
+            changeAmount = 0;
+        }
+    } else {
+        return null;
+    }
+
+    return { key: '', currentLimit, newLimit, change, changeAmount };
+}
+
+/**
+ * Determine plan tier relationship
+ */
+function determineTierRelationship(
+    priceDifference: number,
+    featuresGained: string[],
+    featuresLost: string[],
+    entitlementsGained: string[],
+    entitlementsLost: string[],
+    limitChanges: QZPayLimitChange[]
+): { isUpgrade: boolean; isDowngrade: boolean; isSameTier: boolean } {
+    const hasMoreValue =
+        featuresGained.length > featuresLost.length ||
+        entitlementsGained.length > entitlementsLost.length ||
+        limitChanges.filter((l) => l.change === 'increased').length > limitChanges.filter((l) => l.change === 'decreased').length;
+
+    const hasLessValue =
+        featuresLost.length > featuresGained.length ||
+        entitlementsLost.length > entitlementsGained.length ||
+        limitChanges.filter((l) => l.change === 'decreased').length > limitChanges.filter((l) => l.change === 'increased').length;
+
+    let isUpgrade = false;
+    let isDowngrade = false;
+    let isSameTier = false;
+
+    if (priceDifference > 0 || (priceDifference === 0 && hasMoreValue)) {
+        isUpgrade = true;
+    } else if (priceDifference < 0 || (priceDifference === 0 && hasLessValue)) {
+        isDowngrade = true;
+    } else {
+        isSameTier = true;
+    }
+
+    return { isUpgrade, isDowngrade, isSameTier };
+}
+
+/**
  * Compare two plans
  */
 export function qzpayComparePlans(currentPlan: QZPayPlan, newPlan: QZPayPlan, currency?: QZPayCurrency): QZPayPlanComparison {
@@ -229,63 +296,20 @@ export function qzpayComparePlans(currentPlan: QZPayPlan, newPlan: QZPayPlan, cu
         const currentLimit = currentPlan.limits[key] ?? null;
         const newLimit = newPlan.limits[key] ?? null;
 
-        let change: QZPayLimitChange['change'];
-        let changeAmount = 0;
-
-        if (currentLimit === null && newLimit !== null) {
-            change = 'added';
-            changeAmount = newLimit;
-        } else if (currentLimit !== null && newLimit === null) {
-            change = 'removed';
-            changeAmount = -currentLimit;
-        } else if (currentLimit !== null && newLimit !== null) {
-            if (newLimit > currentLimit) {
-                change = 'increased';
-                changeAmount = newLimit - currentLimit;
-            } else if (newLimit < currentLimit) {
-                change = 'decreased';
-                changeAmount = newLimit - currentLimit;
-            } else {
-                change = 'unchanged';
-                changeAmount = 0;
-            }
-        } else {
-            continue;
+        const change = calculateLimitChange(currentLimit, newLimit);
+        if (change) {
+            limitChanges.push({ ...change, key });
         }
-
-        limitChanges.push({
-            key,
-            currentLimit,
-            newLimit,
-            change,
-            changeAmount
-        });
     }
 
-    // Determine if upgrade or downgrade
-    // Upgrade: higher price OR more features/entitlements at same price
-    // Downgrade: lower price OR fewer features/entitlements
-    const hasMoreValue =
-        featuresGained.length > featuresLost.length ||
-        entitlementsGained.length > entitlementsLost.length ||
-        limitChanges.filter((l) => l.change === 'increased').length > limitChanges.filter((l) => l.change === 'decreased').length;
-
-    const hasLessValue =
-        featuresLost.length > featuresGained.length ||
-        entitlementsLost.length > entitlementsGained.length ||
-        limitChanges.filter((l) => l.change === 'decreased').length > limitChanges.filter((l) => l.change === 'increased').length;
-
-    let isUpgrade = false;
-    let isDowngrade = false;
-    let isSameTier = false;
-
-    if (priceDifference > 0 || (priceDifference === 0 && hasMoreValue)) {
-        isUpgrade = true;
-    } else if (priceDifference < 0 || (priceDifference === 0 && hasLessValue)) {
-        isDowngrade = true;
-    } else {
-        isSameTier = true;
-    }
+    const { isUpgrade, isDowngrade, isSameTier } = determineTierRelationship(
+        priceDifference,
+        featuresGained,
+        featuresLost,
+        entitlementsGained,
+        entitlementsLost,
+        limitChanges
+    );
 
     return {
         isUpgrade,

@@ -2,12 +2,22 @@
  * Event types for QZPay
  */
 import type { QZPayBillingEvent } from '../constants/index.js';
+import type { QZPayAddOn, QZPaySubscriptionAddOn } from './addon.types.js';
 import type { QZPayCheckoutSession } from './checkout.types.js';
 import type { QZPayCustomer } from './customer.types.js';
 import type { QZPayInvoice } from './invoice.types.js';
 import type { QZPayPayment } from './payment.types.js';
 import type { QZPaySubscription } from './subscription.types.js';
 import type { QZPayVendor, QZPayVendorPayout } from './vendor.types.js';
+
+/**
+ * Event data for subscription add-on events
+ */
+export interface QZPaySubscriptionAddOnEventData {
+    subscription: QZPaySubscription;
+    subscriptionAddOn: QZPaySubscriptionAddOn;
+    addon: QZPayAddOn;
+}
 
 export interface QZPayEvent<T = unknown> {
     id: string;
@@ -43,6 +53,12 @@ export type QZPayEventMap = {
     'vendor.created': QZPayVendor;
     'vendor.updated': QZPayVendor;
     'vendor.payout': QZPayVendorPayout;
+    'addon.created': QZPayAddOn;
+    'addon.updated': QZPayAddOn;
+    'addon.deleted': QZPayAddOn;
+    'subscription.addon_added': QZPaySubscriptionAddOnEventData;
+    'subscription.addon_removed': QZPaySubscriptionAddOnEventData;
+    'subscription.addon_updated': QZPaySubscriptionAddOnEventData;
 };
 
 export type QZPayTypedEventHandler<K extends keyof QZPayEventMap> = (event: QZPayEvent<QZPayEventMap[K]>) => Promise<void> | void;

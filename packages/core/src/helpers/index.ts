@@ -79,3 +79,21 @@ export {
     qzpaySortSubscriptionsByRenewal,
     qzpayWillSubscriptionRenew
 } from './subscription.helper.js';
+// Subscription with helpers (object-oriented wrapper)
+export {
+    type QZPayGracePeriodConfig,
+    type QZPaySubscriptionWithHelpers,
+    qzpayCreateSubscriptionWithHelpers,
+    qzpayEnsureSubscriptionHelpers,
+    qzpayIsSubscriptionWithHelpers
+} from './subscription-with-helpers.js';
+// Usage helpers
+export {
+    qzpayAggregateUsageEvents,
+    qzpayCalculateTieredAmount,
+    qzpayCreateUsageSummary,
+    qzpayFormatUsageAmount,
+    qzpayFormatUsageQuantity,
+    qzpayGetBillingPeriod,
+    qzpayValidateUsageEvent
+} from './usage.helper.js';
