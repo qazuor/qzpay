@@ -238,3 +238,356 @@ export interface MercadoPagoWebhookPayload {
         id: string;
     };
 }
+
+// ==================== Split Payment Types ====================
+
+/**
+ * Split payment disbursement configuration
+ */
+export interface QZPayMPSplitPaymentDisbursement {
+    /**
+     * Collector account ID (merchant receiving the split)
+     */
+    collectorId: string;
+
+    /**
+     * Amount to disburse in cents
+     */
+    amount: number;
+
+    /**
+     * External reference for tracking
+     */
+    externalReference?: string;
+
+    /**
+     * Application fee to charge on this split
+     */
+    applicationFee?: number;
+
+    /**
+     * Money release date
+     */
+    moneyReleaseDate?: Date;
+}
+
+/**
+ * Split payment configuration
+ */
+export interface QZPayMPSplitPaymentConfig {
+    /**
+     * Primary payment amount in cents
+     */
+    primaryAmount: number;
+
+    /**
+     * List of disbursements (splits)
+     */
+    disbursements: QZPayMPSplitPaymentDisbursement[];
+
+    /**
+     * Platform fee in cents
+     */
+    platformFee?: number;
+
+    /**
+     * Money release type
+     */
+    moneyReleaseType?: 'immediately' | 'scheduled';
+}
+
+/**
+ * Split payment result
+ */
+export interface QZPayMPSplitPaymentResult {
+    paymentId: string;
+    status: string;
+    primaryPayment: {
+        amount: number;
+        collectorId: string;
+    };
+    disbursements: Array<{
+        id: string;
+        collectorId: string;
+        amount: number;
+        status: string;
+    }>;
+    platformFee: number;
+    created: Date;
+}
+
+// ==================== IPN (Instant Payment Notification) Types ====================
+
+/**
+ * IPN notification types
+ */
+export type QZPayMPIPNType =
+    | 'payment'
+    | 'plan'
+    | 'subscription'
+    | 'invoice'
+    | 'point_integration_wh'
+    | 'delivery'
+    | 'topic'
+    | 'merchant_order'
+    | 'chargebacks'
+    | 'test';
+
+/**
+ * IPN notification actions
+ */
+export type QZPayMPIPNAction =
+    | 'created'
+    | 'updated'
+    | 'payment.created'
+    | 'payment.updated'
+    | 'state_FINISHED'
+    | 'state_CANCELED'
+    | 'state_ERROR';
+
+/**
+ * Full IPN notification payload
+ */
+export interface QZPayMPIPNNotification {
+    id: number;
+    liveMode: boolean;
+    type: QZPayMPIPNType;
+    dateCreated: Date;
+    applicationId: string;
+    userId: string;
+    version: number;
+    apiVersion: string;
+    action: QZPayMPIPNAction;
+    data: {
+        id: string;
+        [key: string]: unknown;
+    };
+}
+
+/**
+ * IPN payment details (fetched after notification)
+ */
+export interface QZPayMPIPNPaymentDetails {
+    id: string;
+    status: string;
+    statusDetail: string;
+    operationType: string;
+    dateCreated: Date;
+    dateApproved?: Date;
+    dateLastUpdated: Date;
+    moneyReleaseDate?: Date;
+    paymentMethodId: string;
+    paymentTypeId: string;
+    transactionAmount: number;
+    transactionAmountRefunded: number;
+    netReceivedAmount: number;
+    currencyId: string;
+    externalReference?: string;
+    payer: {
+        id?: string;
+        email?: string;
+        identification?: {
+            type: string;
+            number: string;
+        };
+    };
+    metadata: Record<string, unknown>;
+    additionalInfo?: {
+        items?: Array<{
+            id: string;
+            title: string;
+            quantity: number;
+            unitPrice: number;
+        }>;
+    };
+    threeDSecureInfo?: {
+        version?: string;
+        authenticationStatus?: string;
+        cavv?: string;
+        eci?: string;
+        xid?: string;
+    };
+}
+
+// ==================== Payment Method Types ====================
+
+/**
+ * Supported MercadoPago payment methods
+ */
+export type QZPayMPPaymentMethod = 'pix' | 'boleto' | 'credit_card' | 'debit_card' | 'account_money' | 'ticket' | 'bank_transfer';
+
+/**
+ * Payment method details
+ */
+export interface QZPayMPPaymentMethodDetails {
+    id: string;
+    name: string;
+    type: QZPayMPPaymentMethod;
+    status: 'active' | 'deferred_capture' | 'not_available';
+    secureThumbnail?: string;
+    thumbnail?: string;
+    processingModes: string[];
+    minAllowedAmount?: number;
+    maxAllowedAmount?: number;
+    accreditationTime?: number;
+}
+
+/**
+ * Card token for secure payments
+ */
+export interface QZPayMPCardToken {
+    id: string;
+    cardId?: string;
+    firstSixDigits: string;
+    lastFourDigits: string;
+    expirationMonth: number;
+    expirationYear: number;
+    cardholder: {
+        name: string;
+        identification?: {
+            type: string;
+            number: string;
+        };
+    };
+    securityCodeLength: number;
+    dateCreated: Date;
+    dateLastUpdated: Date;
+    dateDue: Date;
+    liveMode: boolean;
+}
+
+// ==================== Advanced Webhook Event Mapping ====================
+
+/**
+ * Extended webhook event map with all MercadoPago events
+ */
+export const MERCADOPAGO_WEBHOOK_EVENTS_EXTENDED = {
+    // Payment events
+    'payment.created': 'payment.created',
+    'payment.updated': 'payment.updated',
+    payment: 'payment.updated',
+
+    // Subscription/Preapproval events
+    'subscription_preapproval.created': 'subscription.created',
+    'subscription_preapproval.updated': 'subscription.updated',
+    'subscription_preapproval_plan.created': 'plan.created',
+    'subscription_preapproval_plan.updated': 'plan.updated',
+    'subscription_authorized_payment.created': 'invoice.paid',
+    'subscription_authorized_payment.updated': 'invoice.updated',
+
+    // Plan events
+    'plan.created': 'plan.created',
+    'plan.updated': 'plan.updated',
+
+    // Invoice events (authorized payments)
+    'invoice.created': 'invoice.created',
+    'invoice.updated': 'invoice.updated',
+
+    // Merchant order events
+    'merchant_order.created': 'order.created',
+    'merchant_order.updated': 'order.updated',
+
+    // Chargeback events
+    'chargebacks.created': 'dispute.created',
+    'chargebacks.updated': 'dispute.updated',
+    chargebacks: 'dispute.updated',
+
+    // Point integration events
+    point_integration_wh: 'point.integration',
+    'point_integration_wh.state_FINISHED': 'point.finished',
+    'point_integration_wh.state_CANCELED': 'point.canceled',
+    'point_integration_wh.state_ERROR': 'point.error',
+
+    // Delivery events (shipping)
+    'delivery.created': 'delivery.created',
+    'delivery.updated': 'delivery.updated',
+
+    // Topic-based events (legacy IPN)
+    topic: 'topic.notification'
+} as const;
+
+// ==================== Webhook Utilities ====================
+
+/**
+ * Check if event is a chargeback (dispute) event
+ */
+export function isMPChargebackEvent(eventType: string): boolean {
+    return eventType.toLowerCase().includes('chargeback');
+}
+
+/**
+ * Check if event requires immediate action
+ */
+export function mpEventRequiresAction(eventType: string): boolean {
+    const urgentEvents = ['chargebacks.created', 'chargebacks', 'payment.updated'];
+    return urgentEvents.some((e) => eventType.includes(e));
+}
+
+/**
+ * Extract payment status from MercadoPago status
+ */
+export function mapMPPaymentStatus(mpStatus: string): string {
+    const statusMap: Record<string, string> = MERCADOPAGO_PAYMENT_STATUS;
+    return statusMap[mpStatus] ?? mpStatus;
+}
+
+/**
+ * Payment status detail mapping
+ */
+export const MERCADOPAGO_STATUS_DETAIL = {
+    // Approved
+    accredited: 'Payment accredited',
+
+    // Pending
+    pending_contingency: 'Payment pending - contingency',
+    pending_review_manual: 'Payment pending - manual review',
+    pending_waiting_payment: 'Waiting for payment',
+    pending_waiting_transfer: 'Waiting for transfer',
+
+    // Rejected
+    cc_rejected_bad_filled_card_number: 'Invalid card number',
+    cc_rejected_bad_filled_date: 'Invalid expiration date',
+    cc_rejected_bad_filled_other: 'Invalid card data',
+    cc_rejected_bad_filled_security_code: 'Invalid security code',
+    cc_rejected_blacklist: 'Card blacklisted',
+    cc_rejected_call_for_authorize: 'Call for authorization required',
+    cc_rejected_card_disabled: 'Card disabled',
+    cc_rejected_card_error: 'Card error',
+    cc_rejected_duplicated_payment: 'Duplicated payment',
+    cc_rejected_high_risk: 'High risk - rejected',
+    cc_rejected_insufficient_amount: 'Insufficient funds',
+    cc_rejected_invalid_installments: 'Invalid installments',
+    cc_rejected_max_attempts: 'Max attempts exceeded',
+    cc_rejected_other_reason: 'Rejected - other reason'
+} as const;
+
+/**
+ * Get human-readable status detail message
+ */
+export function getMPStatusDetailMessage(statusDetail: string): string {
+    const messages: Record<string, string> = MERCADOPAGO_STATUS_DETAIL;
+    return messages[statusDetail] ?? statusDetail;
+}
+
+// ==================== IPN Handler Types ====================
+
+/**
+ * IPN handler function type
+ */
+export type QZPayMPIPNHandler = (notification: QZPayMPIPNNotification) => Promise<void>;
+
+/**
+ * IPN handler registry
+ */
+export type QZPayMPIPNHandlerMap = Partial<Record<QZPayMPIPNType, QZPayMPIPNHandler>>;
+
+/**
+ * IPN processing result
+ */
+export interface QZPayMPIPNResult {
+    processed: boolean;
+    eventType: QZPayMPIPNType;
+    action: QZPayMPIPNAction;
+    resourceId: string;
+    error?: string;
+}

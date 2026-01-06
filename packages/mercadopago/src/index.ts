@@ -14,20 +14,54 @@ export {
     QZPayMercadoPagoPaymentAdapter,
     QZPayMercadoPagoCheckoutAdapter,
     QZPayMercadoPagoPriceAdapter,
-    QZPayMercadoPagoWebhookAdapter
+    QZPayMercadoPagoWebhookAdapter,
+    // IPN Handler
+    QZPayMercadoPagoIPNHandler,
+    // Webhook utilities
+    extractMPPaymentEventData,
+    extractMPSubscriptionEventData,
+    extractMPChargebackEventData,
+    classifyMPEvent,
+    mpRequiresImmediateAction
 } from './adapters/index.js';
 
 // Types
-export type { QZPayMercadoPagoConfig, QZPayMercadoPagoMarketplaceConfig } from './types.js';
+export type {
+    QZPayMercadoPagoConfig,
+    QZPayMercadoPagoMarketplaceConfig,
+    // Split Payment types
+    QZPayMPSplitPaymentDisbursement,
+    QZPayMPSplitPaymentConfig,
+    QZPayMPSplitPaymentResult,
+    // IPN types
+    QZPayMPIPNType,
+    QZPayMPIPNAction,
+    QZPayMPIPNNotification,
+    QZPayMPIPNPaymentDetails,
+    QZPayMPIPNResult,
+    QZPayMPIPNHandler,
+    QZPayMPIPNHandlerMap,
+    // Payment Method types
+    QZPayMPPaymentMethod,
+    QZPayMPPaymentMethodDetails,
+    QZPayMPCardToken
+} from './types.js';
 
 // Constants and helpers
 export {
     MERCADOPAGO_SUBSCRIPTION_STATUS,
     MERCADOPAGO_PAYMENT_STATUS,
     MERCADOPAGO_WEBHOOK_EVENTS,
+    MERCADOPAGO_WEBHOOK_EVENTS_EXTENDED,
     MERCADOPAGO_BILLING_INTERVAL,
+    MERCADOPAGO_STATUS_DETAIL,
     toMercadoPagoInterval,
-    fromMercadoPagoInterval
+    fromMercadoPagoInterval,
+    // Webhook utilities
+    isMPChargebackEvent,
+    mpEventRequiresAction,
+    mapMPPaymentStatus,
+    getMPStatusDetailMessage
 } from './types.js';
 
 // Re-export MercadoPago types for convenience

@@ -3,7 +3,17 @@
  */
 import * as crypto from 'node:crypto';
 import type { QZPayPaymentWebhookAdapter, QZPayWebhookEvent } from '@qazuor/qzpay-core';
-import { MERCADOPAGO_WEBHOOK_EVENTS, type MercadoPagoWebhookPayload } from '../types.js';
+import {
+    MERCADOPAGO_WEBHOOK_EVENTS,
+    MERCADOPAGO_WEBHOOK_EVENTS_EXTENDED,
+    type MercadoPagoWebhookPayload,
+    type QZPayMPIPNAction,
+    type QZPayMPIPNHandler,
+    type QZPayMPIPNHandlerMap,
+    type QZPayMPIPNNotification,
+    type QZPayMPIPNResult,
+    type QZPayMPIPNType
+} from '../types.js';
 
 export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapter {
     private readonly webhookSecret: string | undefined;
@@ -75,10 +85,17 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
         };
     }
 
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Event type mapping requires multiple fallback strategies
     private mapEventType(mpEventType: string): string {
+        // Try extended map first
+        const extendedMap: Record<string, string> = MERCADOPAGO_WEBHOOK_EVENTS_EXTENDED;
+        if (extendedMap[mpEventType]) {
+            return extendedMap[mpEventType];
+        }
+
         const eventMap: Record<string, string> = MERCADOPAGO_WEBHOOK_EVENTS;
 
-        // Try exact match first
+        // Try exact match
         if (eventMap[mpEventType]) {
             return eventMap[mpEventType];
         }
@@ -102,7 +119,277 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
             return 'subscription.updated';
         }
 
+        if (mpEventType.includes('chargeback')) {
+            if (mpEventType.includes('created')) return 'dispute.created';
+            return 'dispute.updated';
+        }
+
         // Return original if no mapping found
         return mpEventType;
     }
+}
+
+// ==================== IPN (Instant Payment Notification) Handler ====================
+
+/**
+ * MercadoPago IPN Handler
+ *
+ * Handles Instant Payment Notifications from MercadoPago.
+ * Use this class to process IPN notifications with custom handlers.
+ *
+ * @example
+ * ```typescript
+ * const ipnHandler = new QZPayMercadoPagoIPNHandler();
+ *
+ * // Register handlers
+ * ipnHandler.on('payment', async (notification) => {
+ *   const paymentId = notification.data.id;
+ *   // Fetch payment details and update your system
+ * });
+ *
+ * ipnHandler.on('chargebacks', async (notification) => {
+ *   // Handle chargeback
+ * });
+ *
+ * // Process incoming notification
+ * const result = await ipnHandler.process(notification);
+ * ```
+ */
+export class QZPayMercadoPagoIPNHandler {
+    private readonly handlers: QZPayMPIPNHandlerMap = {};
+
+    /**
+     * Register a handler for a specific IPN type
+     */
+    on(type: QZPayMPIPNType, handler: QZPayMPIPNHandler): void {
+        this.handlers[type] = handler;
+    }
+
+    /**
+     * Remove a handler for a specific IPN type
+     */
+    off(type: QZPayMPIPNType): void {
+        delete this.handlers[type];
+    }
+
+    /**
+     * Process an IPN notification
+     */
+    async process(notification: QZPayMPIPNNotification): Promise<QZPayMPIPNResult> {
+        const handler = this.handlers[notification.type];
+
+        if (!handler) {
+            return {
+                processed: false,
+                eventType: notification.type,
+                action: notification.action,
+                resourceId: notification.data.id,
+                error: `No handler registered for type: ${notification.type}`
+            };
+        }
+
+        try {
+            await handler(notification);
+            return {
+                processed: true,
+                eventType: notification.type,
+                action: notification.action,
+                resourceId: notification.data.id
+            };
+        } catch (error) {
+            return {
+                processed: false,
+                eventType: notification.type,
+                action: notification.action,
+                resourceId: notification.data.id,
+                error: error instanceof Error ? error.message : 'Unknown error'
+            };
+        }
+    }
+
+    /**
+     * Parse raw IPN payload into structured notification
+     */
+    static parseNotification(payload: string | Record<string, unknown>): QZPayMPIPNNotification {
+        const data = typeof payload === 'string' ? JSON.parse(payload) : payload;
+
+        return {
+            id: data.id as number,
+            liveMode: data.live_mode as boolean,
+            type: data.type as QZPayMPIPNType,
+            dateCreated: new Date(data.date_created as string),
+            applicationId: (data.application_id as string) ?? '',
+            userId: data.user_id as string,
+            version: (data.version as number) ?? 1,
+            apiVersion: data.api_version as string,
+            action: data.action as QZPayMPIPNAction,
+            data: data.data as { id: string; [key: string]: unknown }
+        };
+    }
+}
+
+// ==================== Webhook Event Data Extractors ====================
+
+/**
+ * Extract payment data from MercadoPago webhook event
+ */
+export function extractMPPaymentEventData(event: QZPayWebhookEvent): {
+    paymentId: string;
+    status?: string;
+    statusDetail?: string;
+    externalReference?: string;
+    customerId?: string;
+} {
+    const data = event.data as Record<string, unknown>;
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const id = data['id'] as string | undefined;
+
+    const result: {
+        paymentId: string;
+        status?: string;
+        statusDetail?: string;
+        externalReference?: string;
+        customerId?: string;
+    } = {
+        paymentId: id ?? ''
+    };
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const status = data['status'] as string | undefined;
+    if (status) {
+        result.status = status;
+    }
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const statusDetail = data['status_detail'] as string | undefined;
+    if (statusDetail) {
+        result.statusDetail = statusDetail;
+    }
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const externalRef = data['external_reference'] as string | undefined;
+    if (externalRef) {
+        result.externalReference = externalRef;
+    }
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const payer = data['payer'] as { id?: string } | undefined;
+    if (payer?.id) {
+        result.customerId = payer.id;
+    }
+
+    return result;
+}
+
+/**
+ * Extract subscription data from MercadoPago webhook event
+ */
+export function extractMPSubscriptionEventData(event: QZPayWebhookEvent): {
+    subscriptionId: string;
+    status?: string;
+    payerId?: string;
+    planId?: string;
+} {
+    const data = event.data as Record<string, unknown>;
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const id = data['id'] as string | undefined;
+
+    const result: {
+        subscriptionId: string;
+        status?: string;
+        payerId?: string;
+        planId?: string;
+    } = {
+        subscriptionId: id ?? ''
+    };
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const status = data['status'] as string | undefined;
+    if (status) {
+        result.status = status;
+    }
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const payerId = data['payer_id'] as string | undefined;
+    if (payerId) {
+        result.payerId = payerId;
+    }
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const planId = data['preapproval_plan_id'] as string | undefined;
+    if (planId) {
+        result.planId = planId;
+    }
+
+    return result;
+}
+
+/**
+ * Extract chargeback data from MercadoPago webhook event
+ */
+export function extractMPChargebackEventData(event: QZPayWebhookEvent): {
+    chargebackId: string;
+    paymentId?: string;
+    status?: string;
+    amount?: number;
+    reason?: string;
+} {
+    const data = event.data as Record<string, unknown>;
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const id = data['id'] as string | undefined;
+
+    const result: {
+        chargebackId: string;
+        paymentId?: string;
+        status?: string;
+        amount?: number;
+        reason?: string;
+    } = {
+        chargebackId: id ?? ''
+    };
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const paymentId = data['payment_id'] as string | number | undefined;
+    if (paymentId) {
+        result.paymentId = String(paymentId);
+    }
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const status = data['status'] as string | undefined;
+    if (status) {
+        result.status = status;
+    }
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const amount = data['amount'] as number | undefined;
+    if (amount !== undefined) {
+        result.amount = Math.round(amount * 100); // Convert to cents
+    }
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const reason = data['reason'] as string | undefined;
+    if (reason) {
+        result.reason = reason;
+    }
+
+    return result;
+}
+
+/**
+ * Classify MercadoPago event type
+ */
+export function classifyMPEvent(eventType: string): 'payment' | 'subscription' | 'chargeback' | 'order' | 'other' {
+    if (eventType.includes('payment')) return 'payment';
+    if (eventType.includes('subscription') || eventType.includes('preapproval')) return 'subscription';
+    if (eventType.includes('chargeback')) return 'chargeback';
+    if (eventType.includes('order') || eventType.includes('merchant_order')) return 'order';
+    return 'other';
+}
+
+/**
+ * Check if event requires immediate action
+ */
+export function mpRequiresImmediateAction(event: QZPayWebhookEvent): boolean {
+    const urgentTypes = ['chargebacks.created', 'chargebacks', 'payment.updated'];
+    return urgentTypes.some((t) => event.type.includes(t));
 }
