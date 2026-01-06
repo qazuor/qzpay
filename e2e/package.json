@@ -1,0 +1,21 @@
+{
+    "name": "@qazuor/qzpay-e2e",
+    "version": "0.0.1",
+    "private": true,
+    "description": "End-to-end tests for QZPay billing library",
+    "type": "module",
+    "scripts": {
+        "test": "vitest run",
+        "test:watch": "vitest"
+    },
+    "dependencies": {
+        "@qazuor/qzpay-core": "workspace:*",
+        "@qazuor/qzpay-drizzle": "workspace:*"
+    },
+    "devDependencies": {
+        "@testcontainers/postgresql": "^10.18.0",
+        "drizzle-orm": "^0.36.0",
+        "postgres": "^3.4.0",
+        "vitest": "^2.1.0"
+    }
+}
