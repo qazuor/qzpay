@@ -37,3 +37,31 @@ export type {
     WebhookEventHandler,
     WebhookHandlersMap
 } from './types.js';
+
+// Controllers
+export {
+    QZPayCustomersController,
+    QZPaySubscriptionsController,
+    QZPayPaymentsController,
+    QZPayInvoicesController,
+    QZPayPlansController,
+    QZPayWebhooksController
+} from './controllers/index.js';
+
+// Controller DTOs
+export type {
+    CreateCustomerDto,
+    UpdateCustomerDto,
+    CreateSubscriptionDto,
+    UpdateSubscriptionDto,
+    CancelSubscriptionDto,
+    ProcessPaymentDto,
+    RefundPaymentDto,
+    CreateInvoiceDto,
+    CreateInvoiceLineDto,
+    MarkPaidDto
+} from './controllers/index.js';
+
+// Interceptors
+export { QZPayLoggingInterceptor, createQZPayLoggingInterceptor } from './interceptors/index.js';
+export type { QZPayLoggingOptions } from './interceptors/index.js';
