@@ -105,6 +105,7 @@ export function mapCorePromoCodeCreateToDrizzle(
 /**
  * Map Core promo code partial update to Drizzle
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex mapping logic required for promo code updates
 export function mapCorePromoCodeUpdateToDrizzle(update: Partial<QZPayPromoCode>): Partial<QZPayBillingPromoCodeInsert> {
     const result: Partial<QZPayBillingPromoCodeInsert> = {};
 

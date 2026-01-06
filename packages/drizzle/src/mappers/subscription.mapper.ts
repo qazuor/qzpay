@@ -62,15 +62,16 @@ export function mapCoreSubscriptionCreateToDrizzle(
         intervalCount: number;
         currentPeriodStart: Date;
         currentPeriodEnd: Date;
-        trialStart?: Date;
-        trialEnd?: Date;
+        status?: string;
+        trialStart?: Date | null;
+        trialEnd?: Date | null;
     }
 ): QZPayBillingSubscriptionInsert {
     return {
         id: input.id,
         customerId: input.customerId,
         planId: input.planId,
-        status: 'active',
+        status: defaults.status ?? 'active',
         billingInterval: defaults.billingInterval,
         intervalCount: defaults.intervalCount,
         currentPeriodStart: defaults.currentPeriodStart,
@@ -94,6 +95,15 @@ export function mapCoreSubscriptionUpdateToDrizzle(input: QZPayUpdateSubscriptio
     }
     if (input.metadata !== undefined) {
         update.metadata = input.metadata;
+    }
+    if (input.status !== undefined) {
+        update.status = input.status;
+    }
+    if (input.canceledAt !== undefined) {
+        update.canceledAt = input.canceledAt;
+    }
+    if (input.cancelAt !== undefined) {
+        update.cancelAt = input.cancelAt;
     }
 
     return update;

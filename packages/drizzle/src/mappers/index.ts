@@ -5,6 +5,15 @@
  * These mappers enable the storage adapter to work with the core interfaces.
  */
 
+// Add-on mappers
+export {
+    mapCoreAddonCreateToDrizzle,
+    mapCoreAddonUpdateToDrizzle,
+    mapCoreSubscriptionAddonCreateToDrizzle,
+    mapCoreSubscriptionAddonUpdateToDrizzle,
+    mapDrizzleAddonToCore,
+    mapDrizzleSubscriptionAddonToCore
+} from './addon.mapper.js';
 // Customer mappers
 export {
     mapCoreCustomerCreateToDrizzle,
