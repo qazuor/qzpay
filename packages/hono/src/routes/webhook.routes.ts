@@ -61,6 +61,7 @@ export function createWebhookRouter(config: QZPayWebhookRouterConfig): Hono<QZPa
     );
 
     // Handle POST requests
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Webhook routing requires multiple conditional paths
     router.post('/', async (c) => {
         const event = c.get('webhookEvent');
         const response = createWebhookResponse(c);
