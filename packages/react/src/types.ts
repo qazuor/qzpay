@@ -1,12 +1,14 @@
 import type {
     QZPayBilling,
     QZPayBillingInterval,
+    QZPayCheckoutMode,
     QZPayCurrency,
     QZPayCustomer,
     QZPayCustomerEntitlement,
     QZPayCustomerLimit,
     QZPayInvoice,
     QZPayPayment,
+    QZPayPaymentMethod,
     QZPayPlan,
     QZPayPrice,
     QZPaySubscription
@@ -397,4 +399,279 @@ export interface LimitGateProps {
      * Content to show while loading
      */
     loading?: ReactNode | undefined;
+}
+
+// ==================== New Component Types ====================
+
+/**
+ * Payment form props
+ */
+export interface PaymentFormProps {
+    /**
+     * Customer ID
+     */
+    customerId: string;
+
+    /**
+     * Amount to charge (in cents)
+     */
+    amount: number;
+
+    /**
+     * Currency for the payment
+     */
+    currency: QZPayCurrency;
+
+    /**
+     * Available payment methods for the customer
+     */
+    paymentMethods: QZPayPaymentMethod[];
+
+    /**
+     * Invoice ID to pay (optional)
+     */
+    invoiceId?: string | undefined;
+
+    /**
+     * Callback when payment succeeds
+     */
+    onSuccess?: ((payment: QZPayPayment) => void) | undefined;
+
+    /**
+     * Callback when payment fails
+     */
+    onError?: ((error: Error) => void) | undefined;
+
+    /**
+     * Callback when cancel is clicked
+     */
+    onCancel?: (() => void) | undefined;
+
+    /**
+     * Submit button text
+     */
+    submitText?: string | undefined;
+
+    /**
+     * Show cancel button
+     */
+    showCancel?: boolean | undefined;
+
+    /**
+     * Custom class name
+     */
+    className?: string | undefined;
+
+    /**
+     * Disable the form
+     */
+    disabled?: boolean | undefined;
+
+    /**
+     * Loading payment methods state
+     */
+    isLoadingPaymentMethods?: boolean | undefined;
+}
+
+/**
+ * Checkout params passed to the checkout handler
+ */
+export interface CheckoutParams {
+    mode: QZPayCheckoutMode;
+    lineItems: Array<{ priceId: string; quantity: number }>;
+    successUrl: string;
+    cancelUrl: string;
+    customerId?: string;
+    customerEmail?: string;
+    promoCodeId?: string;
+    allowPromoCodes: boolean;
+}
+
+/**
+ * Result expected from the checkout handler
+ */
+export interface CheckoutResult {
+    url: string;
+    sessionId?: string;
+}
+
+/**
+ * Checkout button props
+ */
+export interface CheckoutButtonProps {
+    /**
+     * Checkout mode (payment or subscription)
+     */
+    mode: QZPayCheckoutMode;
+
+    /**
+     * Price ID to checkout
+     */
+    priceId: string;
+
+    /**
+     * Quantity (default: 1)
+     */
+    quantity?: number | undefined;
+
+    /**
+     * Success URL after checkout
+     */
+    successUrl: string;
+
+    /**
+     * Cancel URL if checkout is cancelled
+     */
+    cancelUrl: string;
+
+    /**
+     * Customer ID (for existing customers)
+     */
+    customerId?: string | undefined;
+
+    /**
+     * Customer email (for guest checkout)
+     */
+    customerEmail?: string | undefined;
+
+    /**
+     * Promo code to apply
+     */
+    promoCodeId?: string | undefined;
+
+    /**
+     * Allow promo code input
+     */
+    allowPromoCodes?: boolean | undefined;
+
+    /**
+     * Button text
+     */
+    children?: ReactNode | undefined;
+
+    /**
+     * Handler to create checkout session (required)
+     * Should return a URL to redirect to for checkout
+     */
+    onCheckout?: ((params: CheckoutParams) => Promise<CheckoutResult>) | undefined;
+
+    /**
+     * Callback when checkout fails
+     */
+    onError?: ((error: Error) => void) | undefined;
+
+    /**
+     * Custom class name
+     */
+    className?: string | undefined;
+
+    /**
+     * Disable the button
+     */
+    disabled?: boolean | undefined;
+}
+
+/**
+ * Invoice list props
+ */
+export interface InvoiceListProps {
+    /**
+     * Customer ID to show invoices for
+     */
+    customerId: string;
+
+    /**
+     * Invoices to display (if provided, skip fetching)
+     */
+    invoices?: QZPayInvoice[] | undefined;
+
+    /**
+     * Show only unpaid invoices
+     */
+    showOnlyUnpaid?: boolean | undefined;
+
+    /**
+     * Limit number of invoices shown
+     */
+    limit?: number | undefined;
+
+    /**
+     * Callback when pay is clicked
+     */
+    onPayInvoice?: ((invoice: QZPayInvoice) => void) | undefined;
+
+    /**
+     * Callback when download is clicked
+     */
+    onDownloadInvoice?: ((invoice: QZPayInvoice) => void) | undefined;
+
+    /**
+     * Custom class name
+     */
+    className?: string | undefined;
+
+    /**
+     * Custom empty state
+     */
+    emptyState?: ReactNode | undefined;
+}
+
+/**
+ * Payment method manager props
+ */
+export interface PaymentMethodManagerProps {
+    /**
+     * Customer ID
+     */
+    customerId: string;
+
+    /**
+     * Payment methods to display (required)
+     */
+    paymentMethods: QZPayPaymentMethod[];
+
+    /**
+     * Loading state
+     */
+    isLoading?: boolean | undefined;
+
+    /**
+     * Show add button
+     */
+    showAddButton?: boolean | undefined;
+
+    /**
+     * Callback when add payment method is clicked
+     */
+    onAddPaymentMethod?: (() => void) | undefined;
+
+    /**
+     * Callback to remove a payment method
+     */
+    onRemovePaymentMethod?: ((methodId: string) => Promise<void>) | undefined;
+
+    /**
+     * Callback to set a payment method as default
+     */
+    onSetDefaultPaymentMethod?: ((methodId: string) => Promise<void>) | undefined;
+
+    /**
+     * Allow removing payment methods
+     */
+    allowRemove?: boolean | undefined;
+
+    /**
+     * Allow changing default
+     */
+    allowSetDefault?: boolean | undefined;
+
+    /**
+     * Custom class name
+     */
+    className?: string | undefined;
+
+    /**
+     * Custom empty state
+     */
+    emptyState?: ReactNode | undefined;
 }

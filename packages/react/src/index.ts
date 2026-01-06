@@ -25,7 +25,34 @@ export {
 } from './hooks/index.js';
 
 // Components
-export { EntitlementGate, LimitGate, PricingTable, SubscriptionStatus } from './components/index.js';
+export {
+    EntitlementGate,
+    LimitGate,
+    PricingTable,
+    SubscriptionStatus,
+    PaymentForm,
+    CheckoutButton,
+    InvoiceList,
+    PaymentMethodManager
+} from './components/index.js';
+
+// Theme
+export {
+    // Theme provider and hook
+    QZPayThemeProvider,
+    useQZPayTheme,
+    // Default themes
+    qzpayDefaultTheme,
+    qzpayDarkTheme,
+    qzpayMergeTheme,
+    // Styled hooks
+    useThemedStyles,
+    qzpayButtonStyles,
+    qzpayInputStyles,
+    qzpayCardStyles,
+    qzpayBadgeStyles,
+    qzpayTableStyles
+} from './theme/index.js';
 
 // Types
 export type {
@@ -51,5 +78,24 @@ export type {
     PricingTableProps,
     SubscriptionStatusProps,
     EntitlementGateProps,
-    LimitGateProps
+    LimitGateProps,
+    PaymentFormProps,
+    CheckoutButtonProps,
+    CheckoutParams,
+    CheckoutResult,
+    InvoiceListProps,
+    PaymentMethodManagerProps
 } from './types.js';
+
+// Theme types
+export type {
+    QZPayTheme,
+    QZPayThemeColors,
+    QZPayThemeTypography,
+    QZPayThemeSpacing,
+    QZPayThemeBorderRadius,
+    QZPayThemeShadows,
+    QZPayThemeTransitions,
+    QZPayPartialTheme,
+    QZPayStyleCreator
+} from './theme/index.js';
