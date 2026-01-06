@@ -4,6 +4,7 @@
  * Defines relationships between all billing entities.
  */
 import { relations } from 'drizzle-orm';
+import { billingAddons, billingSubscriptionAddons } from './addons.schema.js';
 import { billingCustomers } from './customers.schema.js';
 import { billingCustomerEntitlements, billingEntitlements } from './entitlements.schema.js';
 import { billingInvoiceLines, billingInvoicePayments, billingInvoices } from './invoices.schema.js';
@@ -44,7 +45,8 @@ export const billingSubscriptionsRelations = relations(billingSubscriptions, ({ 
     }),
     payments: many(billingPayments),
     invoices: many(billingInvoices),
-    usageRecords: many(billingUsageRecords)
+    usageRecords: many(billingUsageRecords),
+    addons: many(billingSubscriptionAddons)
 }));
 
 /**
@@ -219,5 +221,26 @@ export const billingCustomerLimitsRelations = relations(billingCustomerLimits, (
     limit: one(billingLimits, {
         fields: [billingCustomerLimits.limitKey],
         references: [billingLimits.key]
+    })
+}));
+
+/**
+ * Add-on definition relations
+ */
+export const billingAddonsRelations = relations(billingAddons, ({ many }) => ({
+    subscriptionAddons: many(billingSubscriptionAddons)
+}));
+
+/**
+ * Subscription add-on relations
+ */
+export const billingSubscriptionAddonsRelations = relations(billingSubscriptionAddons, ({ one }) => ({
+    subscription: one(billingSubscriptions, {
+        fields: [billingSubscriptionAddons.subscriptionId],
+        references: [billingSubscriptions.id]
+    }),
+    addon: one(billingAddons, {
+        fields: [billingSubscriptionAddons.addOnId],
+        references: [billingAddons.id]
     })
 }));

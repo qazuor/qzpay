@@ -5,6 +5,21 @@
  * All tables use the 'billing_' prefix for namespace isolation.
  */
 
+// Add-on schema
+export {
+    billingAddonInsertSchema,
+    billingAddonSelectSchema,
+    billingAddons,
+    billingSubscriptionAddonInsertSchema,
+    billingSubscriptionAddonSelectSchema,
+    billingSubscriptionAddons,
+    type QZPayBillingAddon,
+    type QZPayBillingAddonInsert,
+    type QZPayBillingAddonInsertInput,
+    type QZPayBillingSubscriptionAddon,
+    type QZPayBillingSubscriptionAddonInsert,
+    type QZPayBillingSubscriptionAddonInsertInput
+} from './addons.schema.js';
 // Audit logs schema
 export {
     billingAuditLogInsertSchema,
@@ -128,6 +143,7 @@ export {
 } from './promo-codes.schema.js';
 // Relations
 export {
+    billingAddonsRelations,
     billingCustomerEntitlementsRelations,
     billingCustomerLimitsRelations,
     billingCustomersRelations,
@@ -143,6 +159,7 @@ export {
     billingPromoCodesRelations,
     billingPromoCodeUsageRelations,
     billingRefundsRelations,
+    billingSubscriptionAddonsRelations,
     billingSubscriptionsRelations,
     billingUsageRecordsRelations,
     billingVendorPayoutsRelations,
