@@ -3,7 +3,7 @@
  *
  * Provides limit definition and customer limit database operations.
  */
-import { and, count, eq, sql } from 'drizzle-orm';
+import { and, count, eq, isNotNull, lte, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
     type QZPayBillingCustomerLimit,
@@ -332,8 +332,8 @@ export class QZPayLimitsRepository {
             .where(
                 and(
                     eq(billingCustomerLimits.livemode, livemode),
-                    sql`${billingCustomerLimits.resetAt} IS NOT NULL`,
-                    sql`${billingCustomerLimits.resetAt} <= ${now}`
+                    isNotNull(billingCustomerLimits.resetAt),
+                    lte(billingCustomerLimits.resetAt, now)
                 )
             );
     }
@@ -351,7 +351,7 @@ export class QZPayLimitsRepository {
                 resetAt: newResetAt,
                 updatedAt: new Date()
             })
-            .where(and(sql`${billingCustomerLimits.resetAt} IS NOT NULL`, sql`${billingCustomerLimits.resetAt} <= ${now}`))
+            .where(and(isNotNull(billingCustomerLimits.resetAt), lte(billingCustomerLimits.resetAt, now)))
             .returning();
 
         return result.length;

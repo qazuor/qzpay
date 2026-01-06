@@ -1,4 +1,7 @@
 import type {
+    QZPayAddOn,
+    QZPayAddOnStorage,
+    QZPayCreateAddOnInput,
     QZPayCreateCustomerInput,
     QZPayCreateInvoiceInput,
     QZPayCreatePaymentMethodInput,
@@ -34,7 +37,9 @@ import type {
     QZPaySetLimitInput,
     QZPayStorageAdapter,
     QZPaySubscription,
+    QZPaySubscriptionAddOn,
     QZPaySubscriptionStorage,
+    QZPayUpdateAddOnInput,
     QZPayUpdateCustomerInput,
     QZPayUpdatePaymentMethodInput,
     QZPayUpdateSubscriptionInput,
@@ -51,6 +56,8 @@ import type {
  */
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
+    mapCoreAddonCreateToDrizzle,
+    mapCoreAddonUpdateToDrizzle,
     mapCoreCustomerCreateToDrizzle,
     mapCoreCustomerUpdateToDrizzle,
     mapCoreEntitlementToDrizzle,
@@ -67,12 +74,14 @@ import {
     mapCorePromoCodeCreateToDrizzle,
     mapCorePromoCodeUpdateToDrizzle,
     mapCoreSetLimitToDrizzle,
+    mapCoreSubscriptionAddonCreateToDrizzle,
     mapCoreSubscriptionCreateToDrizzle,
     mapCoreSubscriptionUpdateToDrizzle,
     mapCoreUsageRecordToDrizzle,
     mapCoreVendorCreateToDrizzle,
     mapCoreVendorPayoutToDrizzle,
     mapCoreVendorUpdateToDrizzle,
+    mapDrizzleAddonToCore,
     mapDrizzleCustomerEntitlementToCore,
     mapDrizzleCustomerLimitToCore,
     mapDrizzleCustomerToCore,
@@ -84,6 +93,7 @@ import {
     mapDrizzlePlanToCore,
     mapDrizzlePriceToCore,
     mapDrizzlePromoCodeToCore,
+    mapDrizzleSubscriptionAddonToCore,
     mapDrizzleSubscriptionToCore,
     mapDrizzleUsageRecordToCore,
     mapDrizzleVendorPayoutToCore,
@@ -91,6 +101,7 @@ import {
 } from '../mappers/index.js';
 import {
     type QZPayPaginatedResult as DrizzlePaginatedResult,
+    QZPayAddonsRepository,
     QZPayCustomersRepository,
     QZPayEntitlementsRepository,
     QZPayInvoicesRepository,
@@ -141,6 +152,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
     private readonly livemode: boolean;
 
     // Repositories
+    private readonly addonsRepo: QZPayAddonsRepository;
     private readonly customersRepo: QZPayCustomersRepository;
     private readonly subscriptionsRepo: QZPaySubscriptionsRepository;
     private readonly paymentsRepo: QZPayPaymentsRepository;
@@ -155,6 +167,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
     private readonly usageRecordsRepo: QZPayUsageRecordsRepository;
 
     // Storage implementations
+    public readonly addons: QZPayAddOnStorage;
     public readonly customers: QZPayCustomerStorage;
     public readonly subscriptions: QZPaySubscriptionStorage;
     public readonly payments: QZPayPaymentStorage;
@@ -172,6 +185,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
         this.livemode = config.livemode ?? true;
 
         // Initialize repositories
+        this.addonsRepo = new QZPayAddonsRepository(this.db);
         this.customersRepo = new QZPayCustomersRepository(this.db);
         this.subscriptionsRepo = new QZPaySubscriptionsRepository(this.db);
         this.paymentsRepo = new QZPayPaymentsRepository(this.db);
@@ -186,6 +200,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
         this.usageRecordsRepo = new QZPayUsageRecordsRepository(this.db);
 
         // Initialize storage implementations
+        this.addons = this.createAddOnStorage();
         this.customers = this.createCustomerStorage();
         this.subscriptions = this.createSubscriptionStorage();
         this.payments = this.createPaymentStorage();
@@ -266,12 +281,18 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
         return {
             async create(input: QZPayCreateSubscriptionInput & { id: string }): Promise<QZPaySubscription> {
                 const now = new Date();
+                const hasTrial = input.trialDays !== undefined && input.trialDays > 0;
+                const trialEnd = hasTrial && input.trialDays ? new Date(now.getTime() + input.trialDays * 24 * 60 * 60 * 1000) : null;
+
                 const drizzleInput = mapCoreSubscriptionCreateToDrizzle(input, {
                     livemode,
                     billingInterval: 'month',
                     intervalCount: 1,
                     currentPeriodStart: now,
-                    currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+                    currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+                    status: hasTrial ? 'trialing' : 'active',
+                    trialStart: hasTrial ? now : null,
+                    trialEnd
                 });
                 const result = await repo.create(drizzleInput);
                 return mapDrizzleSubscriptionToCore(result);
@@ -790,6 +811,85 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                     livemode
                 });
                 return mapDrizzleUsageRecordToCore(result);
+            }
+        };
+    }
+
+    // ==================== Add-on Storage ====================
+
+    private createAddOnStorage(): QZPayAddOnStorage {
+        const repo = this.addonsRepo;
+        const livemode = this.livemode;
+
+        return {
+            async create(input: QZPayCreateAddOnInput & { id: string }): Promise<QZPayAddOn> {
+                const drizzleInput = mapCoreAddonCreateToDrizzle(input, livemode);
+                const result = await repo.create(drizzleInput);
+                return mapDrizzleAddonToCore(result);
+            },
+
+            async update(id: string, input: QZPayUpdateAddOnInput): Promise<QZPayAddOn> {
+                const drizzleInput = mapCoreAddonUpdateToDrizzle(input);
+                const result = await repo.update(id, drizzleInput);
+                return mapDrizzleAddonToCore(result);
+            },
+
+            async delete(id: string): Promise<void> {
+                await repo.softDelete(id);
+            },
+
+            async findById(id: string): Promise<QZPayAddOn | null> {
+                const result = await repo.findById(id);
+                return result ? mapDrizzleAddonToCore(result) : null;
+            },
+
+            async findByPlanId(planId: string): Promise<QZPayAddOn[]> {
+                const result = await repo.findByPlanId(planId);
+                return result.map(mapDrizzleAddonToCore);
+            },
+
+            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayAddOn>> {
+                const limit = options?.limit ?? 20;
+                const offset = options?.offset ?? 0;
+                const result = await repo.search({ livemode, limit, offset });
+                return toPaginatedResult(result, mapDrizzleAddonToCore, limit, offset);
+            },
+
+            async addToSubscription(input: {
+                id: string;
+                subscriptionId: string;
+                addOnId: string;
+                quantity: number;
+                unitAmount: number;
+                currency: string;
+                metadata?: Record<string, unknown>;
+            }): Promise<QZPaySubscriptionAddOn> {
+                const drizzleInput = mapCoreSubscriptionAddonCreateToDrizzle(input);
+                const result = await repo.addToSubscription(drizzleInput);
+                return mapDrizzleSubscriptionAddonToCore(result);
+            },
+
+            async removeFromSubscription(subscriptionId: string, addOnId: string): Promise<void> {
+                await repo.removeFromSubscription(subscriptionId, addOnId);
+            },
+
+            async updateSubscriptionAddOn(
+                subscriptionId: string,
+                addOnId: string,
+                input: Partial<QZPaySubscriptionAddOn>
+            ): Promise<QZPaySubscriptionAddOn> {
+                const result = await repo.updateSubscriptionAddon(subscriptionId, addOnId, input);
+                return mapDrizzleSubscriptionAddonToCore(result);
+            },
+
+            async findBySubscriptionId(subscriptionId: string): Promise<QZPaySubscriptionAddOn[]> {
+                const result = await repo.findBySubscriptionId(subscriptionId);
+                return result.map(mapDrizzleSubscriptionAddonToCore);
+            },
+
+            async findSubscriptionAddOn(subscriptionId: string, addOnId: string): Promise<QZPaySubscriptionAddOn | null> {
+                const result = await repo.findSubscriptionAddon(subscriptionId, addOnId);
+                return result ? mapDrizzleSubscriptionAddonToCore(result) : null;
             }
         };
     }

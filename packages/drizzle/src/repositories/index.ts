@@ -7,6 +7,13 @@
  * Each repository handles its own entity with common patterns for CRUD operations.
  */
 
+// Add-on repository
+export {
+    type QZPayAddonSearchOptions,
+    QZPayAddonsRepository,
+    type QZPaySubscriptionAddonSearchOptions
+} from './addons.repository.js';
+
 export {
     type QZPayActorTypeValue,
     type QZPayAuditLogSearchOptions,

@@ -3,7 +3,7 @@
  *
  * Provides entitlement definition and customer entitlement database operations.
  */
-import { and, count, eq, gt, isNull, or, sql } from 'drizzle-orm';
+import { and, count, eq, gt, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
     type QZPayBillingCustomerEntitlement,
@@ -328,8 +328,9 @@ export class QZPayEntitlementsRepository {
             .where(
                 and(
                     eq(billingCustomerEntitlements.livemode, livemode),
+                    isNotNull(billingCustomerEntitlements.expiresAt),
                     gt(billingCustomerEntitlements.expiresAt, now),
-                    sql`${billingCustomerEntitlements.expiresAt} <= ${futureDate}`
+                    lte(billingCustomerEntitlements.expiresAt, futureDate)
                 )
             )
             .orderBy(sql`${billingCustomerEntitlements.expiresAt} ASC`);
@@ -343,7 +344,7 @@ export class QZPayEntitlementsRepository {
 
         const result = await this.db
             .delete(billingCustomerEntitlements)
-            .where(sql`${billingCustomerEntitlements.expiresAt} <= ${now}`)
+            .where(and(isNotNull(billingCustomerEntitlements.expiresAt), lte(billingCustomerEntitlements.expiresAt, now)))
             .returning();
 
         return result.length;
