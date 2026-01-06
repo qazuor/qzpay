@@ -853,6 +853,265 @@ describe('billing.subscriptions', () => {
         const result = await billing.subscriptions.list();
         expect(result.data).toHaveLength(2);
     });
+
+    it('should change plan immediately with proration', async () => {
+        const storage = createMockStorage();
+        const freePlan: QZPayPlan = {
+            id: 'free',
+            name: 'Free Plan',
+            description: 'Free tier',
+            active: true,
+            entitlements: [],
+            limits: [],
+            features: [],
+            metadata: {},
+            prices: [
+                {
+                    id: 'price_free',
+                    planId: 'free',
+                    currency: 'USD',
+                    unitAmount: 0,
+                    billingInterval: 'month',
+                    billingIntervalCount: 1,
+                    trialDays: 0,
+                    active: true,
+                    metadata: {}
+                }
+            ]
+        };
+        const proPlan: QZPayPlan = {
+            id: 'pro',
+            name: 'Pro Plan',
+            description: 'Pro tier',
+            active: true,
+            entitlements: [],
+            limits: [],
+            features: [],
+            metadata: {},
+            prices: [
+                {
+                    id: 'price_pro',
+                    planId: 'pro',
+                    currency: 'USD',
+                    unitAmount: 1999,
+                    billingInterval: 'month',
+                    billingIntervalCount: 1,
+                    trialDays: 0,
+                    active: true,
+                    metadata: {}
+                }
+            ]
+        };
+        const billing = createQZPayBilling({
+            storage,
+            plans: [freePlan, proPlan]
+        });
+
+        const created = await billing.subscriptions.create({
+            customerId: 'cus_123',
+            planId: 'free'
+        });
+
+        const result = await billing.subscriptions.changePlan(created.id, {
+            newPlanId: 'pro',
+            prorationBehavior: 'create_prorations'
+        });
+
+        expect(result.subscription).toBeDefined();
+        expect(result.subscription.planId).toBe('pro');
+        expect(result.proration).toBeDefined();
+        expect(typeof result.proration?.creditAmount).toBe('number');
+        expect(typeof result.proration?.chargeAmount).toBe('number');
+    });
+
+    it('should change plan at period end without proration', async () => {
+        const storage = createMockStorage();
+        const freePlan: QZPayPlan = {
+            id: 'free',
+            name: 'Free Plan',
+            description: 'Free tier',
+            active: true,
+            entitlements: [],
+            limits: [],
+            features: [],
+            metadata: {},
+            prices: [
+                {
+                    id: 'price_free',
+                    planId: 'free',
+                    currency: 'USD',
+                    unitAmount: 0,
+                    billingInterval: 'month',
+                    billingIntervalCount: 1,
+                    trialDays: 0,
+                    active: true,
+                    metadata: {}
+                }
+            ]
+        };
+        const proPlan: QZPayPlan = {
+            id: 'pro',
+            name: 'Pro Plan',
+            description: 'Pro tier',
+            active: true,
+            entitlements: [],
+            limits: [],
+            features: [],
+            metadata: {},
+            prices: [
+                {
+                    id: 'price_pro',
+                    planId: 'pro',
+                    currency: 'USD',
+                    unitAmount: 1999,
+                    billingInterval: 'month',
+                    billingIntervalCount: 1,
+                    trialDays: 0,
+                    active: true,
+                    metadata: {}
+                }
+            ]
+        };
+        const billing = createQZPayBilling({
+            storage,
+            plans: [freePlan, proPlan]
+        });
+
+        const created = await billing.subscriptions.create({
+            customerId: 'cus_123',
+            planId: 'free'
+        });
+
+        const result = await billing.subscriptions.changePlan(created.id, {
+            newPlanId: 'pro',
+            applyAt: 'period_end'
+        });
+
+        expect(result.subscription).toBeDefined();
+        expect(result.subscription.planId).toBe('free'); // Not changed yet
+        expect(result.proration).toBeNull(); // No proration for period_end changes
+        expect(result.subscription.metadata).toHaveProperty('scheduledPlanChange');
+    });
+
+    it('should throw error when subscription not found', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage });
+
+        await expect(
+            billing.subscriptions.changePlan('nonexistent', {
+                newPlanId: 'pro'
+            })
+        ).rejects.toThrow('Subscription nonexistent not found');
+    });
+
+    it('should throw error when new plan not found', async () => {
+        const storage = createMockStorage();
+        const freePlan: QZPayPlan = {
+            id: 'free',
+            name: 'Free Plan',
+            description: 'Free tier',
+            active: true,
+            entitlements: [],
+            limits: [],
+            features: [],
+            metadata: {},
+            prices: [
+                {
+                    id: 'price_free',
+                    planId: 'free',
+                    currency: 'USD',
+                    unitAmount: 0,
+                    billingInterval: 'month',
+                    billingIntervalCount: 1,
+                    trialDays: 0,
+                    active: true,
+                    metadata: {}
+                }
+            ]
+        };
+        const billing = createQZPayBilling({
+            storage,
+            plans: [freePlan]
+        });
+
+        const created = await billing.subscriptions.create({
+            customerId: 'cus_123',
+            planId: 'free'
+        });
+
+        await expect(
+            billing.subscriptions.changePlan(created.id, {
+                newPlanId: 'nonexistent'
+            })
+        ).rejects.toThrow('Plan nonexistent not found');
+    });
+
+    it('should change plan without proration when behavior is none', async () => {
+        const storage = createMockStorage();
+        const freePlan: QZPayPlan = {
+            id: 'free',
+            name: 'Free Plan',
+            description: 'Free tier',
+            active: true,
+            entitlements: [],
+            limits: [],
+            features: [],
+            metadata: {},
+            prices: [
+                {
+                    id: 'price_free',
+                    planId: 'free',
+                    currency: 'USD',
+                    unitAmount: 0,
+                    billingInterval: 'month',
+                    billingIntervalCount: 1,
+                    trialDays: 0,
+                    active: true,
+                    metadata: {}
+                }
+            ]
+        };
+        const proPlan: QZPayPlan = {
+            id: 'pro',
+            name: 'Pro Plan',
+            description: 'Pro tier',
+            active: true,
+            entitlements: [],
+            limits: [],
+            features: [],
+            metadata: {},
+            prices: [
+                {
+                    id: 'price_pro',
+                    planId: 'pro',
+                    currency: 'USD',
+                    unitAmount: 1999,
+                    billingInterval: 'month',
+                    billingIntervalCount: 1,
+                    trialDays: 0,
+                    active: true,
+                    metadata: {}
+                }
+            ]
+        };
+        const billing = createQZPayBilling({
+            storage,
+            plans: [freePlan, proPlan]
+        });
+
+        const created = await billing.subscriptions.create({
+            customerId: 'cus_123',
+            planId: 'free'
+        });
+
+        const result = await billing.subscriptions.changePlan(created.id, {
+            newPlanId: 'pro',
+            prorationBehavior: 'none'
+        });
+
+        expect(result.subscription.planId).toBe('pro');
+        expect(result.proration).toBeNull();
+    });
 });
 
 describe('billing.payments', () => {

@@ -165,6 +165,25 @@ function extractRelatedEntities<K extends keyof QZPayEventMap>(eventType: K, dat
 }
 
 /**
+ * Check if two values are equal
+ */
+function areValuesEqual(prev: unknown, curr: unknown): boolean {
+    if (prev === curr) return true;
+
+    // Handle Date comparison
+    if (prev instanceof Date && curr instanceof Date) {
+        return prev.getTime() === curr.getTime();
+    }
+
+    // Handle object comparison (shallow)
+    if (typeof prev === 'object' && typeof curr === 'object' && prev !== null && curr !== null) {
+        return JSON.stringify(prev) === JSON.stringify(curr);
+    }
+
+    return false;
+}
+
+/**
  * Calculate changes between two states
  */
 export function qzpayCalculateChanges<T extends Record<string, unknown>>(
@@ -180,17 +199,7 @@ export function qzpayCalculateChanges<T extends Record<string, unknown>>(
         const curr = newState[field];
 
         // Skip unchanged values
-        if (prev === curr) continue;
-
-        // Handle Date comparison
-        if (prev instanceof Date && curr instanceof Date) {
-            if (prev.getTime() === curr.getTime()) continue;
-        }
-
-        // Handle object comparison (shallow)
-        if (typeof prev === 'object' && typeof curr === 'object' && prev !== null && curr !== null) {
-            if (JSON.stringify(prev) === JSON.stringify(curr)) continue;
-        }
+        if (areValuesEqual(prev, curr)) continue;
 
         changes.push({
             field,

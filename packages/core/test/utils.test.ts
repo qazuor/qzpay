@@ -5,25 +5,39 @@ import {
     qzpayApplyFixedDiscount,
     qzpayApplyPercentageDiscount,
     qzpayAssert,
+    qzpayAssertDefined,
     qzpayCalculateProration,
     qzpayCentsToDecimal,
+    qzpayCreateIdempotencyHash,
     qzpayCreateValidator,
     qzpayDaysSince,
     qzpayDaysUntil,
     qzpayDecimalToCents,
+    qzpayEndOfPeriod,
     qzpayFormatDate,
+    qzpayFormatDateTime,
     qzpayFormatMoney,
     qzpayGenerateCode,
     qzpayGenerateId,
+    qzpayGenerateSecureToken,
+    qzpayHashString,
     qzpayIsFuture,
+    qzpayIsNonNegativeInteger,
     qzpayIsPast,
+    qzpayIsPositiveInteger,
+    qzpayIsRequiredString,
     qzpayIsToday,
     qzpayIsValidCurrency,
     qzpayIsValidEmail,
+    qzpayIsValidPercentage,
+    qzpayIsValidUuid,
     qzpayMaskString,
+    qzpayParseDate,
     qzpayPercentageOf,
     qzpaySplitAmount,
-    qzpaySubtractInterval
+    qzpayStartOfPeriod,
+    qzpaySubtractInterval,
+    qzpayValidateRequired
 } from '../src/utils/index.js';
 
 describe('date.utils', () => {
@@ -32,6 +46,12 @@ describe('date.utils', () => {
             const date = new Date(2024, 0, 15);
             const result = qzpayAddInterval(date, 'day', 5);
             expect(result.getDate()).toBe(20);
+        });
+
+        it('should add weeks', () => {
+            const date = new Date(2024, 0, 15);
+            const result = qzpayAddInterval(date, 'week', 2);
+            expect(result.getDate()).toBe(29);
         });
 
         it('should add months', () => {
@@ -45,6 +65,18 @@ describe('date.utils', () => {
             const result = qzpayAddInterval(date, 'year', 1);
             expect(result.getFullYear()).toBe(2025);
         });
+
+        it('should use default count of 1', () => {
+            const date = new Date(2024, 0, 15);
+            const result = qzpayAddInterval(date, 'day');
+            expect(result.getDate()).toBe(16);
+        });
+
+        it('should not mutate original date', () => {
+            const date = new Date(2024, 0, 15);
+            qzpayAddInterval(date, 'day', 5);
+            expect(date.getDate()).toBe(15);
+        });
     });
 
     describe('qzpaySubtractInterval', () => {
@@ -52,6 +84,85 @@ describe('date.utils', () => {
             const date = new Date(2024, 0, 15);
             const result = qzpaySubtractInterval(date, 'day', 5);
             expect(result.getDate()).toBe(10);
+        });
+
+        it('should subtract weeks', () => {
+            const date = new Date(2024, 0, 22);
+            const result = qzpaySubtractInterval(date, 'week', 1);
+            expect(result.getDate()).toBe(15);
+        });
+
+        it('should subtract months', () => {
+            const date = new Date(2024, 2, 15);
+            const result = qzpaySubtractInterval(date, 'month', 2);
+            expect(result.getMonth()).toBe(0);
+        });
+
+        it('should subtract years', () => {
+            const date = new Date(2024, 0, 15);
+            const result = qzpaySubtractInterval(date, 'year', 1);
+            expect(result.getFullYear()).toBe(2023);
+        });
+    });
+
+    describe('qzpayStartOfPeriod', () => {
+        it('should get start of day', () => {
+            const date = new Date(2024, 0, 15, 14, 30, 45);
+            const result = qzpayStartOfPeriod(date, 'day');
+            expect(result.getHours()).toBe(0);
+            expect(result.getMinutes()).toBe(0);
+            expect(result.getSeconds()).toBe(0);
+            expect(result.getDate()).toBe(15);
+        });
+
+        it('should get start of week (Sunday)', () => {
+            const date = new Date(2024, 0, 17); // Wednesday
+            const result = qzpayStartOfPeriod(date, 'week');
+            expect(result.getDay()).toBe(0); // Sunday
+            expect(result.getDate()).toBe(14);
+        });
+
+        it('should get start of month', () => {
+            const date = new Date(2024, 0, 15);
+            const result = qzpayStartOfPeriod(date, 'month');
+            expect(result.getDate()).toBe(1);
+        });
+
+        it('should get start of year', () => {
+            const date = new Date(2024, 5, 15);
+            const result = qzpayStartOfPeriod(date, 'year');
+            expect(result.getMonth()).toBe(0);
+            expect(result.getDate()).toBe(1);
+        });
+    });
+
+    describe('qzpayEndOfPeriod', () => {
+        it('should get end of day', () => {
+            const date = new Date(2024, 0, 15, 10, 0, 0);
+            const result = qzpayEndOfPeriod(date, 'day');
+            expect(result.getHours()).toBe(23);
+            expect(result.getMinutes()).toBe(59);
+            expect(result.getSeconds()).toBe(59);
+        });
+
+        it('should get end of week', () => {
+            const date = new Date(2024, 0, 17); // Wednesday
+            const result = qzpayEndOfPeriod(date, 'week');
+            // End of Saturday (day 6)
+            expect(result.getDate()).toBe(20);
+        });
+
+        it('should get end of month', () => {
+            const date = new Date(2024, 0, 15); // January
+            const result = qzpayEndOfPeriod(date, 'month');
+            expect(result.getDate()).toBe(31);
+        });
+
+        it('should get end of year', () => {
+            const date = new Date(2024, 5, 15);
+            const result = qzpayEndOfPeriod(date, 'year');
+            expect(result.getMonth()).toBe(11); // December
+            expect(result.getDate()).toBe(31);
         });
     });
 
@@ -72,6 +183,12 @@ describe('date.utils', () => {
             const today = new Date();
             expect(qzpayIsToday(today)).toBe(true);
         });
+
+        it('should not detect yesterday as today', () => {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            expect(qzpayIsToday(yesterday)).toBe(false);
+        });
     });
 
     describe('qzpayDaysUntil/qzpayDaysSince', () => {
@@ -86,12 +203,57 @@ describe('date.utils', () => {
             past.setDate(past.getDate() - 10);
             expect(qzpayDaysSince(past)).toBe(10);
         });
+
+        it('should return 0 for today', () => {
+            const today = new Date();
+            expect(qzpayDaysUntil(today)).toBe(0);
+        });
+
+        it('should return negative for past dates in daysUntil', () => {
+            const past = new Date();
+            past.setDate(past.getDate() - 5);
+            expect(qzpayDaysUntil(past)).toBe(-5);
+        });
     });
 
     describe('qzpayFormatDate', () => {
         it('should format date to ISO string', () => {
             const date = new Date('2024-01-15T12:00:00Z');
             expect(qzpayFormatDate(date)).toBe('2024-01-15');
+        });
+    });
+
+    describe('qzpayFormatDateTime', () => {
+        it('should format date to full ISO string', () => {
+            const date = new Date('2024-01-15T12:30:45.000Z');
+            expect(qzpayFormatDateTime(date)).toBe('2024-01-15T12:30:45.000Z');
+        });
+    });
+
+    describe('qzpayParseDate', () => {
+        it('should parse valid ISO date string', () => {
+            // Use UTC methods since '2024-01-15' is parsed as UTC midnight
+            const date = qzpayParseDate('2024-01-15');
+            expect(date.getUTCFullYear()).toBe(2024);
+            expect(date.getUTCMonth()).toBe(0);
+            expect(date.getUTCDate()).toBe(15);
+        });
+
+        it('should parse valid ISO datetime string', () => {
+            const date = qzpayParseDate('2024-01-15T12:30:00Z');
+            expect(date.getUTCFullYear()).toBe(2024);
+            expect(date.getUTCMonth()).toBe(0);
+            expect(date.getUTCDate()).toBe(15);
+            expect(date.getUTCHours()).toBe(12);
+            expect(date.getUTCMinutes()).toBe(30);
+        });
+
+        it('should throw for invalid date string', () => {
+            expect(() => qzpayParseDate('invalid')).toThrow('Invalid date string');
+        });
+
+        it('should throw for empty string', () => {
+            expect(() => qzpayParseDate('')).toThrow('Invalid date string');
         });
     });
 });
@@ -175,6 +337,11 @@ describe('hash.utils', () => {
             const id = qzpayGenerateId('cus');
             expect(id.startsWith('cus_')).toBe(true);
         });
+
+        it('should generate ID without prefix', () => {
+            const id = qzpayGenerateId();
+            expect(id).not.toContain('_');
+        });
     });
 
     describe('qzpayGenerateCode', () => {
@@ -192,11 +359,107 @@ describe('hash.utils', () => {
             const code = qzpayGenerateCode();
             expect(/^[A-Z0-9]+$/.test(code)).toBe(true);
         });
+
+        it('should generate unique codes', () => {
+            const codes = new Set<string>();
+            for (let i = 0; i < 50; i++) {
+                codes.add(qzpayGenerateCode());
+            }
+            expect(codes.size).toBe(50);
+        });
+    });
+
+    describe('qzpayGenerateSecureToken', () => {
+        it('should generate token with default length', () => {
+            const token = qzpayGenerateSecureToken();
+            // 32 bytes = 64 hex characters
+            expect(token.length).toBe(64);
+        });
+
+        it('should generate token with custom length', () => {
+            const token = qzpayGenerateSecureToken(16);
+            // 16 bytes = 32 hex characters
+            expect(token.length).toBe(32);
+        });
+
+        it('should only contain hex characters', () => {
+            const token = qzpayGenerateSecureToken();
+            expect(/^[0-9a-f]+$/.test(token)).toBe(true);
+        });
+
+        it('should generate unique tokens', () => {
+            const tokens = new Set<string>();
+            for (let i = 0; i < 50; i++) {
+                tokens.add(qzpayGenerateSecureToken());
+            }
+            expect(tokens.size).toBe(50);
+        });
+    });
+
+    describe('qzpayHashString', () => {
+        it('should generate SHA-256 hash', async () => {
+            const hash = await qzpayHashString('test input');
+            // SHA-256 produces 64 hex characters
+            expect(hash.length).toBe(64);
+            expect(/^[0-9a-f]+$/.test(hash)).toBe(true);
+        });
+
+        it('should produce deterministic output', async () => {
+            const hash1 = await qzpayHashString('same input');
+            const hash2 = await qzpayHashString('same input');
+            expect(hash1).toBe(hash2);
+        });
+
+        it('should produce different hashes for different inputs', async () => {
+            const hash1 = await qzpayHashString('input1');
+            const hash2 = await qzpayHashString('input2');
+            expect(hash1).not.toBe(hash2);
+        });
+    });
+
+    describe('qzpayCreateIdempotencyHash', () => {
+        it('should create hash from multiple parts', async () => {
+            const hash = await qzpayCreateIdempotencyHash('user-123', 'charge', '1000');
+            expect(hash.length).toBe(64);
+        });
+
+        it('should produce deterministic output', async () => {
+            const hash1 = await qzpayCreateIdempotencyHash('a', 'b', 'c');
+            const hash2 = await qzpayCreateIdempotencyHash('a', 'b', 'c');
+            expect(hash1).toBe(hash2);
+        });
+
+        it('should produce different hashes for different parts', async () => {
+            const hash1 = await qzpayCreateIdempotencyHash('a', 'b');
+            const hash2 = await qzpayCreateIdempotencyHash('a', 'c');
+            expect(hash1).not.toBe(hash2);
+        });
+
+        it('should handle single part', async () => {
+            const hash = await qzpayCreateIdempotencyHash('single');
+            expect(hash.length).toBe(64);
+        });
     });
 
     describe('qzpayMaskString', () => {
         it('should mask string keeping last chars visible', () => {
             expect(qzpayMaskString('1234567890', 4)).toBe('******7890');
+        });
+
+        it('should mask entire string if shorter than visible chars', () => {
+            expect(qzpayMaskString('abc', 4)).toBe('***');
+        });
+
+        it('should mask string exactly at visible chars boundary', () => {
+            expect(qzpayMaskString('abcd', 4)).toBe('****');
+        });
+
+        it('should use default visible chars of 4', () => {
+            expect(qzpayMaskString('1234567890')).toBe('******7890');
+        });
+
+        it('should handle empty string', () => {
+            expect(qzpayMaskString('')).toBe('');
         });
     });
 });
@@ -211,6 +474,14 @@ describe('validation.utils', () => {
             expect(qzpayIsValidEmail('invalid')).toBe(false);
             expect(qzpayIsValidEmail('invalid@')).toBe(false);
         });
+
+        it('should validate email with subdomain', () => {
+            expect(qzpayIsValidEmail('user@mail.example.com')).toBe(true);
+        });
+
+        it('should reject email with spaces', () => {
+            expect(qzpayIsValidEmail('test @example.com')).toBe(false);
+        });
     });
 
     describe('qzpayIsValidCurrency', () => {
@@ -222,6 +493,132 @@ describe('validation.utils', () => {
         it('should reject unknown currencies', () => {
             expect(qzpayIsValidCurrency('XXX')).toBe(false);
         });
+
+        it('should reject lowercase currencies', () => {
+            expect(qzpayIsValidCurrency('usd')).toBe(false);
+        });
+    });
+
+    describe('qzpayIsPositiveInteger', () => {
+        it('should return true for positive integers', () => {
+            expect(qzpayIsPositiveInteger(1)).toBe(true);
+            expect(qzpayIsPositiveInteger(100)).toBe(true);
+        });
+
+        it('should return false for zero', () => {
+            expect(qzpayIsPositiveInteger(0)).toBe(false);
+        });
+
+        it('should return false for negative integers', () => {
+            expect(qzpayIsPositiveInteger(-1)).toBe(false);
+        });
+
+        it('should return false for floats', () => {
+            expect(qzpayIsPositiveInteger(1.5)).toBe(false);
+        });
+    });
+
+    describe('qzpayIsNonNegativeInteger', () => {
+        it('should return true for zero', () => {
+            expect(qzpayIsNonNegativeInteger(0)).toBe(true);
+        });
+
+        it('should return true for positive integers', () => {
+            expect(qzpayIsNonNegativeInteger(1)).toBe(true);
+            expect(qzpayIsNonNegativeInteger(100)).toBe(true);
+        });
+
+        it('should return false for negative integers', () => {
+            expect(qzpayIsNonNegativeInteger(-1)).toBe(false);
+        });
+
+        it('should return false for floats', () => {
+            expect(qzpayIsNonNegativeInteger(1.5)).toBe(false);
+        });
+    });
+
+    describe('qzpayIsValidPercentage', () => {
+        it('should return true for valid percentages', () => {
+            expect(qzpayIsValidPercentage(0)).toBe(true);
+            expect(qzpayIsValidPercentage(50)).toBe(true);
+            expect(qzpayIsValidPercentage(100)).toBe(true);
+        });
+
+        it('should return false for negative values', () => {
+            expect(qzpayIsValidPercentage(-1)).toBe(false);
+        });
+
+        it('should return false for values over 100', () => {
+            expect(qzpayIsValidPercentage(101)).toBe(false);
+        });
+
+        it('should allow decimal percentages', () => {
+            expect(qzpayIsValidPercentage(50.5)).toBe(true);
+        });
+    });
+
+    describe('qzpayIsValidUuid', () => {
+        it('should validate correct UUID v4', () => {
+            expect(qzpayIsValidUuid('550e8400-e29b-41d4-a716-446655440000')).toBe(true);
+        });
+
+        it('should validate UUID v1', () => {
+            expect(qzpayIsValidUuid('6ba7b810-9dad-11d1-80b4-00c04fd430c8')).toBe(true);
+        });
+
+        it('should reject invalid UUID', () => {
+            expect(qzpayIsValidUuid('not-a-uuid')).toBe(false);
+            expect(qzpayIsValidUuid('550e8400-e29b-41d4-a716')).toBe(false);
+        });
+
+        it('should be case insensitive', () => {
+            expect(qzpayIsValidUuid('550E8400-E29B-41D4-A716-446655440000')).toBe(true);
+        });
+    });
+
+    describe('qzpayIsRequiredString', () => {
+        it('should return true for non-empty string', () => {
+            expect(qzpayIsRequiredString('hello')).toBe(true);
+        });
+
+        it('should return false for empty string', () => {
+            expect(qzpayIsRequiredString('')).toBe(false);
+        });
+
+        it('should return false for whitespace-only string', () => {
+            expect(qzpayIsRequiredString('   ')).toBe(false);
+        });
+
+        it('should return false for non-string values', () => {
+            expect(qzpayIsRequiredString(null)).toBe(false);
+            expect(qzpayIsRequiredString(undefined)).toBe(false);
+            expect(qzpayIsRequiredString(123)).toBe(false);
+        });
+    });
+
+    describe('qzpayValidateRequired', () => {
+        it('should validate all required fields present', () => {
+            const result = qzpayValidateRequired({ name: 'John', email: 'john@test.com' }, ['name', 'email']);
+            expect(result.valid).toBe(true);
+            expect(result.errors).toHaveLength(0);
+        });
+
+        it('should detect missing fields', () => {
+            const result = qzpayValidateRequired({ name: '' }, ['name', 'email']);
+            expect(result.valid).toBe(false);
+            expect(result.errors).toContain('name is required');
+            expect(result.errors).toContain('email is required');
+        });
+
+        it('should detect null values', () => {
+            const result = qzpayValidateRequired({ name: null }, ['name']);
+            expect(result.valid).toBe(false);
+        });
+
+        it('should detect undefined values', () => {
+            const result = qzpayValidateRequired({}, ['name']);
+            expect(result.valid).toBe(false);
+        });
     });
 
     describe('qzpayAssert', () => {
@@ -231,6 +628,22 @@ describe('validation.utils', () => {
 
         it('should throw when condition is false', () => {
             expect(() => qzpayAssert(false, 'error')).toThrow('error');
+        });
+    });
+
+    describe('qzpayAssertDefined', () => {
+        it('should not throw for defined values', () => {
+            expect(() => qzpayAssertDefined('value', 'field')).not.toThrow();
+            expect(() => qzpayAssertDefined(0, 'field')).not.toThrow();
+            expect(() => qzpayAssertDefined('', 'field')).not.toThrow();
+        });
+
+        it('should throw for null', () => {
+            expect(() => qzpayAssertDefined(null, 'customerId')).toThrow('customerId is required');
+        });
+
+        it('should throw for undefined', () => {
+            expect(() => qzpayAssertDefined(undefined, 'amount')).toThrow('amount is required');
         });
     });
 
@@ -253,6 +666,72 @@ describe('validation.utils', () => {
 
             expect(result.valid).toBe(true);
             expect(result.errors).toHaveLength(0);
+        });
+
+        it('should validate positive integer', () => {
+            const result = qzpayCreateValidator({ amount: -5 }).positiveInteger('amount').validate();
+
+            expect(result.valid).toBe(false);
+            expect(result.errors[0]).toContain('amount');
+        });
+
+        it('should pass valid positive integer', () => {
+            const result = qzpayCreateValidator({ amount: 100 }).positiveInteger('amount').validate();
+
+            expect(result.valid).toBe(true);
+        });
+
+        it('should validate currency', () => {
+            const result = qzpayCreateValidator({ currency: 'INVALID' }).currency('currency').validate();
+
+            expect(result.valid).toBe(false);
+        });
+
+        it('should pass valid currency', () => {
+            const result = qzpayCreateValidator({ currency: 'USD' }).currency('currency').validate();
+
+            expect(result.valid).toBe(true);
+        });
+
+        it('should support custom validation', () => {
+            const obj = { age: 15 };
+            const result = qzpayCreateValidator(obj)
+                .custom(obj.age >= 18, 'Must be 18 or older')
+                .validate();
+
+            expect(result.valid).toBe(false);
+            expect(result.errors).toContain('Must be 18 or older');
+        });
+
+        it('should support custom message for required', () => {
+            const result = qzpayCreateValidator({ name: '' }).required('name', 'Name cannot be empty').validate();
+
+            expect(result.errors).toContain('Name cannot be empty');
+        });
+
+        it('should chain multiple validations', () => {
+            const result = qzpayCreateValidator({
+                name: '',
+                email: 'invalid',
+                amount: -1,
+                currency: 'XXX'
+            })
+                .required('name')
+                .email('email')
+                .positiveInteger('amount')
+                .currency('currency')
+                .validate();
+
+            expect(result.valid).toBe(false);
+            expect(result.errors.length).toBe(4);
+        });
+
+        it('should throw on assertValid when invalid', () => {
+            expect(() => qzpayCreateValidator({ name: '' }).required('name').assertValid()).toThrow('Validation failed');
+        });
+
+        it('should not throw on assertValid when valid', () => {
+            expect(() => qzpayCreateValidator({ name: 'John' }).required('name').assertValid()).not.toThrow();
         });
     });
 });

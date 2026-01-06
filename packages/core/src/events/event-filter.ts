@@ -230,103 +230,145 @@ export function qzpayCreateEventFilter(): QZPayEventFilter {
 }
 
 /**
+ * Check if event matches type criteria
+ */
+function matchesTypeCriteria(event: QZPayEvent, criteria: QZPayEventFilterCriteria): boolean {
+    // Type filter
+    if (criteria.types && criteria.types.length > 0) {
+        const matches = criteria.types.some((pattern) => qzpayMatchesEventPattern(event.type, pattern));
+        if (!matches) return false;
+    }
+
+    // Exclude types filter
+    if (criteria.excludeTypes && criteria.excludeTypes.length > 0) {
+        const excluded = criteria.excludeTypes.some((pattern) => qzpayMatchesEventPattern(event.type, pattern));
+        if (excluded) return false;
+    }
+
+    return true;
+}
+
+/**
+ * Check if event matches date criteria
+ */
+function matchesDateCriteria(event: QZPayEvent, criteria: QZPayEventFilterCriteria): boolean {
+    if (criteria.createdAfter && event.createdAt < criteria.createdAfter) {
+        return false;
+    }
+    if (criteria.createdBefore && event.createdAt > criteria.createdBefore) {
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Check if event matches customer ID criteria
+ */
+function matchesCustomerId(event: QZPayEvent, criteria: QZPayEventFilterCriteria): boolean {
+    if (!criteria.customerId) return true;
+
+    const data = event.data as Record<string, unknown>;
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+    if (data['customerId'] === criteria.customerId) return true;
+
+    // Check if the event is a customer event with matching id
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+    return data['id'] === criteria.customerId && event.type.startsWith('customer.');
+}
+
+/**
+ * Check if event matches subscription ID criteria
+ */
+function matchesSubscriptionId(event: QZPayEvent, criteria: QZPayEventFilterCriteria): boolean {
+    if (!criteria.subscriptionId) return true;
+
+    const data = event.data as Record<string, unknown>;
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+    if (data['subscriptionId'] === criteria.subscriptionId) return true;
+
+    // Check if the event is a subscription event with matching id
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+    return data['id'] === criteria.subscriptionId && event.type.startsWith('subscription.');
+}
+
+/**
+ * Check if event matches entity criteria
+ */
+function matchesEntityCriteria(event: QZPayEvent, criteria: QZPayEventFilterCriteria): boolean {
+    if (!matchesCustomerId(event, criteria)) return false;
+    if (!matchesSubscriptionId(event, criteria)) return false;
+
+    // Entity type filter
+    if (criteria.entityTypes && criteria.entityTypes.length > 0) {
+        const eventEntityType = event.type.split('.')[0] as QZPayRelatedEntity['type'];
+        if (!criteria.entityTypes.includes(eventEntityType)) {
+            return false;
+        }
+    }
+
+    // Entity ID filter
+    if (criteria.entityIds && criteria.entityIds.length > 0) {
+        const data = event.data as Record<string, unknown>;
+        // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+        const entityId = data['id'] as string | undefined;
+        if (!entityId || !criteria.entityIds.includes(entityId)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
+ * Check if event matches metadata criteria
+ */
+function matchesMetadataCriteria(event: QZPayEvent, criteria: QZPayEventFilterCriteria): boolean {
+    const detailedEvent = event as QZPayDetailedEvent;
+    if (!detailedEvent.metadata) return true;
+
+    // Tags filter (any match)
+    if (criteria.tags && criteria.tags.length > 0) {
+        const eventTags = detailedEvent.metadata.tags ?? [];
+        const hasTag = criteria.tags.some((tag) => eventTags.includes(tag));
+        if (!hasTag) return false;
+    }
+
+    // Actor type filter
+    if (criteria.actorTypes && criteria.actorTypes.length > 0) {
+        const actorType = detailedEvent.metadata.actor?.type;
+        if (!actorType || !criteria.actorTypes.includes(actorType)) {
+            return false;
+        }
+    }
+
+    // Correlation ID filter
+    if (criteria.correlationId && detailedEvent.metadata.correlationId !== criteria.correlationId) {
+        return false;
+    }
+
+    // Source filter
+    if (criteria.source && detailedEvent.metadata.source !== criteria.source) {
+        return false;
+    }
+
+    return true;
+}
+
+/**
  * Create a matcher function from filter criteria
  */
 export function qzpayCreateEventMatcher(criteria: QZPayEventFilterCriteria): (event: QZPayEvent) => boolean {
     return (event: QZPayEvent): boolean => {
-        // Type filter
-        if (criteria.types && criteria.types.length > 0) {
-            const matches = criteria.types.some((pattern) => qzpayMatchesEventPattern(event.type, pattern));
-            if (!matches) return false;
-        }
-
-        // Exclude types filter
-        if (criteria.excludeTypes && criteria.excludeTypes.length > 0) {
-            const excluded = criteria.excludeTypes.some((pattern) => qzpayMatchesEventPattern(event.type, pattern));
-            if (excluded) return false;
-        }
-
-        // Date range filter
-        if (criteria.createdAfter && event.createdAt < criteria.createdAfter) {
-            return false;
-        }
-        if (criteria.createdBefore && event.createdAt > criteria.createdBefore) {
-            return false;
-        }
+        if (!matchesTypeCriteria(event, criteria)) return false;
+        if (!matchesDateCriteria(event, criteria)) return false;
 
         // Livemode filter
         if (criteria.livemode !== undefined && event.livemode !== criteria.livemode) {
             return false;
         }
 
-        // Data-based filters
-        const data = event.data as Record<string, unknown>;
-
-        // Customer ID filter
-        // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
-        if (criteria.customerId && data['customerId'] !== criteria.customerId) {
-            // Also check if the event is a customer event with matching id
-            // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
-            if (data['id'] !== criteria.customerId || !event.type.startsWith('customer.')) {
-                return false;
-            }
-        }
-
-        // Subscription ID filter
-        // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
-        if (criteria.subscriptionId && data['subscriptionId'] !== criteria.subscriptionId) {
-            // Also check if the event is a subscription event with matching id
-            // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
-            if (data['id'] !== criteria.subscriptionId || !event.type.startsWith('subscription.')) {
-                return false;
-            }
-        }
-
-        // Entity type filter
-        if (criteria.entityTypes && criteria.entityTypes.length > 0) {
-            const eventEntityType = event.type.split('.')[0] as QZPayRelatedEntity['type'];
-            if (!criteria.entityTypes.includes(eventEntityType)) {
-                return false;
-            }
-        }
-
-        // Entity ID filter
-        if (criteria.entityIds && criteria.entityIds.length > 0) {
-            // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
-            const entityId = data['id'] as string | undefined;
-            if (!entityId || !criteria.entityIds.includes(entityId)) {
-                return false;
-            }
-        }
-
-        // Check detailed event metadata
-        const detailedEvent = event as QZPayDetailedEvent;
-        if (detailedEvent.metadata) {
-            // Tags filter (any match)
-            if (criteria.tags && criteria.tags.length > 0) {
-                const eventTags = detailedEvent.metadata.tags ?? [];
-                const hasTag = criteria.tags.some((tag) => eventTags.includes(tag));
-                if (!hasTag) return false;
-            }
-
-            // Actor type filter
-            if (criteria.actorTypes && criteria.actorTypes.length > 0) {
-                const actorType = detailedEvent.metadata.actor?.type;
-                if (!actorType || !criteria.actorTypes.includes(actorType)) {
-                    return false;
-                }
-            }
-
-            // Correlation ID filter
-            if (criteria.correlationId && detailedEvent.metadata.correlationId !== criteria.correlationId) {
-                return false;
-            }
-
-            // Source filter
-            if (criteria.source && detailedEvent.metadata.source !== criteria.source) {
-                return false;
-            }
-        }
+        if (!matchesEntityCriteria(event, criteria)) return false;
+        if (!matchesMetadataCriteria(event, criteria)) return false;
 
         // Custom predicate
         if (criteria.predicate && !criteria.predicate(event)) {

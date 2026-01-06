@@ -212,20 +212,9 @@ export class QZPayEventReplayer {
     ) {}
 
     /**
-     * Replay events to the emitter
+     * Get filtered events to replay
      */
-    async replay(options: QZPayEventReplayOptions = {}): Promise<QZPayEventReplayResult> {
-        const startTime = Date.now();
-        const result: QZPayEventReplayResult = {
-            total: 0,
-            replayed: 0,
-            succeeded: 0,
-            failed: 0,
-            skipped: 0,
-            errors: [],
-            duration: 0
-        };
-
+    private getEventsToReplay(options: QZPayEventReplayOptions): QZPayEvent[] {
         // Get events to replay
         let events = options.filter ? this.store.query(options.filter) : this.store.getAll();
 
@@ -245,38 +234,83 @@ export class QZPayEventReplayer {
             events = events.slice(0, options.limit);
         }
 
+        return events;
+    }
+
+    /**
+     * Apply replay delay for real-time simulation
+     */
+    private async applyReplayDelay(event: QZPayEvent, previousTime: number, speed?: number): Promise<number> {
+        if (speed && speed > 0) {
+            const timeDiff = event.createdAt.getTime() - previousTime;
+            const delay = timeDiff / speed;
+            if (delay > 0) {
+                await this.sleep(delay);
+            }
+            return event.createdAt.getTime();
+        }
+        return previousTime;
+    }
+
+    /**
+     * Replay a single event
+     */
+    private async replaySingleEvent(event: QZPayEvent, options: QZPayEventReplayOptions): Promise<{ success: boolean; error?: Error }> {
+        // Before callback
+        if (options.onBeforeReplay) {
+            await options.onBeforeReplay(event);
+        }
+
+        let success = false;
+        let error: Error | undefined;
+
+        try {
+            await this.emitter.emit(event.type as keyof QZPayEventMap, event.data as QZPayEventMap[keyof QZPayEventMap]);
+            success = true;
+        } catch (e) {
+            error = e instanceof Error ? e : new Error(String(e));
+        }
+
+        // After callback
+        if (options.onAfterReplay) {
+            await options.onAfterReplay(event, success, error);
+        }
+
+        // Only include error property if it exists (for exactOptionalPropertyTypes)
+        return error ? { success, error } : { success };
+    }
+
+    /**
+     * Replay events to the emitter
+     */
+    async replay(options: QZPayEventReplayOptions = {}): Promise<QZPayEventReplayResult> {
+        const startTime = Date.now();
+        const result: QZPayEventReplayResult = {
+            total: 0,
+            replayed: 0,
+            succeeded: 0,
+            failed: 0,
+            skipped: 0,
+            errors: [],
+            duration: 0
+        };
+
+        const events = this.getEventsToReplay(options);
         result.total = events.length;
 
-        // Replay events
         let previousTime = events[0]?.createdAt.getTime() ?? Date.now();
 
         for (const event of events) {
-            // Calculate delay for real-time replay
-            if (options.speed && options.speed > 0) {
-                const timeDiff = event.createdAt.getTime() - previousTime;
-                const delay = timeDiff / options.speed;
-                if (delay > 0) {
-                    await this.sleep(delay);
-                }
-                previousTime = event.createdAt.getTime();
-            }
+            previousTime = await this.applyReplayDelay(event, previousTime, options.speed);
 
-            // Before callback
-            if (options.onBeforeReplay) {
-                await options.onBeforeReplay(event);
-            }
+            const { success, error } = await this.replaySingleEvent(event, options);
 
-            // Replay the event
-            let success = false;
-            let error: Error | undefined;
-
-            try {
-                await this.emitter.emit(event.type as keyof QZPayEventMap, event.data as QZPayEventMap[keyof QZPayEventMap]);
-                success = true;
+            if (success) {
                 result.succeeded++;
-            } catch (e) {
-                error = e instanceof Error ? e : new Error(String(e));
-                result.errors.push({ eventId: event.id, error });
+            } else {
+                if (error) {
+                    result.errors.push({ eventId: event.id, error });
+                }
                 result.failed++;
 
                 if (options.stopOnError) {
@@ -286,11 +320,6 @@ export class QZPayEventReplayer {
             }
 
             result.replayed++;
-
-            // After callback
-            if (options.onAfterReplay) {
-                await options.onAfterReplay(event, success, error);
-            }
         }
 
         result.duration = Date.now() - startTime;
