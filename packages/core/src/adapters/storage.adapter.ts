@@ -3,6 +3,8 @@
  * Defines the contract for database operations
  */
 import type {
+    QZPayAddOn,
+    QZPayCreateAddOnInput,
     QZPayCreateCustomerInput,
     QZPayCreateInvoiceInput,
     QZPayCreatePaymentMethodInput,
@@ -26,6 +28,8 @@ import type {
     QZPayPromoCode,
     QZPaySetLimitInput,
     QZPaySubscription,
+    QZPaySubscriptionAddOn,
+    QZPayUpdateAddOnInput,
     QZPayUpdateCustomerInput,
     QZPayUpdatePaymentMethodInput,
     QZPayUpdateSubscriptionInput,
@@ -68,6 +72,9 @@ export interface QZPayStorageAdapter {
 
     // Limit operations
     limits: QZPayLimitStorage;
+
+    // Add-on operations
+    addons: QZPayAddOnStorage;
 
     // Transaction support
     transaction<T>(fn: () => Promise<T>): Promise<T>;
@@ -176,6 +183,34 @@ export interface QZPayLimitStorage {
     findByCustomerId(customerId: string): Promise<QZPayCustomerLimit[]>;
     check(customerId: string, limitKey: string): Promise<QZPayCustomerLimit | null>;
     recordUsage(record: QZPayUsageRecord): Promise<QZPayUsageRecord>;
+}
+
+export interface QZPayAddOnStorage {
+    create(input: QZPayCreateAddOnInput & { id: string }): Promise<QZPayAddOn>;
+    update(id: string, input: QZPayUpdateAddOnInput): Promise<QZPayAddOn>;
+    delete(id: string): Promise<void>;
+    findById(id: string): Promise<QZPayAddOn | null>;
+    findByPlanId(planId: string): Promise<QZPayAddOn[]>;
+    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayAddOn>>;
+
+    // Subscription add-on operations
+    addToSubscription(input: {
+        id: string;
+        subscriptionId: string;
+        addOnId: string;
+        quantity: number;
+        unitAmount: number;
+        currency: string;
+        metadata?: Record<string, unknown>;
+    }): Promise<QZPaySubscriptionAddOn>;
+    removeFromSubscription(subscriptionId: string, addOnId: string): Promise<void>;
+    updateSubscriptionAddOn(
+        subscriptionId: string,
+        addOnId: string,
+        input: Partial<QZPaySubscriptionAddOn>
+    ): Promise<QZPaySubscriptionAddOn>;
+    findBySubscriptionId(subscriptionId: string): Promise<QZPaySubscriptionAddOn[]>;
+    findSubscriptionAddOn(subscriptionId: string, addOnId: string): Promise<QZPaySubscriptionAddOn | null>;
 }
 
 export interface QZPayListOptions {

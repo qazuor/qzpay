@@ -6,6 +6,19 @@ import type { QZPayPaymentAdapter } from './adapters/payment.adapter.js';
 import type { QZPayStorageAdapter } from './adapters/storage.adapter.js';
 import type { QZPayBillingEvent, QZPayCurrency } from './constants/index.js';
 import { QZPayEventEmitter, type QZPayEventEmitterOptions } from './events/event-emitter.js';
+import {
+    type QZPayGracePeriodConfig,
+    type QZPaySubscriptionWithHelpers,
+    qzpayCreateSubscriptionWithHelpers
+} from './helpers/subscription-with-helpers.js';
+import { qzpayCalculateSubscriptionProration } from './helpers/subscription.helper.js';
+import type {
+    QZPayAddOn,
+    QZPayAddSubscriptionAddOnResult,
+    QZPayCreateAddOnInput,
+    QZPaySubscriptionAddOn,
+    QZPayUpdateAddOnInput
+} from './types/addon.types.js';
 import type { QZPayCustomerEntitlement } from './types/entitlements.types.js';
 import type { QZPayEventMap, QZPayTypedEventHandler } from './types/events.types.js';
 import type { QZPayInvoice } from './types/invoice.types.js';
@@ -33,6 +46,32 @@ export interface QZPayUpdateSubscriptionServiceInput {
     priceId?: string;
     quantity?: number;
     metadata?: Record<string, unknown>;
+}
+
+/**
+ * Options for changing a subscription plan
+ */
+export interface QZPayChangePlanOptions {
+    /** New plan ID to change to */
+    newPlanId: string;
+    /** New price ID (optional, uses default price if not specified) */
+    newPriceId?: string;
+    /** How to handle proration */
+    prorationBehavior?: 'create_prorations' | 'none' | 'always_invoice';
+    /** When to apply the change */
+    applyAt?: 'immediately' | 'period_end';
+}
+
+/**
+ * Result of a plan change operation
+ */
+export interface QZPayChangePlanResult {
+    subscription: QZPaySubscriptionWithHelpers;
+    proration: {
+        creditAmount: number;
+        chargeAmount: number;
+        effectiveDate: Date;
+    } | null;
 }
 
 export interface QZPayCancelSubscriptionOptions {
@@ -162,38 +201,51 @@ export interface QZPayCustomerService {
 export interface QZPaySubscriptionService {
     /**
      * Create a new subscription
+     * Returns subscription with helper methods attached
      */
-    create: (input: QZPayCreateSubscriptionServiceInput) => Promise<QZPaySubscription>;
+    create: (input: QZPayCreateSubscriptionServiceInput) => Promise<QZPaySubscriptionWithHelpers>;
 
     /**
      * Get a subscription by ID
+     * Returns subscription with helper methods attached
      */
-    get: (id: string) => Promise<QZPaySubscription | null>;
+    get: (id: string) => Promise<QZPaySubscriptionWithHelpers | null>;
 
     /**
      * Get all subscriptions for a customer
+     * Returns subscriptions with helper methods attached
      */
-    getByCustomerId: (customerId: string) => Promise<QZPaySubscription[]>;
+    getByCustomerId: (customerId: string) => Promise<QZPaySubscriptionWithHelpers[]>;
 
     /**
      * Update a subscription
+     * Returns subscription with helper methods attached
      */
-    update: (id: string, input: QZPayUpdateSubscriptionServiceInput) => Promise<QZPaySubscription>;
+    update: (id: string, input: QZPayUpdateSubscriptionServiceInput) => Promise<QZPaySubscriptionWithHelpers>;
 
     /**
      * Cancel a subscription
+     * Returns subscription with helper methods attached
      */
-    cancel: (id: string, options?: QZPayCancelSubscriptionOptions) => Promise<QZPaySubscription>;
+    cancel: (id: string, options?: QZPayCancelSubscriptionOptions) => Promise<QZPaySubscriptionWithHelpers>;
 
     /**
      * Pause a subscription
+     * Returns subscription with helper methods attached
      */
-    pause: (id: string) => Promise<QZPaySubscription>;
+    pause: (id: string) => Promise<QZPaySubscriptionWithHelpers>;
 
     /**
      * Resume a paused subscription
+     * Returns subscription with helper methods attached
      */
-    resume: (id: string) => Promise<QZPaySubscription>;
+    resume: (id: string) => Promise<QZPaySubscriptionWithHelpers>;
+
+    /**
+     * Change subscription to a different plan
+     * Handles proration calculation and applies credit/charge as needed
+     */
+    changePlan: (id: string, options: QZPayChangePlanOptions) => Promise<QZPayChangePlanResult>;
 
     /**
      * List subscriptions with pagination
@@ -402,6 +454,75 @@ export interface QZPayMetricsService {
 }
 
 /**
+ * Add-on service interface
+ */
+export interface QZPayAddOnService {
+    /**
+     * Create a new add-on definition
+     */
+    create: (input: QZPayCreateAddOnInput) => Promise<QZPayAddOn>;
+
+    /**
+     * Get an add-on by ID
+     */
+    get: (id: string) => Promise<QZPayAddOn | null>;
+
+    /**
+     * Update an add-on
+     */
+    update: (id: string, input: QZPayUpdateAddOnInput) => Promise<QZPayAddOn>;
+
+    /**
+     * Delete an add-on
+     */
+    delete: (id: string) => Promise<void>;
+
+    /**
+     * Get add-ons compatible with a plan
+     */
+    getByPlanId: (planId: string) => Promise<QZPayAddOn[]>;
+
+    /**
+     * List all add-ons
+     */
+    list: (options?: Parameters<QZPayStorageAdapter['addons']['list']>[0]) => ReturnType<QZPayStorageAdapter['addons']['list']>;
+
+    /**
+     * Add an add-on to a subscription
+     */
+    addToSubscription: (input: {
+        subscriptionId: string;
+        addOnId: string;
+        quantity?: number;
+        metadata?: Record<string, unknown>;
+    }) => Promise<QZPayAddSubscriptionAddOnResult>;
+
+    /**
+     * Remove an add-on from a subscription
+     */
+    removeFromSubscription: (subscriptionId: string, addOnId: string) => Promise<void>;
+
+    /**
+     * Update a subscription add-on (quantity, etc.)
+     */
+    updateSubscriptionAddOn: (
+        subscriptionId: string,
+        addOnId: string,
+        input: { quantity?: number; metadata?: Record<string, unknown> }
+    ) => Promise<QZPaySubscriptionAddOn>;
+
+    /**
+     * Get all add-ons attached to a subscription
+     */
+    getBySubscriptionId: (subscriptionId: string) => Promise<QZPaySubscriptionAddOn[]>;
+
+    /**
+     * Get a specific add-on attached to a subscription
+     */
+    getSubscriptionAddOn: (subscriptionId: string, addOnId: string) => Promise<QZPaySubscriptionAddOn | null>;
+}
+
+/**
  * Main QZPayBilling interface
  */
 export interface QZPayBilling {
@@ -449,6 +570,11 @@ export interface QZPayBilling {
      * Metrics and analytics (Phase 2+)
      */
     readonly metrics: QZPayMetricsService;
+
+    /**
+     * Add-on management
+     */
+    readonly addons: QZPayAddOnService;
 
     /**
      * Subscribe to billing events
@@ -501,12 +627,14 @@ class QZPayBillingImpl implements QZPayBilling {
     private readonly livemode: boolean;
     private readonly emitter: QZPayEventEmitter;
     private readonly planMap: Map<string, QZPayPlan>;
+    private readonly gracePeriodConfig: QZPayGracePeriodConfig;
 
     constructor(config: QZPayBillingConfig) {
         this.storage = config.storage;
         this.paymentAdapter = config.paymentAdapter;
         this.configPlans = config.plans ?? [];
         this.livemode = config.livemode ?? false;
+        this.gracePeriodConfig = { gracePeriodDays: config.gracePeriodDays ?? 7 };
 
         const emitterOptions: QZPayEventEmitterOptions = {
             livemode: this.livemode
@@ -560,6 +688,12 @@ class QZPayBillingImpl implements QZPayBilling {
         const storage = this.storage;
         const emitter = this.emitter;
         const planMap = this.planMap;
+        const gracePeriodConfig = this.gracePeriodConfig;
+
+        // Helper to wrap subscription with helper methods
+        const wrapWithHelpers = (subscription: QZPaySubscription): QZPaySubscriptionWithHelpers => {
+            return qzpayCreateSubscriptionWithHelpers(subscription, gracePeriodConfig);
+        };
 
         return {
             create: async (input) => {
@@ -579,10 +713,16 @@ class QZPayBillingImpl implements QZPayBilling {
 
                 const subscription = await storage.subscriptions.create(createInput);
                 await emitter.emit('subscription.created', subscription);
-                return subscription;
+                return wrapWithHelpers(subscription);
             },
-            get: (id) => storage.subscriptions.findById(id),
-            getByCustomerId: (customerId) => storage.subscriptions.findByCustomerId(customerId),
+            get: async (id) => {
+                const subscription = await storage.subscriptions.findById(id);
+                return subscription ? wrapWithHelpers(subscription) : null;
+            },
+            getByCustomerId: async (customerId) => {
+                const subscriptions = await storage.subscriptions.findByCustomerId(customerId);
+                return subscriptions.map(wrapWithHelpers);
+            },
             update: async (id, input) => {
                 // Build update input, only including defined values
                 const updateInput: Parameters<typeof storage.subscriptions.update>[1] = {};
@@ -591,7 +731,7 @@ class QZPayBillingImpl implements QZPayBilling {
 
                 const subscription = await storage.subscriptions.update(id, updateInput);
                 await emitter.emit('subscription.updated', subscription);
-                return subscription;
+                return wrapWithHelpers(subscription);
             },
             cancel: async (id, options) => {
                 const now = new Date();
@@ -607,17 +747,88 @@ class QZPayBillingImpl implements QZPayBilling {
                 }
                 const subscription = await storage.subscriptions.update(id, updateInput);
                 await emitter.emit('subscription.canceled', subscription);
-                return subscription;
+                return wrapWithHelpers(subscription);
             },
             pause: async (id) => {
                 const subscription = await storage.subscriptions.update(id, { status: 'paused' });
                 await emitter.emit('subscription.paused', subscription);
-                return subscription;
+                return wrapWithHelpers(subscription);
             },
             resume: async (id) => {
                 const subscription = await storage.subscriptions.update(id, { status: 'active' });
                 await emitter.emit('subscription.resumed', subscription);
-                return subscription;
+                return wrapWithHelpers(subscription);
+            },
+            changePlan: async (id, options) => {
+                // Get current subscription
+                const currentSubscription = await storage.subscriptions.findById(id);
+                if (!currentSubscription) {
+                    throw new Error(`Subscription ${id} not found`);
+                }
+
+                // Get current plan and price
+                const currentPlan = planMap.get(currentSubscription.planId);
+                const currentPrice = currentPlan?.prices[0] ?? null;
+
+                // Get new plan and price
+                const newPlan = planMap.get(options.newPlanId);
+                if (!newPlan) {
+                    throw new Error(`Plan ${options.newPlanId} not found`);
+                }
+                const newPrice = options.newPriceId ? newPlan.prices.find((p) => p.id === options.newPriceId) : newPlan.prices[0];
+                if (!newPrice) {
+                    throw new Error(`Price not found for plan ${options.newPlanId}`);
+                }
+
+                // Calculate proration if needed
+                let proration: QZPayChangePlanResult['proration'] = null;
+                const shouldProrate = options.prorationBehavior !== 'none' && options.applyAt !== 'period_end' && currentPrice;
+
+                if (shouldProrate && currentPrice) {
+                    const prorationResult = qzpayCalculateSubscriptionProration(currentSubscription, currentPrice, newPrice);
+                    proration = {
+                        creditAmount: prorationResult.creditAmount,
+                        chargeAmount: prorationResult.chargeAmount,
+                        effectiveDate: prorationResult.effectiveDate
+                    };
+                }
+
+                // Apply the plan change immediately or schedule for period end
+                const applyImmediately = options.applyAt !== 'period_end';
+                const updateInput: Parameters<typeof storage.subscriptions.update>[1] = {};
+
+                if (applyImmediately) {
+                    updateInput.planId = options.newPlanId;
+                    updateInput.metadata = {
+                        ...currentSubscription.metadata,
+                        previousPlanId: currentSubscription.planId,
+                        planChangedAt: new Date().toISOString(),
+                        proration: proration
+                            ? {
+                                  creditAmount: proration.creditAmount,
+                                  chargeAmount: proration.chargeAmount
+                              }
+                            : null
+                    };
+                } else {
+                    // Schedule for period end
+                    updateInput.metadata = {
+                        ...currentSubscription.metadata,
+                        scheduledPlanChange: {
+                            newPlanId: options.newPlanId,
+                            newPriceId: options.newPriceId,
+                            effectiveAt: currentSubscription.currentPeriodEnd.toISOString()
+                        }
+                    };
+                }
+
+                const updatedSubscription = await storage.subscriptions.update(id, updateInput);
+                await emitter.emit('subscription.updated', updatedSubscription);
+
+                return {
+                    subscription: wrapWithHelpers(updatedSubscription),
+                    proration
+                };
             },
             list: (options) => storage.subscriptions.list(options)
         };
@@ -629,6 +840,7 @@ class QZPayBillingImpl implements QZPayBilling {
         const paymentAdapter = this.paymentAdapter;
 
         return {
+            // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex payment processing with provider integration and error handling
             process: async (input) => {
                 const paymentId = crypto.randomUUID();
                 const now = new Date();
@@ -877,6 +1089,138 @@ class QZPayBillingImpl implements QZPayBilling {
 
     get metrics(): QZPayMetricsService {
         return {};
+    }
+
+    get addons(): QZPayAddOnService {
+        const storage = this.storage;
+        const emitter = this.emitter;
+
+        return {
+            create: async (input) => {
+                const addon = await storage.addons.create({
+                    id: input.id ?? crypto.randomUUID(),
+                    ...input
+                });
+                await emitter.emit('addon.created', addon);
+                return addon;
+            },
+            get: (id) => storage.addons.findById(id),
+            update: async (id, input) => {
+                const addon = await storage.addons.update(id, input);
+                await emitter.emit('addon.updated', addon);
+                return addon;
+            },
+            delete: async (id) => {
+                await storage.addons.delete(id);
+                const addon = await storage.addons.findById(id);
+                if (addon) {
+                    await emitter.emit('addon.deleted', addon);
+                }
+            },
+            getByPlanId: (planId) => storage.addons.findByPlanId(planId),
+            list: (options) => storage.addons.list(options),
+            // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex addon validation and proration calculation logic
+            addToSubscription: async (input) => {
+                const addon = await storage.addons.findById(input.addOnId);
+                if (!addon) {
+                    throw new Error(`Add-on ${input.addOnId} not found`);
+                }
+
+                const subscription = await storage.subscriptions.findById(input.subscriptionId);
+                if (!subscription) {
+                    throw new Error(`Subscription ${input.subscriptionId} not found`);
+                }
+
+                // Check compatibility
+                if (addon.compatiblePlanIds.length > 0 && !addon.compatiblePlanIds.includes(subscription.planId)) {
+                    throw new Error(`Add-on ${input.addOnId} is not compatible with plan ${subscription.planId}`);
+                }
+
+                // Check if already added (if not allowMultiple)
+                if (!addon.allowMultiple) {
+                    const existing = await storage.addons.findSubscriptionAddOn(input.subscriptionId, input.addOnId);
+                    if (existing && existing.status === 'active') {
+                        throw new Error(`Add-on ${input.addOnId} is already attached to subscription`);
+                    }
+                }
+
+                const quantity = input.quantity ?? 1;
+
+                // Check max quantity
+                if (addon.maxQuantity !== null && quantity > addon.maxQuantity) {
+                    throw new Error(`Quantity ${quantity} exceeds max quantity ${addon.maxQuantity} for add-on`);
+                }
+
+                const addToSubscriptionInput: Parameters<typeof storage.addons.addToSubscription>[0] = {
+                    id: crypto.randomUUID(),
+                    subscriptionId: input.subscriptionId,
+                    addOnId: input.addOnId,
+                    quantity,
+                    unitAmount: addon.unitAmount,
+                    currency: addon.currency
+                };
+                if (input.metadata !== undefined) {
+                    addToSubscriptionInput.metadata = input.metadata;
+                }
+                const subscriptionAddOn = await storage.addons.addToSubscription(addToSubscriptionInput);
+
+                await emitter.emit('subscription.addon_added', { subscription, subscriptionAddOn, addon });
+
+                // Calculate proration for recurring add-ons
+                let prorationAmount: number | null = null;
+                if (addon.billingInterval !== 'one_time') {
+                    const now = new Date();
+                    const periodEnd = subscription.currentPeriodEnd;
+                    const periodStart = subscription.currentPeriodStart;
+                    const totalPeriodMs = periodEnd.getTime() - periodStart.getTime();
+                    const remainingMs = periodEnd.getTime() - now.getTime();
+
+                    if (totalPeriodMs > 0 && remainingMs > 0) {
+                        const ratio = remainingMs / totalPeriodMs;
+                        prorationAmount = Math.round(addon.unitAmount * quantity * ratio);
+                    }
+                }
+
+                return {
+                    subscriptionAddOn,
+                    prorationAmount
+                };
+            },
+            removeFromSubscription: async (subscriptionId, addOnId) => {
+                const subscriptionAddOn = await storage.addons.findSubscriptionAddOn(subscriptionId, addOnId);
+                if (!subscriptionAddOn) {
+                    throw new Error(`Add-on ${addOnId} is not attached to subscription ${subscriptionId}`);
+                }
+
+                const subscription = await storage.subscriptions.findById(subscriptionId);
+                const addon = await storage.addons.findById(addOnId);
+
+                await storage.addons.removeFromSubscription(subscriptionId, addOnId);
+
+                if (subscription && addon) {
+                    await emitter.emit('subscription.addon_removed', { subscription, subscriptionAddOn, addon });
+                }
+            },
+            updateSubscriptionAddOn: async (subscriptionId, addOnId, input) => {
+                const addon = await storage.addons.findById(addOnId);
+                if (addon && input.quantity !== undefined) {
+                    if (addon.maxQuantity !== null && input.quantity > addon.maxQuantity) {
+                        throw new Error(`Quantity ${input.quantity} exceeds max quantity ${addon.maxQuantity} for add-on`);
+                    }
+                }
+
+                const subscriptionAddOn = await storage.addons.updateSubscriptionAddOn(subscriptionId, addOnId, input);
+
+                const subscription = await storage.subscriptions.findById(subscriptionId);
+                if (subscription && addon) {
+                    await emitter.emit('subscription.addon_updated', { subscription, subscriptionAddOn, addon });
+                }
+
+                return subscriptionAddOn;
+            },
+            getBySubscriptionId: (subscriptionId) => storage.addons.findBySubscriptionId(subscriptionId),
+            getSubscriptionAddOn: (subscriptionId, addOnId) => storage.addons.findSubscriptionAddOn(subscriptionId, addOnId)
+        };
     }
 
     on<K extends keyof QZPayEventMap>(eventType: K, handler: QZPayTypedEventHandler<K>): () => void {

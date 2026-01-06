@@ -123,25 +123,27 @@ export function qzpayGetCheckoutMinutesRemaining(session: QZPayCheckoutSession):
 // ==================== Validation Helpers ====================
 
 /**
- * Validate checkout input
+ * Validate checkout mode
  */
-export function qzpayValidateCheckoutInput(
-    input: QZPayCreateCheckoutInput,
-    options: QZPayCheckoutOptions = {}
-): QZPayCheckoutValidationResult {
-    const errors: string[] = [];
-
-    // Check mode
+function validateMode(input: QZPayCreateCheckoutInput, options: QZPayCheckoutOptions, errors: string[]): void {
     if (options.allowedModes && !options.allowedModes.includes(input.mode)) {
         errors.push(`Checkout mode '${input.mode}' is not allowed`);
     }
+}
 
-    // Check customer requirement
+/**
+ * Validate customer requirements
+ */
+function validateCustomer(input: QZPayCreateCheckoutInput, options: QZPayCheckoutOptions, errors: string[]): void {
     if (options.requireCustomer && !input.customerId && !input.customerEmail) {
         errors.push('Customer ID or email is required');
     }
+}
 
-    // Check line items
+/**
+ * Validate line items
+ */
+function validateLineItems(input: QZPayCreateCheckoutInput, errors: string[]): void {
     if (!input.lineItems || input.lineItems.length === 0) {
         errors.push('At least one line item is required');
     }
@@ -156,8 +158,12 @@ export function qzpayValidateCheckoutInput(
             errors.push(`Line item ${i + 1}: Quantity must be at least 1`);
         }
     }
+}
 
-    // Check URLs
+/**
+ * Validate URLs
+ */
+function validateUrls(input: QZPayCreateCheckoutInput, errors: string[]): void {
     if (!input.successUrl) {
         errors.push('Success URL is required');
     } else if (!isValidUrl(input.successUrl)) {
@@ -169,13 +175,33 @@ export function qzpayValidateCheckoutInput(
     } else if (!isValidUrl(input.cancelUrl)) {
         errors.push('Cancel URL is not a valid URL');
     }
+}
 
-    // Check subscription mode requirements
+/**
+ * Validate subscription mode specific requirements
+ */
+function validateSubscriptionMode(input: QZPayCreateCheckoutInput, errors: string[]): void {
     if (input.mode === 'subscription') {
         if (input.lineItems.length !== 1) {
             errors.push('Subscription mode requires exactly one line item');
         }
     }
+}
+
+/**
+ * Validate checkout input
+ */
+export function qzpayValidateCheckoutInput(
+    input: QZPayCreateCheckoutInput,
+    options: QZPayCheckoutOptions = {}
+): QZPayCheckoutValidationResult {
+    const errors: string[] = [];
+
+    validateMode(input, options, errors);
+    validateCustomer(input, options, errors);
+    validateLineItems(input, errors);
+    validateUrls(input, errors);
+    validateSubscriptionMode(input, errors);
 
     return {
         valid: errors.length === 0,

@@ -35,7 +35,15 @@ export const QZPAY_BILLING_EVENT = {
     // Vendor events (marketplace)
     VENDOR_CREATED: 'vendor.created',
     VENDOR_UPDATED: 'vendor.updated',
-    VENDOR_PAYOUT: 'vendor.payout'
+    VENDOR_PAYOUT: 'vendor.payout',
+
+    // Add-on events
+    ADDON_CREATED: 'addon.created',
+    ADDON_UPDATED: 'addon.updated',
+    ADDON_DELETED: 'addon.deleted',
+    SUBSCRIPTION_ADDON_ADDED: 'subscription.addon_added',
+    SUBSCRIPTION_ADDON_REMOVED: 'subscription.addon_removed',
+    SUBSCRIPTION_ADDON_UPDATED: 'subscription.addon_updated'
 } as const;
 
 export type QZPayBillingEvent = (typeof QZPAY_BILLING_EVENT)[keyof typeof QZPAY_BILLING_EVENT];

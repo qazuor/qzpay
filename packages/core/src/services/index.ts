@@ -33,3 +33,5 @@ export * from './payment-method.service.js';
 export * from './resilience.service.js';
 // Security service helpers (rate limiting, idempotency, IP restrictions)
 export * from './security.service.js';
+// Usage service helpers (metering, aggregation, billing)
+export * from './usage.service.js';
