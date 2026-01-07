@@ -12,6 +12,13 @@ import {
     qzpayCreateSubscriptionWithHelpers
 } from './helpers/subscription-with-helpers.js';
 import { qzpayCalculateSubscriptionProration } from './helpers/subscription.helper.js';
+import {
+    qzpayCalculateChurnMetrics,
+    qzpayCalculateDashboardMetrics,
+    qzpayCalculateMrr,
+    qzpayCalculateRevenueMetrics,
+    qzpayCalculateSubscriptionMetrics
+} from './services/metrics.service.js';
 import type {
     QZPayAddOn,
     QZPayAddSubscriptionAddOnResult,
@@ -23,10 +30,20 @@ import type { QZPayCustomerEntitlement } from './types/entitlements.types.js';
 import type { QZPayEventMap, QZPayTypedEventHandler } from './types/events.types.js';
 import type { QZPayInvoice } from './types/invoice.types.js';
 import type { QZPayCustomerLimit } from './types/limits.types.js';
+import type { QZPayLogger } from './types/logger.types.js';
+import type {
+    QZPayChurnMetrics,
+    QZPayMetrics,
+    QZPayMetricsQuery,
+    QZPayMrrMetrics,
+    QZPayRevenueMetrics,
+    QZPaySubscriptionMetrics
+} from './types/metrics.types.js';
 import type { QZPayPayment } from './types/payment.types.js';
 import type { QZPayPlan, QZPayPrice } from './types/plan.types.js';
 import type { QZPayPromoCode } from './types/promo-code.types.js';
 import type { QZPaySubscription } from './types/subscription.types.js';
+import { createDefaultLogger } from './utils/default-logger.js';
 
 /**
  * Subscription service input types
@@ -177,6 +194,12 @@ export interface QZPayBillingConfig {
               retryIntervalDays?: number | undefined;
           }
         | undefined;
+
+    /**
+     * Logger instance for structured logging
+     * If not provided, uses a default console-based logger
+     */
+    logger?: QZPayLogger | undefined;
 }
 
 /**
@@ -447,10 +470,40 @@ export interface QZPayLimitCheckResult {
 }
 
 /**
- * Metrics service interface (placeholder for Phase 2+)
+ * Metrics service interface
+ *
+ * Provides methods for calculating business metrics including MRR,
+ * subscription statistics, revenue analysis, and churn rates.
  */
 export interface QZPayMetricsService {
-    readonly _placeholder?: never;
+    /**
+     * Get Monthly Recurring Revenue metrics
+     * @param query Optional query parameters for filtering
+     */
+    getMrr(query?: QZPayMetricsQuery): Promise<QZPayMrrMetrics>;
+
+    /**
+     * Get subscription metrics by status
+     */
+    getSubscriptionMetrics(): Promise<QZPaySubscriptionMetrics>;
+
+    /**
+     * Get revenue metrics for a period
+     * @param query Query parameters with date range
+     */
+    getRevenueMetrics(query: QZPayMetricsQuery): Promise<QZPayRevenueMetrics>;
+
+    /**
+     * Get churn metrics for a period
+     * @param query Query parameters with date range
+     */
+    getChurnMetrics(query: QZPayMetricsQuery): Promise<QZPayChurnMetrics>;
+
+    /**
+     * Get all dashboard metrics aggregated
+     * @param query Optional query parameters for filtering
+     */
+    getDashboard(query?: QZPayMetricsQuery): Promise<QZPayMetrics>;
 }
 
 /**
@@ -615,6 +668,11 @@ export interface QZPayBilling {
      * Get the payment adapter
      */
     getPaymentAdapter: () => QZPayPaymentAdapter | undefined;
+
+    /**
+     * Get the logger instance
+     */
+    getLogger: () => QZPayLogger;
 }
 
 /**
@@ -628,6 +686,8 @@ class QZPayBillingImpl implements QZPayBilling {
     private readonly emitter: QZPayEventEmitter;
     private readonly planMap: Map<string, QZPayPlan>;
     private readonly gracePeriodConfig: QZPayGracePeriodConfig;
+    private readonly defaultCurrency: QZPayCurrency;
+    private readonly logger: QZPayLogger;
 
     constructor(config: QZPayBillingConfig) {
         this.storage = config.storage;
@@ -635,6 +695,8 @@ class QZPayBillingImpl implements QZPayBilling {
         this.configPlans = config.plans ?? [];
         this.livemode = config.livemode ?? false;
         this.gracePeriodConfig = { gracePeriodDays: config.gracePeriodDays ?? 7 };
+        this.defaultCurrency = config.defaultCurrency ?? 'USD';
+        this.logger = config.logger ?? createDefaultLogger({ level: this.livemode ? 'info' : 'debug' });
 
         const emitterOptions: QZPayEventEmitterOptions = {
             livemode: this.livemode
@@ -642,6 +704,8 @@ class QZPayBillingImpl implements QZPayBilling {
         this.emitter = new QZPayEventEmitter(emitterOptions);
 
         this.planMap = new Map(this.configPlans.map((plan) => [plan.id, plan]));
+
+        this.logger.info('QZPayBilling initialized', { livemode: this.livemode });
     }
 
     get customers(): QZPayCustomerService {
@@ -1088,7 +1152,105 @@ class QZPayBillingImpl implements QZPayBilling {
     }
 
     get metrics(): QZPayMetricsService {
-        return {};
+        const storage = this.storage;
+        const configPlans = this.configPlans;
+        const defaultCurrency = this.defaultCurrency;
+
+        // Helper to get price for a subscription
+        const getPriceForSubscription = async (subscription: QZPaySubscription): Promise<QZPayPrice | null> => {
+            // Try to get prices from plan
+            const prices = await storage.prices.findByPlanId(subscription.planId);
+            if (prices.length === 0) {
+                return null;
+            }
+
+            // Find matching price by interval
+            const matchingPrice = prices.find(
+                (p: QZPayPrice) => p.billingInterval === subscription.interval && p.intervalCount === subscription.intervalCount
+            );
+
+            return matchingPrice ?? prices[0] ?? null;
+        };
+
+        // Sync wrapper for price lookup (caches results)
+        const priceCache = new Map<string, QZPayPrice | null>();
+        const getPriceSync = (subscription: QZPaySubscription): QZPayPrice | null => {
+            // Check config plans first
+            const configPlan = configPlans.find((p: QZPayPlan) => p.id === subscription.planId);
+            if (configPlan?.prices?.length) {
+                const matchingPrice = configPlan.prices.find(
+                    (p: QZPayPrice) => p.billingInterval === subscription.interval && p.intervalCount === subscription.intervalCount
+                );
+                return matchingPrice ?? configPlan.prices[0] ?? null;
+            }
+
+            // Return cached value or null (async loading handled separately)
+            return priceCache.get(subscription.id) ?? null;
+        };
+
+        return {
+            getMrr: async (query?: QZPayMetricsQuery) => {
+                const result = await storage.subscriptions.list({ limit: 10000 });
+                const subscriptions = result.data;
+
+                // Preload prices
+                for (const sub of subscriptions) {
+                    if (!priceCache.has(sub.id)) {
+                        const price = await getPriceForSubscription(sub);
+                        priceCache.set(sub.id, price);
+                    }
+                }
+
+                const currency = query?.currency ?? defaultCurrency;
+                return qzpayCalculateMrr(subscriptions, getPriceSync, currency);
+            },
+
+            getSubscriptionMetrics: async () => {
+                const result = await storage.subscriptions.list({ limit: 10000 });
+                return qzpayCalculateSubscriptionMetrics(result.data);
+            },
+
+            getRevenueMetrics: async (query: QZPayMetricsQuery) => {
+                const result = await storage.payments.list({ limit: 10000 });
+                const currency = query.currency ?? defaultCurrency;
+                return qzpayCalculateRevenueMetrics(result.data, { start: query.startDate, end: query.endDate }, currency);
+            },
+
+            getChurnMetrics: async (query: QZPayMetricsQuery) => {
+                const result = await storage.subscriptions.list({ limit: 10000 });
+                const subscriptions = result.data;
+
+                // Preload prices
+                for (const sub of subscriptions) {
+                    if (!priceCache.has(sub.id)) {
+                        const price = await getPriceForSubscription(sub);
+                        priceCache.set(sub.id, price);
+                    }
+                }
+
+                const currency = query.currency ?? defaultCurrency;
+                return qzpayCalculateChurnMetrics(subscriptions, getPriceSync, { start: query.startDate, end: query.endDate }, currency);
+            },
+
+            getDashboard: async (query?: QZPayMetricsQuery) => {
+                const [subsResult, paymentsResult] = await Promise.all([
+                    storage.subscriptions.list({ limit: 10000 }),
+                    storage.payments.list({ limit: 10000 })
+                ]);
+
+                const subscriptions = subsResult.data;
+
+                // Preload prices
+                for (const sub of subscriptions) {
+                    if (!priceCache.has(sub.id)) {
+                        const price = await getPriceForSubscription(sub);
+                        priceCache.set(sub.id, price);
+                    }
+                }
+
+                return qzpayCalculateDashboardMetrics(subscriptions, paymentsResult.data, getPriceSync, query);
+            }
+        };
     }
 
     get addons(): QZPayAddOnService {
@@ -1253,6 +1415,10 @@ class QZPayBillingImpl implements QZPayBilling {
 
     getPaymentAdapter(): QZPayPaymentAdapter | undefined {
         return this.paymentAdapter;
+    }
+
+    getLogger(): QZPayLogger {
+        return this.logger;
     }
 }
 

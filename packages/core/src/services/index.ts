@@ -35,3 +35,7 @@ export * from './resilience.service.js';
 export * from './security.service.js';
 // Usage service helpers (metering, aggregation, billing)
 export * from './usage.service.js';
+// Metrics service helpers (MRR, churn, revenue, subscriptions)
+export * from './metrics.service.js';
+// Health check service
+export * from './health.service.js';

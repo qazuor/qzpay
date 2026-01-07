@@ -16,6 +16,8 @@ export * from './payment.types.js';
 export * from './payment-method.types.js';
 export * from './plan.types.js';
 export * from './promo-code.types.js';
+export * from './setup-intent.types.js';
 export * from './subscription.types.js';
 export * from './usage.types.js';
 export * from './vendor.types.js';
+export * from './logger.types.js';

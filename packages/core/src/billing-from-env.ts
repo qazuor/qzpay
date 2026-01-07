@@ -99,6 +99,14 @@ function parseEnvNumber(value: string | undefined, defaultValue: number): number
 
 /**
  * Detect configuration from environment variables
+ *
+ * @param env Environment object to read from (e.g., process.env)
+ *
+ * @example
+ * ```typescript
+ * const detected = qzpayDetectEnvConfig(process.env);
+ * console.log(detected.providers); // ['stripe'] or ['mercadopago']
+ * ```
  */
 export function qzpayDetectEnvConfig(env: Record<string, string | undefined> = {}): QZPayEnvDetectionResult {
     const providers: QZPayDetectedProvider[] = [];
@@ -149,20 +157,33 @@ export function qzpayDetectEnvConfig(env: Record<string, string | undefined> = {
 /**
  * Create QZPayBilling instance with auto-detected configuration from environment
  *
+ * Note: You must explicitly pass the environment object. This package does not
+ * access process.env directly to remain runtime-agnostic.
+ *
  * @example
  * ```typescript
  * import { createQZPayBillingFromEnv } from '@qazuor/qzpay-core';
  * import { createQZPayDrizzleStorage } from '@qazuor/qzpay-drizzle';
  *
- * // Auto-detects STRIPE_SECRET_KEY, MP_ACCESS_TOKEN, etc.
+ * // Pass process.env explicitly - the package never reads it directly
  * const billing = createQZPayBillingFromEnv({
  *   storage: createQZPayDrizzleStorage({ db }),
+ *   env: process.env, // You control what environment is used
  *   plans: PLANS,
+ * });
+ *
+ * // Or with custom env (useful for testing)
+ * const billing = createQZPayBillingFromEnv({
+ *   storage: storage,
+ *   env: {
+ *     STRIPE_SECRET_KEY: 'sk_test_xxx',
+ *     STRIPE_WEBHOOK_SECRET: 'whsec_xxx',
+ *   },
  * });
  * ```
  */
 export function createQZPayBillingFromEnv(config: QZPayBillingFromEnvConfig): QZPayBilling {
-    // Use provided env or fallback to empty (process.env access handled by caller)
+    // Consumer must pass env explicitly - we don't access process.env
     const env = config.env ?? {};
 
     const detected = qzpayDetectEnvConfig(env);
@@ -182,6 +203,14 @@ export function createQZPayBillingFromEnv(config: QZPayBillingFromEnvConfig): QZ
 
 /**
  * Get detected providers from environment (useful for debugging)
+ *
+ * @param env Environment object to read from (e.g., process.env)
+ *
+ * @example
+ * ```typescript
+ * const providers = qzpayGetDetectedProviders(process.env);
+ * console.log(providers); // [{ provider: 'stripe', apiKey: 'sk_...' }]
+ * ```
  */
 export function qzpayGetDetectedProviders(env: Record<string, string | undefined> = {}): QZPayDetectedProvider[] {
     return qzpayDetectEnvConfig(env).providers;
