@@ -15,5 +15,10 @@ export {
     extractMPChargebackEventData,
     // Event utilities
     classifyMPEvent,
-    mpRequiresImmediateAction
+    mpRequiresImmediateAction,
+    // 3D Secure utilities
+    extractMP3DSFromPaymentEvent,
+    isPaymentEventRequires3DS,
+    getMP3DSChallengeUrl,
+    extractMP3DSPaymentInfo
 } from './webhook.adapter.js';

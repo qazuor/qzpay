@@ -239,6 +239,105 @@ export interface MercadoPagoWebhookPayload {
     };
 }
 
+// ==================== 3D Secure Types ====================
+
+/**
+ * 3D Secure mode for card payments
+ */
+export type QZPayMP3DSMode = 'not_supported' | 'optional' | 'mandatory';
+
+/**
+ * 3D Secure configuration for payment creation
+ */
+export interface QZPayMP3DSConfig {
+    /** 3DS mode: not_supported, optional, or mandatory */
+    mode: QZPayMP3DSMode;
+    /** Challenge preference: indicates desired 3DS challenge behavior */
+    challengePreference?: 'no_preference' | 'challenge_requested' | 'challenge_required';
+}
+
+/**
+ * 3D Secure authentication result
+ */
+export interface QZPayMP3DSResult {
+    /** Authentication status */
+    status: 'authenticated' | 'challenge_required' | 'failed' | 'not_required';
+    /** 3DS version used */
+    version?: string | undefined;
+    /** Authentication status from 3DS server */
+    authenticationStatus?: string | undefined;
+    /** Cardholder Authentication Verification Value */
+    cavv?: string | undefined;
+    /** Electronic Commerce Indicator */
+    eci?: string | undefined;
+    /** Transaction ID for 3DS 1.0 */
+    xid?: string | undefined;
+}
+
+/**
+ * Check if a payment requires 3DS authentication
+ */
+export function isMP3DSRequired(status: string, statusDetail: string): boolean {
+    // MercadoPago indicates 3DS required in status_detail
+    return status === 'pending' && statusDetail === 'pending_challenge';
+}
+
+/**
+ * Extract 3DS result from MercadoPago payment response
+ */
+export function extractMP3DSResult(
+    threeDSecureInfo:
+        | {
+              version?: string;
+              authentication_status?: string;
+              cavv?: string;
+              eci?: string;
+              xid?: string;
+          }
+        | null
+        | undefined
+): QZPayMP3DSResult | null {
+    if (!threeDSecureInfo) {
+        return null;
+    }
+
+    const authStatus = threeDSecureInfo.authentication_status?.toLowerCase();
+
+    let status: QZPayMP3DSResult['status'];
+    if (authStatus === 'y' || authStatus === 'a') {
+        status = 'authenticated';
+    } else if (authStatus === 'c') {
+        status = 'challenge_required';
+    } else if (authStatus === 'n' || authStatus === 'r' || authStatus === 'u') {
+        status = 'failed';
+    } else {
+        status = 'not_required';
+    }
+
+    return {
+        status,
+        version: threeDSecureInfo.version,
+        authenticationStatus: threeDSecureInfo.authentication_status,
+        cavv: threeDSecureInfo.cavv,
+        eci: threeDSecureInfo.eci,
+        xid: threeDSecureInfo.xid
+    };
+}
+
+/**
+ * Map QZPay 3DS mode to MercadoPago parameter
+ */
+export function mapQZPayToMP3DSMode(mode: QZPayMP3DSMode): string {
+    switch (mode) {
+        case 'mandatory':
+            return 'mandatory';
+        case 'optional':
+            return 'optional';
+        default:
+            return 'not_supported';
+    }
+}
+
 // ==================== Split Payment Types ====================
 
 /**

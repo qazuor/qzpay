@@ -55,10 +55,13 @@
         "access": "public"
     },
     "dependencies": {
-        "@qazuor/qzpay-core": "workspace:*",
-        "mercadopago": "^2.0.0"
+        "@qazuor/qzpay-core": "workspace:*"
+    },
+    "peerDependencies": {
+        "mercadopago": ">=2.0.0"
     },
     "devDependencies": {
+        "mercadopago": "^2.0.0",
         "typescript": "^5.7.0",
         "tsup": "^8.3.0",
         "vitest": "^2.1.0"

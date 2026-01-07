@@ -7,12 +7,15 @@ import {
     MERCADOPAGO_WEBHOOK_EVENTS,
     MERCADOPAGO_WEBHOOK_EVENTS_EXTENDED,
     type MercadoPagoWebhookPayload,
+    type QZPayMP3DSResult,
     type QZPayMPIPNAction,
     type QZPayMPIPNHandler,
     type QZPayMPIPNHandlerMap,
     type QZPayMPIPNNotification,
     type QZPayMPIPNResult,
-    type QZPayMPIPNType
+    type QZPayMPIPNType,
+    extractMP3DSResult,
+    isMP3DSRequired
 } from '../types.js';
 
 export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapter {
@@ -392,4 +395,102 @@ export function classifyMPEvent(eventType: string): 'payment' | 'subscription' |
 export function mpRequiresImmediateAction(event: QZPayWebhookEvent): boolean {
     const urgentTypes = ['chargebacks.created', 'chargebacks', 'payment.updated'];
     return urgentTypes.some((t) => event.type.includes(t));
+}
+
+// ==================== 3D Secure Helpers ====================
+
+/**
+ * Extract 3D Secure information from a payment webhook event
+ */
+export function extractMP3DSFromPaymentEvent(event: QZPayWebhookEvent): QZPayMP3DSResult | null {
+    const data = event.data as Record<string, unknown>;
+
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const threeDSecureInfo = data['three_ds_info'] as
+        | {
+              version?: string;
+              authentication_status?: string;
+              cavv?: string;
+              eci?: string;
+              xid?: string;
+          }
+        | undefined;
+
+    return extractMP3DSResult(threeDSecureInfo);
+}
+
+/**
+ * Check if a payment event indicates 3DS is required
+ */
+export function isPaymentEventRequires3DS(event: QZPayWebhookEvent): boolean {
+    const data = event.data as Record<string, unknown>;
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const status = data['status'] as string | undefined;
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const statusDetail = data['status_detail'] as string | undefined;
+
+    if (!status || !statusDetail) {
+        return false;
+    }
+
+    return isMP3DSRequired(status, statusDetail);
+}
+
+/**
+ * Get 3DS challenge URL from payment event if available
+ */
+export function getMP3DSChallengeUrl(event: QZPayWebhookEvent): string | null {
+    const data = event.data as Record<string, unknown>;
+
+    // MercadoPago may provide the challenge URL in various locations
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const initPoint = data['init_point'] as string | undefined;
+    if (initPoint) {
+        return initPoint;
+    }
+
+    // Check in three_d_secure_info
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const threeDSInfo = data['three_ds_info'] as { external_resource_url?: string } | undefined;
+    if (threeDSInfo?.external_resource_url) {
+        return threeDSInfo.external_resource_url;
+    }
+
+    // Check point_of_interaction for QR/redirect
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const poi = data['point_of_interaction'] as
+        | {
+              transaction_data?: { ticket_url?: string };
+          }
+        | undefined;
+    if (poi?.transaction_data?.ticket_url) {
+        return poi.transaction_data.ticket_url;
+    }
+
+    return null;
+}
+
+/**
+ * Extract complete 3DS payment information
+ */
+export function extractMP3DSPaymentInfo(event: QZPayWebhookEvent): {
+    paymentId: string;
+    status: string;
+    requires3DS: boolean;
+    challengeUrl: string | null;
+    threeDSecure: QZPayMP3DSResult | null;
+} {
+    const data = event.data as Record<string, unknown>;
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const id = data['id'] as string | undefined;
+    // biome-ignore lint/complexity/useLiteralKeys: index signature
+    const status = (data['status'] as string) ?? 'unknown';
+
+    return {
+        paymentId: id ?? '',
+        status,
+        requires3DS: isPaymentEventRequires3DS(event),
+        challengeUrl: getMP3DSChallengeUrl(event),
+        threeDSecure: extractMP3DSFromPaymentEvent(event)
+    };
 }
