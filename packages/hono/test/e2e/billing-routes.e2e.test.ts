@@ -240,11 +240,11 @@ describe('Billing Routes E2E', () => {
             });
             const { data: subscription } = await createResponse.json();
 
-            // Cancel
+            // Cancel immediately (cancelAtPeriodEnd: false)
             const cancelResponse = await routes.request(`/billing/subscriptions/${subscription.id}/cancel`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
+                body: JSON.stringify({ cancelAtPeriodEnd: false })
             });
 
             expect(cancelResponse.status).toBe(200);
@@ -314,7 +314,8 @@ describe('Billing Routes E2E', () => {
             const data = await response.json();
             expect(data.success).toBe(true);
             expect(data.data.amount).toBe(5000);
-            expect(data.data.currency).toBe('usd');
+            // Currency is normalized to uppercase by Zod validation
+            expect(data.data.currency).toBe('USD');
         });
 
         it('should get payment by ID', async () => {

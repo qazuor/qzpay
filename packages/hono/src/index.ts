@@ -81,3 +81,29 @@ export { createWebhookMiddleware, createWebhookResponse, getWebhookEvent } from 
 
 // Routes
 export { createWebhookRouter, createSimpleWebhookHandler, createBillingRoutes } from './routes/index.js';
+
+// Rate limiting
+export {
+    // Middleware factories
+    createRateLimitMiddleware,
+    createApiKeyRateLimiter,
+    createCustomerRateLimiter,
+    createStrictRateLimiter,
+    // Store implementation
+    QZPayMemoryRateLimitStore,
+    // Key generators
+    rateLimitKeyByIP,
+    rateLimitKeyByApiKey,
+    rateLimitKeyByCustomerId
+} from './middleware/index.js';
+
+// Rate limiting types
+export type {
+    QZPayRateLimitStore,
+    QZPayRateLimitEntry,
+    QZPayRateLimitInfo,
+    QZPayRateLimitConfig
+} from './middleware/index.js';
+
+// Validators (for extension by users)
+export * from './validators/index.js';

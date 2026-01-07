@@ -71,7 +71,7 @@ describe('Billing Routes', () => {
             const response = await routes.request('/billing/customers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: 'new@example.com' })
+                body: JSON.stringify({ email: 'new@example.com', name: 'New Customer' })
             });
             const data = await response.json();
 
@@ -169,18 +169,18 @@ describe('Billing Routes', () => {
 
         it('should handle create errors', async () => {
             const mockBilling = createMockBilling();
-            vi.mocked(mockBilling.customers.create).mockRejectedValue(new Error('Validation error'));
+            vi.mocked(mockBilling.customers.create).mockRejectedValue(new Error('Service error'));
 
             const routes = createBillingRoutes({ billing: mockBilling });
             const response = await routes.request('/billing/customers', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: 'test@example.com' })
+                body: JSON.stringify({ email: 'test@example.com', name: 'Test Customer' })
             });
             const data = await response.json();
 
             expect(response.status).toBe(500);
-            expect(data.error.message).toBe('Validation error');
+            expect(data.error.message).toBe('Service error');
         });
 
         it('should handle update errors', async () => {
@@ -445,7 +445,7 @@ describe('Billing Routes', () => {
             const response = await routes.request('/billing/payments', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: 1000, customerId: 'cus_123' })
+                body: JSON.stringify({ amount: 1000, customerId: 'cus_123', currency: 'usd' })
             });
 
             expect(response.status).toBe(201);
@@ -514,7 +514,7 @@ describe('Billing Routes', () => {
             const response = await routes.request('/billing/payments', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: 1000 })
+                body: JSON.stringify({ amount: 1000, customerId: 'cus_123', currency: 'usd' })
             });
             const data = await response.json();
 
