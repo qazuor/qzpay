@@ -10,6 +10,7 @@ import {
     QZPayStripeCustomerAdapter,
     QZPayStripePaymentAdapter,
     QZPayStripePriceAdapter,
+    QZPayStripeSetupIntentAdapter,
     QZPayStripeSubscriptionAdapter,
     QZPayStripeVendorAdapter,
     QZPayStripeWebhookAdapter
@@ -53,6 +54,7 @@ export class QZPayStripeAdapter implements QZPayPaymentAdapter {
     readonly checkout: QZPayStripeCheckoutAdapter;
     readonly prices: QZPayStripePriceAdapter;
     readonly webhooks: QZPayStripeWebhookAdapter;
+    readonly setupIntents: QZPayStripeSetupIntentAdapter;
     readonly vendors?: QZPayStripeVendorAdapter;
 
     private readonly stripe: Stripe;
@@ -77,6 +79,7 @@ export class QZPayStripeAdapter implements QZPayPaymentAdapter {
         this.checkout = new QZPayStripeCheckoutAdapter(this.stripe);
         this.prices = new QZPayStripePriceAdapter(this.stripe);
         this.webhooks = new QZPayStripeWebhookAdapter(this.stripe, config.webhookSecret);
+        this.setupIntents = new QZPayStripeSetupIntentAdapter(this.stripe);
 
         // Initialize vendor adapter if Connect is configured
         if (connectConfig) {

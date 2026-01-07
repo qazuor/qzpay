@@ -22,7 +22,15 @@ export {
 } from './adapters/index.js';
 
 // Types
-export type { QZPayStripeConfig, QZPayStripeConnectConfig, QZPayStripeWebhookEventType, QZPayStripeWebhookData } from './types.js';
+export type {
+    QZPayStripeConfig,
+    QZPayStripeConnectConfig,
+    QZPayStripeWebhookEventType,
+    QZPayStripeWebhookData,
+    // v2 Marketplace types (prepared)
+    QZPayStripeConnectPaymentOptions,
+    QZPayStripeTransferData
+} from './types.js';
 
 // Re-export Stripe types that consumers might need
 export type { Stripe } from 'stripe';

@@ -54,15 +54,15 @@
         "access": "public"
     },
     "dependencies": {
-        "@qazuor/qzpay-core": "workspace:*",
-        "stripe": "^17.5.0"
-    },
-    "devDependencies": {
-        "typescript": "^5.7.0",
-        "tsup": "^8.3.0",
-        "vitest": "^2.1.0"
+        "@qazuor/qzpay-core": "workspace:*"
     },
     "peerDependencies": {
         "stripe": ">=15.0.0"
+    },
+    "devDependencies": {
+        "stripe": "^17.5.0",
+        "typescript": "^5.7.0",
+        "tsup": "^8.3.0",
+        "vitest": "^2.1.0"
     }
 }

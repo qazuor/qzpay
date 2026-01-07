@@ -39,3 +39,4 @@ export type {
     QZPayStripeEventCategory
 } from './webhook.adapter.js';
 export { QZPayStripeVendorAdapter } from './vendor.adapter.js';
+export { QZPayStripeSetupIntentAdapter, createStripeSetupIntentAdapter } from './setup-intent.adapter.js';
