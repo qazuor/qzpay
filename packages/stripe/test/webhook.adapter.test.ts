@@ -351,7 +351,18 @@ describe('extractStripeEventData', () => {
 });
 
 // Import the helper functions for testing
-import { classifyStripeEvent, requiresImmediateAction } from '../src/adapters/webhook.adapter.js';
+import {
+    classifyStripeEvent,
+    extract3DSDetails,
+    extractDisputeDetails,
+    extractFraudWarningDetails,
+    extractPendingUpdateDetails,
+    isDisputeEvent,
+    isFraudWarningEvent,
+    isPaymentRequires3DS,
+    isPendingUpdateEvent,
+    requiresImmediateAction
+} from '../src/adapters/webhook.adapter.js';
 
 describe('classifyStripeEvent', () => {
     it('should classify subscription events', () => {
@@ -438,5 +449,411 @@ describe('requiresImmediateAction', () => {
             const event = { type, data: {}, created: new Date() };
             expect(requiresImmediateAction(event)).toBe(false);
         }
+    });
+});
+
+describe('isPaymentRequires3DS', () => {
+    it('should return true for payment_intent with requires_action status', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'payment_intent.requires_action',
+            data: { id: 'pi_123', status: 'requires_action' },
+            created: new Date()
+        };
+        expect(isPaymentRequires3DS(event)).toBe(true);
+    });
+
+    it('should return true for payment_intent with requires_confirmation status', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'payment_intent.created',
+            data: { id: 'pi_123', status: 'requires_confirmation' },
+            created: new Date()
+        };
+        expect(isPaymentRequires3DS(event)).toBe(true);
+    });
+
+    it('should return true for setup_intent with requires_action status', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'setup_intent.requires_action',
+            data: { id: 'seti_123', status: 'requires_action' },
+            created: new Date()
+        };
+        expect(isPaymentRequires3DS(event)).toBe(true);
+    });
+
+    it('should return false for payment_intent with succeeded status', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'payment_intent.succeeded',
+            data: { id: 'pi_123', status: 'succeeded' },
+            created: new Date()
+        };
+        expect(isPaymentRequires3DS(event)).toBe(false);
+    });
+
+    it('should return false for non-payment events', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'customer.created',
+            data: { id: 'cus_123', status: 'requires_action' },
+            created: new Date()
+        };
+        expect(isPaymentRequires3DS(event)).toBe(false);
+    });
+});
+
+describe('extract3DSDetails', () => {
+    it('should extract basic 3DS details', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'payment_intent.requires_action',
+            data: {
+                id: 'pi_123',
+                status: 'requires_action',
+                client_secret: 'pi_123_secret_456'
+            },
+            created: new Date()
+        };
+
+        const result = extract3DSDetails(event);
+
+        expect(result.status).toBe('required');
+        expect(result.paymentIntentId).toBe('pi_123');
+        expect(result.clientSecret).toBe('pi_123_secret_456');
+    });
+
+    it('should extract next action redirect URL', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'payment_intent.requires_action',
+            data: {
+                id: 'pi_123',
+                status: 'requires_action',
+                next_action: {
+                    type: 'redirect_to_url',
+                    redirect_to_url: {
+                        url: 'https://stripe.com/3ds'
+                    }
+                }
+            },
+            created: new Date()
+        };
+
+        const result = extract3DSDetails(event);
+
+        expect(result.nextActionType).toBe('redirect_to_url');
+        expect(result.nextActionUrl).toBe('https://stripe.com/3ds');
+    });
+
+    it('should extract use_stripe_sdk authentication flow', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'payment_intent.requires_action',
+            data: {
+                id: 'pi_123',
+                status: 'requires_action',
+                next_action: {
+                    type: 'use_stripe_sdk',
+                    use_stripe_sdk: {
+                        type: 'three_d_secure_redirect'
+                    }
+                }
+            },
+            created: new Date()
+        };
+
+        const result = extract3DSDetails(event);
+
+        expect(result.authenticationFlow).toBe('three_d_secure_redirect');
+    });
+
+    it('should extract outcome from charges', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'payment_intent.succeeded',
+            data: {
+                id: 'pi_123',
+                status: 'succeeded',
+                charges: {
+                    data: [
+                        {
+                            id: 'ch_123',
+                            outcome: {
+                                network_status: 'approved_by_network',
+                                risk_level: 'normal',
+                                risk_score: 25,
+                                seller_message: 'Payment complete'
+                            }
+                        }
+                    ]
+                }
+            },
+            created: new Date()
+        };
+
+        const result = extract3DSDetails(event);
+
+        expect(result.status).toBe('succeeded');
+        expect(result.outcome).toEqual({
+            networkStatus: 'approved_by_network',
+            riskLevel: 'normal',
+            riskScore: 25,
+            sellerMessage: 'Payment complete'
+        });
+    });
+
+    it('should handle all status mappings', () => {
+        const statusMappings = [
+            { stripeStatus: 'requires_action', expectedStatus: 'required' },
+            { stripeStatus: 'requires_confirmation', expectedStatus: 'required' },
+            { stripeStatus: 'succeeded', expectedStatus: 'succeeded' },
+            { stripeStatus: 'canceled', expectedStatus: 'failed' },
+            { stripeStatus: 'requires_payment_method', expectedStatus: 'failed' },
+            { stripeStatus: 'processing', expectedStatus: 'processing' },
+            { stripeStatus: 'unknown_status', expectedStatus: 'unknown' },
+            { stripeStatus: undefined, expectedStatus: 'unknown' }
+        ];
+
+        for (const { stripeStatus, expectedStatus } of statusMappings) {
+            const event = {
+                id: 'evt_123',
+                type: 'payment_intent.test',
+                data: { id: 'pi_123', status: stripeStatus },
+                created: new Date()
+            };
+            const result = extract3DSDetails(event);
+            expect(result.status).toBe(expectedStatus);
+        }
+    });
+});
+
+describe('isDisputeEvent', () => {
+    it('should return true for dispute events', () => {
+        expect(isDisputeEvent({ id: 'evt_1', type: 'charge.dispute.created', data: {}, created: new Date() })).toBe(true);
+        expect(isDisputeEvent({ id: 'evt_1', type: 'charge.dispute.updated', data: {}, created: new Date() })).toBe(true);
+        expect(isDisputeEvent({ id: 'evt_1', type: 'charge.dispute.closed', data: {}, created: new Date() })).toBe(true);
+    });
+
+    it('should return false for non-dispute events', () => {
+        expect(isDisputeEvent({ id: 'evt_1', type: 'charge.succeeded', data: {}, created: new Date() })).toBe(false);
+        expect(isDisputeEvent({ id: 'evt_1', type: 'payment_intent.succeeded', data: {}, created: new Date() })).toBe(false);
+    });
+});
+
+describe('extractDisputeDetails', () => {
+    it('should extract dispute details', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'charge.dispute.created',
+            data: {
+                id: 'dp_123',
+                charge: 'ch_456',
+                payment_intent: 'pi_789',
+                amount: 5000,
+                currency: 'usd',
+                status: 'needs_response',
+                reason: 'fraudulent',
+                is_charge_refundable: true,
+                has_evidence: false,
+                evidence_details: {
+                    due_by: 1704067200
+                },
+                metadata: { order_id: 'ord_123' }
+            },
+            created: new Date()
+        };
+
+        const result = extractDisputeDetails(event);
+
+        expect(result.disputeId).toBe('dp_123');
+        expect(result.chargeId).toBe('ch_456');
+        expect(result.paymentIntentId).toBe('pi_789');
+        expect(result.amount).toBe(5000);
+        expect(result.currency).toBe('usd');
+        expect(result.status).toBe('needs_response');
+        expect(result.reason).toBe('fraudulent');
+        expect(result.isChargeRefundable).toBe(true);
+        expect(result.hasEvidence).toBe(false);
+        expect(result.evidenceDueBy).toEqual(new Date(1704067200 * 1000));
+        expect(result.metadata).toEqual({ order_id: 'ord_123' });
+    });
+
+    it('should handle missing optional fields', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'charge.dispute.created',
+            data: {
+                id: 'dp_123',
+                charge: 'ch_456'
+            },
+            created: new Date()
+        };
+
+        const result = extractDisputeDetails(event);
+
+        expect(result.disputeId).toBe('dp_123');
+        expect(result.chargeId).toBe('ch_456');
+        expect(result.paymentIntentId).toBeUndefined();
+        expect(result.amount).toBe(0);
+        expect(result.evidenceDueBy).toBeUndefined();
+        expect(result.metadata).toBeUndefined();
+    });
+});
+
+describe('isPendingUpdateEvent', () => {
+    it('should return true for pending update events', () => {
+        expect(
+            isPendingUpdateEvent({ id: 'evt_1', type: 'customer.subscription.pending_update_applied', data: {}, created: new Date() })
+        ).toBe(true);
+        expect(
+            isPendingUpdateEvent({ id: 'evt_1', type: 'customer.subscription.pending_update_expired', data: {}, created: new Date() })
+        ).toBe(true);
+    });
+
+    it('should return false for non-pending-update events', () => {
+        expect(isPendingUpdateEvent({ id: 'evt_1', type: 'customer.subscription.created', data: {}, created: new Date() })).toBe(false);
+        expect(isPendingUpdateEvent({ id: 'evt_1', type: 'customer.subscription.updated', data: {}, created: new Date() })).toBe(false);
+    });
+});
+
+describe('extractPendingUpdateDetails', () => {
+    it('should extract pending update details', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'customer.subscription.pending_update_applied',
+            data: {
+                id: 'sub_123',
+                pending_update: {
+                    expires_at: 1704067200,
+                    subscription_items: [{ id: 'si_1', price: 'price_new', quantity: 2 }],
+                    billing_cycle_anchor: 1704153600,
+                    proration_behavior: 'create_prorations',
+                    trial_end: 1704240000
+                }
+            },
+            created: new Date()
+        };
+
+        const result = extractPendingUpdateDetails(event);
+
+        expect(result).not.toBeNull();
+        expect(result?.subscriptionId).toBe('sub_123');
+        expect(result?.expiresAt).toEqual(new Date(1704067200 * 1000));
+        expect(result?.subscriptionItems).toEqual([{ id: 'si_1', priceId: 'price_new', quantity: 2 }]);
+        expect(result?.billingCycleAnchor).toEqual(new Date(1704153600 * 1000));
+        expect(result?.prorationBehavior).toBe('create_prorations');
+        expect(result?.trialEnd).toEqual(new Date(1704240000 * 1000));
+    });
+
+    it('should return null when no pending update', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'customer.subscription.updated',
+            data: {
+                id: 'sub_123'
+            },
+            created: new Date()
+        };
+
+        const result = extractPendingUpdateDetails(event);
+
+        expect(result).toBeNull();
+    });
+
+    it('should handle partial pending update data', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'customer.subscription.pending_update_applied',
+            data: {
+                id: 'sub_123',
+                pending_update: {}
+            },
+            created: new Date()
+        };
+
+        const result = extractPendingUpdateDetails(event);
+
+        expect(result).not.toBeNull();
+        expect(result?.subscriptionId).toBe('sub_123');
+        expect(result?.expiresAt).toBeUndefined();
+        expect(result?.subscriptionItems).toBeUndefined();
+    });
+});
+
+describe('isFraudWarningEvent', () => {
+    it('should return true for fraud warning events', () => {
+        expect(isFraudWarningEvent({ id: 'evt_1', type: 'radar.early_fraud_warning.created', data: {}, created: new Date() })).toBe(true);
+        expect(isFraudWarningEvent({ id: 'evt_1', type: 'radar.early_fraud_warning.updated', data: {}, created: new Date() })).toBe(true);
+    });
+
+    it('should return false for non-fraud events', () => {
+        expect(isFraudWarningEvent({ id: 'evt_1', type: 'charge.succeeded', data: {}, created: new Date() })).toBe(false);
+        expect(isFraudWarningEvent({ id: 'evt_1', type: 'payment_intent.succeeded', data: {}, created: new Date() })).toBe(false);
+    });
+});
+
+describe('extractFraudWarningDetails', () => {
+    it('should extract fraud warning details with string charge', () => {
+        const created = new Date();
+        const event = {
+            id: 'evt_123',
+            type: 'radar.early_fraud_warning.created',
+            data: {
+                id: 'issfr_123',
+                charge: 'ch_456',
+                payment_intent: 'pi_789',
+                fraud_type: 'unauthorized_use_of_card',
+                actionable: true
+            },
+            created
+        };
+
+        const result = extractFraudWarningDetails(event);
+
+        expect(result.warningId).toBe('issfr_123');
+        expect(result.chargeId).toBe('ch_456');
+        expect(result.paymentIntentId).toBe('pi_789');
+        expect(result.fraudType).toBe('unauthorized_use_of_card');
+        expect(result.actionable).toBe(true);
+        expect(result.created).toBe(created);
+    });
+
+    it('should extract fraud warning details with object charge', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'radar.early_fraud_warning.created',
+            data: {
+                id: 'issfr_123',
+                charge: { id: 'ch_789' },
+                fraud_type: 'card_never_received',
+                actionable: false
+            },
+            created: new Date()
+        };
+
+        const result = extractFraudWarningDetails(event);
+
+        expect(result.chargeId).toBe('ch_789');
+        expect(result.paymentIntentId).toBeUndefined();
+    });
+
+    it('should handle missing optional fields', () => {
+        const event = {
+            id: 'evt_123',
+            type: 'radar.early_fraud_warning.created',
+            data: {
+                id: 'issfr_123'
+            },
+            created: new Date()
+        };
+
+        const result = extractFraudWarningDetails(event);
+
+        expect(result.warningId).toBe('issfr_123');
+        expect(result.chargeId).toBe('');
+        expect(result.fraudType).toBe('unknown');
+        expect(result.actionable).toBe(true);
     });
 });
