@@ -1,6 +1,6 @@
 {
     "name": "@qazuor/qzpay-react",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "description": "React hooks and components for QZPay billing library",
     "type": "module",
     "main": "./dist/index.cjs",

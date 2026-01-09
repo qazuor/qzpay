@@ -1,6 +1,6 @@
 {
     "name": "@qazuor/qzpay-core",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "description": "Core types, constants, and utilities for QZPay billing library",
     "type": "module",
     "main": "./dist/index.cjs",
