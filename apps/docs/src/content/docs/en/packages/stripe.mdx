@@ -1,0 +1,420 @@
+---
+title: "@qazuor/qzpay-stripe"
+description: Stripe payment provider adapter
+---
+
+import { Aside, Badge, LinkCard } from '@astrojs/starlight/components';
+
+# @qazuor/qzpay-stripe
+
+<Badge text="Provider" variant="note" />
+
+<LinkCard
+  title="View on npm"
+  href="https://www.npmjs.com/package/@qazuor/qzpay-stripe"
+  description="@qazuor/qzpay-stripe"
+/>
+
+Full Stripe integration for QZPay.
+
+## Installation
+
+```bash
+pnpm add @qazuor/qzpay-stripe stripe
+```
+
+## Setup
+
+```typescript
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+
+const stripeAdapter = createQZPayStripeAdapter({
+  apiKey: process.env.STRIPE_SECRET_KEY!,
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET
+});
+
+// Or use the class directly
+import { QZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+
+const stripeAdapter = new QZPayStripeAdapter({
+  apiKey: process.env.STRIPE_SECRET_KEY!
+});
+```
+
+## Configuration Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `apiKey` | `string` | Yes | Stripe secret key |
+| `webhookSecret` | `string` | No | Webhook signing secret |
+
+## Using with QZPay
+
+```typescript
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+const billing = createQZPayBilling({
+  storage: createQZPayDrizzleAdapter(db),
+  paymentAdapter: createQZPayStripeAdapter({
+    apiKey: process.env.STRIPE_SECRET_KEY!
+  })
+});
+```
+
+## Sub-Adapters
+
+The Stripe adapter provides access to specialized sub-adapters:
+
+```typescript
+stripeAdapter.customers       // QZPayStripeCustomerAdapter
+stripeAdapter.subscriptions   // QZPayStripeSubscriptionAdapter
+stripeAdapter.payments        // QZPayStripePaymentAdapter
+stripeAdapter.checkout        // QZPayStripeCheckoutAdapter
+stripeAdapter.prices          // QZPayStripePriceAdapter
+stripeAdapter.webhooks        // QZPayStripeWebhookAdapter
+stripeAdapter.setupIntents    // QZPayStripeSetupIntentAdapter
+stripeAdapter.vendors         // QZPayStripeVendorAdapter (if Connect configured)
+```
+
+### Customer Adapter
+
+```typescript
+// Create customer in Stripe
+const stripeCustomerId = await stripeAdapter.customers.create({
+  email: 'user@example.com',
+  name: 'John Doe',
+  metadata: { userId: '123' }
+});
+
+// Update customer
+await stripeAdapter.customers.update(stripeCustomerId, {
+  name: 'Jane Doe'
+});
+
+// Delete customer
+await stripeAdapter.customers.delete(stripeCustomerId);
+
+// Retrieve customer details
+const customer = await stripeAdapter.customers.retrieve(stripeCustomerId);
+```
+
+### Subscription Adapter
+
+```typescript
+// Create subscription
+const subscription = await stripeAdapter.subscriptions.create(
+  stripeCustomerId,
+  { trialPeriodDays: 14 },
+  'price_xxx'
+);
+
+// Update subscription
+await stripeAdapter.subscriptions.update(stripeSubscriptionId, {
+  metadata: { tier: 'pro' }
+});
+
+// Cancel subscription
+await stripeAdapter.subscriptions.cancel(stripeSubscriptionId, true); // atPeriodEnd
+
+// Pause subscription (uses pause_collection)
+await stripeAdapter.subscriptions.pause(stripeSubscriptionId);
+
+// Resume subscription
+await stripeAdapter.subscriptions.resume(stripeSubscriptionId);
+```
+
+### Payment Adapter
+
+```typescript
+// Create payment intent
+const payment = await stripeAdapter.payments.create(stripeCustomerId, {
+  amount: 9900,
+  currency: 'usd',
+  paymentMethodId: 'pm_xxx'
+});
+
+// Capture authorized payment
+await stripeAdapter.payments.capture(paymentIntentId);
+
+// Cancel payment
+await stripeAdapter.payments.cancel(paymentIntentId);
+
+// Refund payment
+const refund = await stripeAdapter.payments.refund({
+  amount: 5000,
+  reason: 'requested_by_customer'
+}, paymentIntentId);
+```
+
+### Checkout Adapter
+
+```typescript
+// Create checkout session
+const session = await stripeAdapter.checkout.create({
+  mode: 'subscription',
+  customerId: stripeCustomerId,
+  successUrl: 'https://example.com/success',
+  cancelUrl: 'https://example.com/cancel'
+}, ['price_xxx']);
+
+// Retrieve session
+const session = await stripeAdapter.checkout.retrieve(sessionId);
+
+// Expire session
+await stripeAdapter.checkout.expire(sessionId);
+```
+
+### Setup Intent Adapter
+
+```typescript
+// Create setup intent for saving payment methods
+const setupIntent = await stripeAdapter.setupIntents.create({
+  customerId: stripeCustomerId,
+  usage: 'off_session'
+});
+
+// Confirm setup intent
+await stripeAdapter.setupIntents.confirm({
+  setupIntentId: setupIntent.id,
+  paymentMethodId: 'pm_xxx'
+});
+
+// Cancel setup intent
+await stripeAdapter.setupIntents.cancel(setupIntentId);
+```
+
+### Price Adapter
+
+```typescript
+// Create a product
+const productId = await stripeAdapter.prices.createProduct(
+  'Pro Plan',
+  'Monthly subscription to Pro features'
+);
+
+// Create a price
+const priceId = await stripeAdapter.prices.create({
+  amount: 2900,
+  currency: 'usd',
+  interval: 'month',
+  intervalCount: 1
+}, productId);
+
+// Archive a price
+await stripeAdapter.prices.archive(priceId);
+```
+
+## Webhook Handling
+
+```typescript
+import {
+  mapStripeEventToQZPayEvent,
+  extractStripeEventData
+} from '@qazuor/qzpay-stripe';
+
+// Construct and verify webhook event
+const event = stripeAdapter.webhooks.constructEvent(
+  rawBody,
+  signature
+);
+
+// Verify signature only
+const isValid = stripeAdapter.webhooks.verifySignature(rawBody, signature);
+
+// Map Stripe event to QZPay event type
+const qzpayEventType = mapStripeEventToQZPayEvent(event.type);
+
+// Extract relevant data from event
+const data = extractStripeEventData(event);
+// Returns: { entityType, entityId, customerId?, subscriptionId?, invoiceId? }
+```
+
+### 3D Secure / SCA Support
+
+```typescript
+import {
+  isPaymentRequires3DS,
+  extract3DSDetails
+} from '@qazuor/qzpay-stripe';
+
+// Check if payment requires 3DS
+if (isPaymentRequires3DS(event)) {
+  const details = extract3DSDetails(event);
+  // details.status: 'required' | 'succeeded' | 'failed' | etc.
+  // details.nextActionUrl: URL for 3DS challenge
+  // details.clientSecret: For client-side confirmation
+}
+```
+
+### Dispute Handling
+
+```typescript
+import {
+  isDisputeEvent,
+  extractDisputeDetails
+} from '@qazuor/qzpay-stripe';
+
+if (isDisputeEvent(event)) {
+  const dispute = extractDisputeDetails(event);
+  // Handle dispute
+}
+```
+
+### Pending Update Handling
+
+```typescript
+import {
+  isPendingUpdateEvent,
+  extractPendingUpdateDetails
+} from '@qazuor/qzpay-stripe';
+
+if (isPendingUpdateEvent(event)) {
+  const pendingUpdate = extractPendingUpdateDetails(event);
+  // Handle pending subscription update
+}
+```
+
+### Fraud Warning Handling
+
+```typescript
+import {
+  isFraudWarningEvent,
+  extractFraudWarningDetails
+} from '@qazuor/qzpay-stripe';
+
+if (isFraudWarningEvent(event)) {
+  const fraudWarning = extractFraudWarningDetails(event);
+  // Handle fraud warning
+}
+```
+
+### Event Classification
+
+```typescript
+import {
+  classifyStripeEvent,
+  requiresImmediateAction
+} from '@qazuor/qzpay-stripe';
+
+// Classify event by category
+const category = classifyStripeEvent(event);
+// Returns: 'customer' | 'subscription' | 'payment' | 'invoice' | 'dispute' | etc.
+
+// Check if event requires immediate action
+if (requiresImmediateAction(event)) {
+  // Handle high-priority event immediately
+}
+```
+
+## Stripe Connect (Marketplace)
+
+<Aside type="note">
+Configure Connect credentials for marketplace functionality.
+</Aside>
+
+```typescript
+import { QZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+
+const stripeAdapter = new QZPayStripeAdapter(
+  { apiKey: process.env.STRIPE_SECRET_KEY! },
+  { // Connect config
+    platformAccountId: 'acct_xxx'
+  }
+);
+
+// Create connected account
+const accountId = await stripeAdapter.vendors.createAccount({
+  email: 'vendor@example.com',
+  name: 'Vendor Store'
+});
+
+// Create onboarding link
+const onboardingUrl = await stripeAdapter.vendors.createAccountLink(
+  accountId,
+  'https://example.com/refresh',
+  'https://example.com/return',
+  'account_onboarding'
+);
+
+// Create payout to connected account
+const payoutId = await stripeAdapter.vendors.createPayout(
+  accountId,
+  10000, // amount in cents
+  'usd'
+);
+
+// Create transfer to connected account
+const transferId = await stripeAdapter.vendors.createTransfer(
+  accountId,
+  5000,
+  'usd',
+  paymentIntentId
+);
+```
+
+## Event Mapping
+
+| Stripe Event | QZPay Event |
+|--------------|-------------|
+| `customer.created` | `customer.created` |
+| `customer.updated` | `customer.updated` |
+| `customer.deleted` | `customer.deleted` |
+| `customer.subscription.created` | `subscription.created` |
+| `customer.subscription.updated` | `subscription.updated` |
+| `customer.subscription.deleted` | `subscription.canceled` |
+| `customer.subscription.paused` | `subscription.paused` |
+| `customer.subscription.resumed` | `subscription.resumed` |
+| `customer.subscription.trial_will_end` | `subscription.trial_ending` |
+| `invoice.created` | `invoice.created` |
+| `invoice.paid` | `invoice.paid` |
+| `invoice.payment_failed` | `invoice.payment_failed` |
+| `invoice.voided` | `invoice.voided` |
+| `payment_intent.succeeded` | `payment.succeeded` |
+| `payment_intent.payment_failed` | `payment.failed` |
+| `charge.refunded` | `payment.refunded` |
+| `charge.dispute.created` | `payment.disputed` |
+| `checkout.session.completed` | `checkout.completed` |
+| `checkout.session.expired` | `checkout.expired` |
+
+## Testing
+
+Use Stripe test mode keys for development:
+
+```bash
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+```
+
+### Test Card Numbers
+
+| Card | Behavior |
+|------|----------|
+| `4242424242424242` | Successful payment |
+| `4000000000000002` | Card declined |
+| `4000002500003155` | Requires 3D Secure |
+| `4000000000009995` | Insufficient funds |
+| `4000000000000069` | Expired card |
+
+### Testing Webhooks
+
+```bash
+# Install Stripe CLI
+stripe listen --forward-to localhost:3000/webhooks/stripe
+
+# Trigger test events
+stripe trigger payment_intent.succeeded
+stripe trigger customer.subscription.created
+```
+
+## Accessing Stripe Client
+
+For advanced use cases, access the underlying Stripe client:
+
+```typescript
+const stripe = stripeAdapter.getStripeClient();
+
+// Use native Stripe SDK methods
+const products = await stripe.products.list({ limit: 10 });
+```

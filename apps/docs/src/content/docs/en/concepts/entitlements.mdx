@@ -1,0 +1,175 @@
+---
+title: Entitlements
+description: Feature gating and access control with QZPay
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+# Entitlements
+
+Entitlements control what features and resources customers can access based on their subscription plan.
+
+## Overview
+
+```
+Plan: Pro Monthly
+├── Feature: api_access (boolean)
+├── Feature: export_csv (boolean)
+├── Feature: team_members (limit: 5)
+└── Feature: storage_gb (limit: 100)
+```
+
+## Defining Entitlements
+
+### In Plan Configuration
+
+```typescript
+const plan = {
+  id: 'pro_monthly',
+  name: 'Pro Monthly',
+  entitlements: [
+    { feature: 'api_access', type: 'boolean', value: true },
+    { feature: 'export_csv', type: 'boolean', value: true },
+    { feature: 'team_members', type: 'limit', value: 5 },
+    { feature: 'storage_gb', type: 'limit', value: 100 }
+  ]
+};
+```
+
+## Checking Entitlements
+
+### Boolean Features
+
+```typescript
+const hasApiAccess = await billing.entitlements.check(
+  'cus_123',
+  'api_access'
+);
+
+if (hasApiAccess) {
+  // Allow API access
+}
+```
+
+### Limit Features
+
+Limits are managed through the `limits` service, not `entitlements`:
+
+```typescript
+const teamLimit = await billing.limits.check(
+  'cus_123',
+  'team_members'
+);
+
+if (teamLimit.allowed) {
+  console.log(`Can add ${teamLimit.remaining} more team members`);
+} else {
+  console.log('Team member limit reached');
+}
+```
+
+The `check` method returns:
+```typescript
+{
+  allowed: boolean;      // Whether more can be used
+  currentValue: number;  // Current usage
+  maxValue: number;      // Maximum limit
+  remaining: number;     // Remaining available
+}
+```
+
+## Using with React
+
+```tsx
+import { EntitlementGate } from '@qazuor/qzpay-react';
+
+function Dashboard() {
+  return (
+    <div>
+      <EntitlementGate feature="api_access">
+        <ApiSettings />
+      </EntitlementGate>
+
+      <EntitlementGate
+        feature="export_csv"
+        fallback={<UpgradePrompt feature="CSV Export" />}
+      >
+        <ExportButton />
+      </EntitlementGate>
+    </div>
+  );
+}
+```
+
+## Using with NestJS
+
+```typescript
+import { RequireEntitlement } from '@qazuor/qzpay-nestjs';
+
+@Controller('api')
+export class ApiController {
+  @Get('data')
+  @RequireEntitlement('api_access')
+  async getData() {
+    return { data: '...' };
+  }
+}
+```
+
+## Entitlement Object
+
+```typescript
+interface Entitlement {
+  feature: string;
+  type: 'boolean' | 'limit';
+  value: boolean | number;
+  used?: number; // For limit types
+  remaining?: number; // For limit types
+}
+```
+
+## Usage Tracking
+
+Track usage against limits using the `limits` service:
+
+```typescript
+// Record usage (increment counter)
+await billing.limits.recordUsage('cus_123', 'api_calls', 1);
+
+// Check limit and remaining
+const limit = await billing.limits.check('cus_123', 'api_calls');
+console.log(`Remaining: ${limit.remaining}`);
+
+// Set maximum limit
+await billing.limits.set('cus_123', 'api_calls', 1000);
+
+// Manually increment usage
+await billing.limits.increment('cus_123', 'api_calls', 5);
+```
+
+<Aside type="tip">
+Use usage tracking for metered billing or to enforce soft limits that don't block users but trigger notifications.
+</Aside>
+
+## Plan Comparison
+
+```typescript
+const plans = await billing.plans.list();
+
+// Compare entitlements across plans
+const comparison = plans.map(plan => ({
+  name: plan.name,
+  features: plan.entitlements.reduce((acc, e) => {
+    acc[e.feature] = e.value;
+    return acc;
+  }, {})
+}));
+```
+
+## Best Practices
+
+1. **Define clear feature names** that are self-documenting
+2. **Use boolean for on/off features**, limits for quantitative ones
+3. **Cache entitlement checks** for frequently accessed features
+4. **Provide upgrade prompts** when features are blocked
+5. **Track feature usage** to understand customer needs

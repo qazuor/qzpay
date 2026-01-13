@@ -1,0 +1,598 @@
+---
+title: Troubleshooting
+description: Common issues and solutions when working with QZPay
+---
+
+import { Aside, Steps, Badge, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Troubleshooting
+
+This guide covers common issues you might encounter when using QZPay and how to resolve them.
+
+## Installation Issues
+
+### Symptom: "Cannot find module '@qazuor/qzpay-core'"
+
+**Cause:** The package isn't installed or there's a dependency resolution issue.
+
+**Solution:**
+```bash
+# Clear node_modules and reinstall
+rm -rf node_modules pnpm-lock.yaml
+pnpm install
+
+# Or install the specific package
+pnpm add @qazuor/qzpay-core
+```
+
+### Symptom: TypeScript errors after installation
+
+**Cause:** TypeScript version mismatch or missing type definitions.
+
+**Solution:**
+```bash
+# Ensure TypeScript 5.0+ is installed
+pnpm add -D typescript@latest
+
+# Check tsconfig.json settings
+{
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "strict": true
+  }
+}
+```
+
+## Provider Configuration
+
+### Symptom: "Invalid API key" error with Stripe
+
+**Cause:** Using the wrong API key or mixing test/live keys.
+
+**Solution:**
+1. Verify you're using the correct key type (test vs live)
+2. Check the key format starts with `sk_test_` or `sk_live_`
+3. Ensure the key is properly set in environment variables
+
+```typescript
+// Correct
+const stripe = createQZPayStripeAdapter({
+  apiKey: process.env.STRIPE_SECRET_KEY! // sk_test_xxx or sk_live_xxx
+});
+
+// Wrong - using publishable key
+const stripe = createQZPayStripeAdapter({
+  apiKey: process.env.STRIPE_PUBLISHABLE_KEY! // pk_test_xxx - won't work!
+});
+```
+
+### Symptom: "Webhook signature verification failed"
+
+**Cause:** Webhook secret mismatch or payload manipulation.
+
+**Solution:**
+<Steps>
+1. Verify the webhook secret matches your Stripe dashboard
+2. Ensure you're passing the raw body (not parsed JSON)
+3. Check that the signature header is being passed correctly
+</Steps>
+
+```typescript
+// Correct - raw body
+app.post('/webhooks/stripe', express.raw({ type: 'application/json' }), handler);
+
+// Wrong - parsed body
+app.post('/webhooks/stripe', express.json(), handler); // Signature will fail!
+```
+
+### Symptom: MercadoPago "access_denied" error
+
+**Cause:** Invalid credentials or insufficient permissions.
+
+**Solution:**
+1. Regenerate credentials in MercadoPago developer dashboard
+2. Ensure the application has the required permissions
+3. Check you're using production credentials in production
+
+## Database Issues
+
+### Symptom: "Table does not exist" error
+
+**Cause:** Database migrations haven't been run.
+
+**Solution:**
+```bash
+# Run migrations using Drizzle
+pnpm drizzle-kit push
+```
+
+### Symptom: "Foreign key constraint failed"
+
+**Cause:** Trying to create a subscription for a non-existent customer.
+
+**Solution:**
+```typescript
+// Always create customer first
+const customer = await billing.customers.create({
+  email: 'user@example.com'
+});
+
+// Then create subscription with customer ID
+const subscription = await billing.subscriptions.create({
+  customerId: customer.id,
+  planId: 'pro_monthly'
+});
+```
+
+## Payment Error Codes
+
+### Stripe Card Errors
+
+| Error Code | Cause | User Message |
+|------------|-------|--------------|
+| `card_declined` | Card was declined | Please try a different card |
+| `insufficient_funds` | Not enough funds | Please use a different payment method |
+| `expired_card` | Card has expired | Please update your card details |
+| `incorrect_cvc` | CVC is incorrect | Please check your security code |
+| `processing_error` | Processing failed | Please try again |
+
+```typescript
+import { QZPayPaymentError } from '@qazuor/qzpay-core';
+
+try {
+  await billing.payments.process({
+    customerId,
+    amount: 9900,
+    currency: 'usd',
+    paymentMethodId: 'pm_xxx'
+  });
+} catch (error) {
+  if (error instanceof QZPayPaymentError) {
+    switch (error.code) {
+      case 'card_declined':
+        return { error: 'Your card was declined. Please try another card.' };
+      case 'insufficient_funds':
+        return { error: 'Insufficient funds. Please try a different payment method.' };
+      case 'expired_card':
+        return { error: 'Your card has expired. Please update your payment method.' };
+      default:
+        return { error: 'Payment failed. Please try again.' };
+    }
+  }
+}
+```
+
+### MercadoPago Rejection Codes
+
+| Code | Cause | Solution |
+|------|-------|----------|
+| `cc_rejected_bad_filled_card_number` | Invalid card number | Ask user to re-enter card |
+| `cc_rejected_bad_filled_date` | Invalid expiration date | Ask user to check date |
+| `cc_rejected_bad_filled_security_code` | Invalid CVV | Ask user to verify CVV |
+| `cc_rejected_card_disabled` | Card is disabled | User must contact bank |
+| `cc_rejected_call_for_authorize` | Requires authorization | User must call bank |
+| `cc_rejected_duplicated_payment` | Duplicate payment | Wait, payment may have succeeded |
+| `cc_rejected_high_risk` | High risk transaction | Try different card |
+| `cc_rejected_insufficient_amount` | Insufficient funds | Use different card |
+| `cc_rejected_max_attempts` | Too many attempts | Wait and retry later |
+
+## Subscription Issues
+
+### Symptom: "Plan not found" when creating subscription
+
+**Cause:** Plan ID doesn't exist in storage.
+
+**Solution:**
+```typescript
+// Verify plan exists before creating subscription
+const plan = await billing.plans.get('pro_monthly');
+if (!plan) {
+  throw new Error('Plan not found');
+}
+
+// Create with valid plan
+await billing.subscriptions.create({
+  customerId,
+  planId: plan.id
+});
+```
+
+### Symptom: Subscription status not updating
+
+**Cause:** Webhooks not configured or not being processed.
+
+**Solution:**
+1. Verify webhook endpoint is publicly accessible
+2. Check webhook logs in provider dashboard
+3. Ensure webhook handler is processing events
+
+```typescript
+import { createWebhookRouter } from '@qazuor/qzpay-hono';
+
+const webhookRouter = createWebhookRouter({
+  billing,
+  paymentAdapter: stripeAdapter,
+  handlers: {
+    'customer.subscription.updated': async (c, event) => {
+      console.log('Subscription updated:', event.data.object.id);
+    }
+  }
+});
+```
+
+### Symptom: Cannot pause subscription
+
+**Cause:** Subscription is not in an active state.
+
+**Solution:**
+```typescript
+const sub = await billing.subscriptions.get(subscriptionId);
+
+// Only active subscriptions can be paused
+if (sub.isActive()) {
+  await billing.subscriptions.pause(subscriptionId);
+} else {
+  console.log('Cannot pause subscription in status:', sub.status);
+}
+```
+
+### Symptom: Cannot cancel subscription
+
+**Cause:** Subscription is already canceled.
+
+**Solution:**
+```typescript
+const sub = await billing.subscriptions.get(subscriptionId);
+
+if (sub.isCanceled()) {
+  return { error: 'Subscription is already canceled' };
+}
+
+await billing.subscriptions.cancel(subscriptionId, { atPeriodEnd: true });
+```
+
+## Invoice Issues
+
+### Symptom: "Invoice cannot be finalized"
+
+**Cause:** Invoice is not in draft status or has no line items.
+
+**Solution:**
+```typescript
+const invoice = await billing.invoices.get(invoiceId);
+
+// Check status
+if (invoice.status !== 'draft') {
+  throw new Error(`Cannot finalize invoice in status: ${invoice.status}`);
+}
+
+// Ensure it has line items
+if (!invoice.lines || invoice.lines.length === 0) {
+  throw new Error('Invoice must have at least one line item');
+}
+
+await billing.invoices.finalize(invoiceId);
+```
+
+### Symptom: "Cannot void paid invoice"
+
+**Cause:** Trying to void an invoice that has already been paid.
+
+**Solution:**
+```typescript
+const invoice = await billing.invoices.get(invoiceId);
+
+if (invoice.status === 'paid') {
+  // Use refund instead
+  await billing.payments.refund({
+    paymentId: invoice.paymentId,
+    reason: 'requested_by_customer'
+  });
+} else if (invoice.status === 'open') {
+  await billing.invoices.void(invoiceId);
+}
+```
+
+## Promo Code Issues
+
+### Symptom: "Promo code is not active"
+
+**Cause:** Code has been deactivated.
+
+**Solution:**
+```typescript
+const code = await billing.promoCodes.get('SUMMER50');
+
+if (!code.active) {
+  return { error: 'This promo code is no longer active' };
+}
+```
+
+### Symptom: "Promo code has expired"
+
+**Cause:** Code's validUntil date has passed.
+
+**Solution:**
+```typescript
+const code = await billing.promoCodes.get('SUMMER50');
+
+if (code.validUntil && code.validUntil < new Date()) {
+  return { error: 'This promo code has expired' };
+}
+```
+
+### Symptom: "Promo code has reached max redemptions"
+
+**Cause:** Maximum usage limit reached.
+
+**Solution:**
+```typescript
+const code = await billing.promoCodes.get('SUMMER50');
+
+if (code.maxRedemptions && code.timesRedeemed >= code.maxRedemptions) {
+  return { error: 'This promo code is no longer available' };
+}
+```
+
+### Symptom: "Currency does not match"
+
+**Cause:** Fixed-amount discount with different currency than the purchase.
+
+**Solution:**
+```typescript
+// Fixed amount discounts must match currency
+const code = await billing.promoCodes.get('FLAT10');
+
+if (code.discountType === 'fixed_amount' && code.currency !== purchaseCurrency) {
+  return { error: 'This promo code cannot be used with your currency' };
+}
+```
+
+## Validation Errors
+
+### Symptom: "Invalid amount" error
+
+**Cause:** Amount is negative, not an integer, or exceeds maximum.
+
+**Solution:**
+```typescript
+// Amounts must be positive integers in cents
+// Maximum: 99,999,999 cents ($999,999.99)
+
+// Wrong
+await billing.payments.process({ amount: 99.99 }); // Not in cents!
+await billing.payments.process({ amount: -100 }); // Negative!
+
+// Correct
+await billing.payments.process({ amount: 9999 }); // $99.99 in cents
+```
+
+### Symptom: "Metadata validation failed"
+
+**Cause:** Metadata exceeds limits.
+
+**Solution:**
+```typescript
+// Metadata limits:
+// - Maximum 50 keys
+// - Key length: 1-40 characters
+// - Value length: max 500 characters
+// - Only string, number, boolean values
+
+// Wrong
+await billing.customers.create({
+  email: 'user@example.com',
+  metadata: {
+    veryLongKeyNameThatExceedsFortyCharactersLimit: 'value', // Too long
+    nested: { foo: 'bar' } // Objects not allowed
+  }
+});
+
+// Correct
+await billing.customers.create({
+  email: 'user@example.com',
+  metadata: {
+    userId: 'usr_123',
+    source: 'marketing_campaign'
+  }
+});
+```
+
+## Webhook Issues
+
+### Symptom: Webhook signature invalid (Stripe)
+
+**Causes and solutions:**
+
+<Tabs>
+  <TabItem label="Raw Body">
+```typescript
+// Ensure raw body is passed, not parsed JSON
+import { Hono } from 'hono';
+
+const app = new Hono();
+
+// Don't use bodyParser before webhook route
+app.post('/webhooks/stripe', async (c) => {
+  const rawBody = await c.req.text(); // Get raw body
+  const signature = c.req.header('stripe-signature');
+
+  const event = stripeAdapter.webhooks.constructEvent(rawBody, signature);
+});
+```
+  </TabItem>
+  <TabItem label="Signature Format">
+```typescript
+// Stripe signature format: t=timestamp,v1=hash,v0=hash
+// Common issues:
+// - Missing timestamp: signature too old (>5 min)
+// - Altered payload: hash mismatch
+// - Wrong secret: hash mismatch
+
+const isValid = stripeAdapter.webhooks.verifySignature(rawBody, signature);
+if (!isValid) {
+  return c.json({ error: 'Invalid signature' }, 400);
+}
+```
+  </TabItem>
+</Tabs>
+
+### Symptom: Webhook signature invalid (MercadoPago)
+
+**Cause:** MercadoPago uses HMAC-SHA256 with a specific format.
+
+**Solution:**
+```typescript
+// MercadoPago signature format: ts=timestamp,v1=hmac
+// The signature is computed from: id:{payment_id};request-id:{timestamp};ts:{timestamp};
+
+// Ensure webhook secret is configured
+const mpAdapter = createQZPayMercadoPagoAdapter({
+  accessToken: process.env.MP_ACCESS_TOKEN!,
+  webhookSecret: process.env.MP_WEBHOOK_SECRET! // Required for verification
+});
+```
+
+### Symptom: Webhook events not being received
+
+**Causes:**
+1. Endpoint not publicly accessible
+2. Firewall blocking requests
+3. Wrong endpoint URL configured
+
+**Solution:**
+```bash
+# Test with Stripe CLI locally
+stripe listen --forward-to localhost:3000/webhooks/stripe
+
+# Check webhook logs in dashboard
+# Stripe: https://dashboard.stripe.com/webhooks
+# MercadoPago: https://www.mercadopago.com/developers/panel
+```
+
+## Add-on Issues
+
+### Symptom: "Add-on is not compatible with plan"
+
+**Cause:** Add-on has plan restrictions.
+
+**Solution:**
+```typescript
+const addOn = await billing.addons.get('extra_storage');
+const subscription = await billing.subscriptions.get(subscriptionId);
+
+// Check compatibility
+if (addOn.applicablePlans && !addOn.applicablePlans.includes(subscription.planId)) {
+  return { error: 'This add-on is not available for your plan' };
+}
+```
+
+### Symptom: "Quantity exceeds maximum"
+
+**Cause:** Add-on has a maximum quantity limit.
+
+**Solution:**
+```typescript
+const addOn = await billing.addons.get('extra_seats');
+
+// Check quantity limits
+if (addOn.maxQuantity && requestedQuantity > addOn.maxQuantity) {
+  return { error: `Maximum quantity is ${addOn.maxQuantity}` };
+}
+```
+
+## React Component Issues
+
+### Symptom: "useQZPayContext must be used within a QZPayProvider"
+
+**Cause:** Component using hooks outside provider context.
+
+**Solution:**
+```tsx
+// Wrong - hook outside provider
+function App() {
+  const billing = useQZPayContext(); // Error!
+  return <QZPayProvider>...</QZPayProvider>;
+}
+
+// Correct - hook inside provider
+function App() {
+  return (
+    <QZPayProvider billing={billing}>
+      <CustomerInfo /> {/* useQZPayContext works here */}
+    </QZPayProvider>
+  );
+}
+```
+
+## Rate Limiting
+
+### Symptom: "Too many requests" (HTTP 429)
+
+**Cause:** Exceeded API rate limits.
+
+**Solution:**
+```typescript
+// QZPay presets:
+// API_STANDARD: 100 requests/minute
+// API_STRICT: 10 requests/minute (sensitive operations)
+// AUTH: 5 attempts/5 minutes
+// WEBHOOK: 1000/minute
+
+// Implement exponential backoff
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error.status === 429 && i < maxRetries - 1) {
+        const delay = Math.pow(2, i) * 1000; // 1s, 2s, 4s
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Max retries exceeded');
+}
+```
+
+## Debug Mode
+
+Enable debug logging to troubleshoot issues:
+
+```typescript
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+
+const billing = createQZPayBilling({
+  storage,
+  paymentAdapter,
+  logger: {
+    debug: (msg, data) => console.log('[DEBUG]', msg, data),
+    info: (msg, data) => console.log('[INFO]', msg, data),
+    warn: (msg, data) => console.warn('[WARN]', msg, data),
+    error: (msg, data) => console.error('[ERROR]', msg, data)
+  }
+});
+```
+
+## Health Checks
+
+Monitor system health:
+
+```typescript
+// Check component health
+const health = await billing.health.check();
+
+console.log('Storage:', health.storage.status);
+// 'healthy' | 'degraded' | 'unhealthy'
+
+console.log('Payment adapter:', health.paymentAdapter.status);
+// 'healthy' if API responds within 3s
+// 'degraded' if slow (>3s but <5s)
+// 'unhealthy' if connection fails
+```
+
+<Aside type="tip">
+Still having issues? Check the [FAQ](/en/resources/faq/) or open an issue on [GitHub](https://github.com/qazuor/qzpay/issues).
+</Aside>

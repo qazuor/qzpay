@@ -1,0 +1,199 @@
+---
+title: Arquitectura
+description: Entendiendo la arquitectura y principios de diseño de QZPay
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+# Arquitectura
+
+QZPay sigue una arquitectura en capas diseñada para flexibilidad y mantenibilidad.
+
+## Visión General
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Capa de Aplicación                        │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
+│  │  Rutas Hono     │  │  Módulo NestJS  │  │ Componentes React│ │
+│  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘  │
+└───────────┼─────────────────────┼─────────────────────┼──────────┘
+            │                     │                     │
+┌───────────▼─────────────────────▼─────────────────────▼──────────┐
+│                          Servicios Core                          │
+│  ┌──────────────────────────────────────────────────────────────┐│
+│  │                        QZPayBilling                           ││
+│  │  ┌─────────┐ ┌─────────────┐ ┌─────────┐ ┌──────────────────┐││
+│  │  │Clientes │ │Suscripciones│ │ Pagos   │ │Entitlements/Uso  │││
+│  │  └─────────┘ └─────────────┘ └─────────┘ └──────────────────┘││
+│  └──────────────────────────────────────────────────────────────┘│
+└───────────────────────────┬────────────────────────┬─────────────┘
+                            │                        │
+┌───────────────────────────▼────────┐ ┌─────────────▼─────────────┐
+│      Adaptadores de Proveedor      │ │  Adaptadores de Storage   │
+│  ┌──────────────┐ ┌──────────────┐ │ │ ┌────────────────────────┐│
+│  │    Stripe    │ │ MercadoPago  │ │ │ │       Drizzle          ││
+│  └──────────────┘ └──────────────┘ │ │ └────────────────────────┘│
+└────────────────────────────────────┘ └───────────────────────────┘
+```
+
+## Componentes Core
+
+### QZPayBilling
+
+El orquestador central que coordina todas las operaciones de facturación:
+
+```typescript
+const billing = createQZPayBilling({
+  paymentAdapter: stripeAdapter,
+  storage: drizzleStorage,
+  config: {
+    webhookTolerance: 300,
+    retryAttempts: 3
+  }
+});
+```
+
+**Responsabilidades:**
+- Coordina entre proveedor y almacenamiento
+- Emite eventos de facturación
+- Maneja recuperación de errores
+- Gestiona configuración
+
+### Adaptadores de Proveedor
+
+Los adaptadores de proveedor implementan una interfaz común para proveedores de pago:
+
+```typescript
+interface PaymentProvider {
+  customers: CustomerAdapter;
+  subscriptions: SubscriptionAdapter;
+  payments: PaymentAdapter;
+  webhooks: WebhookAdapter;
+  // ...
+}
+```
+
+Cada adaptador traduce operaciones de QZPay a llamadas API específicas del proveedor.
+
+### Adaptadores de Almacenamiento
+
+Los adaptadores de almacenamiento persisten datos de facturación:
+
+```typescript
+interface BillingStorage {
+  customers: CustomerRepository;
+  subscriptions: SubscriptionRepository;
+  payments: PaymentRepository;
+  // ...
+}
+```
+
+## Flujo de Datos
+
+### Crear una Suscripción
+
+```
+1. La aplicación llama a billing.subscriptions.create()
+           │
+           ▼
+2. QZPayBilling valida la entrada
+           │
+           ▼
+3. El adaptador de proveedor crea la suscripción en Stripe/MP
+           │
+           ▼
+4. El adaptador de storage persiste el registro
+           │
+           ▼
+5. El emisor de eventos dispara 'subscription.created'
+           │
+           ▼
+6. La aplicación recibe el objeto subscription
+```
+
+### Procesar un Webhook
+
+```
+1. El endpoint recibe POST del proveedor
+           │
+           ▼
+2. El adaptador de webhook verifica la firma
+           │
+           ▼
+3. El adaptador de webhook parsea el tipo de evento
+           │
+           ▼
+4. QZPayBilling actualiza el estado local
+           │
+           ▼
+5. El emisor de eventos dispara el evento correspondiente
+           │
+           ▼
+6. Los handlers de la aplicación reaccionan al evento
+```
+
+## Sistema de Eventos
+
+QZPay usa una arquitectura basada en eventos:
+
+```typescript
+// Eventos incorporados
+billing.on('customer.created', handler);
+billing.on('subscription.created', handler);
+billing.on('subscription.updated', handler);
+billing.on('subscription.canceled', handler);
+billing.on('payment.succeeded', handler);
+billing.on('payment.failed', handler);
+billing.on('invoice.paid', handler);
+```
+
+<Aside type="tip">
+Los eventos se emiten **después** de operaciones exitosas. Esto asegura que tus handlers solo se ejecuten cuando la operación se completó con éxito.
+</Aside>
+
+## Manejo de Errores
+
+QZPay usa errores tipados para un manejo preciso:
+
+```typescript
+import {
+  QZPayError,
+  CustomerNotFoundError,
+  SubscriptionNotFoundError,
+  PaymentFailedError
+} from '@qazuor/qzpay-core';
+
+try {
+  await billing.subscriptions.create({ ... });
+} catch (error) {
+  if (error instanceof CustomerNotFoundError) {
+    // Manejar cliente faltante
+  } else if (error instanceof PaymentFailedError) {
+    // Manejar fallo de pago
+  }
+}
+```
+
+## Configuración
+
+Opciones de configuración global:
+
+```typescript
+const billing = createQZPayBilling({
+  paymentAdapter,
+  storage,
+  config: {
+    // Tolerancia de firma de webhook en segundos
+    webhookTolerance: 300,
+
+    // Configuración de reintentos
+    retryAttempts: 3,
+    retryDelay: 1000,
+
+    // Logging
+    logger: customLogger,
+    logLevel: 'info'
+  }
+});
+```

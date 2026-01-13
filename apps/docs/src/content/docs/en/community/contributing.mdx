@@ -1,0 +1,322 @@
+---
+title: Contributing Guide
+description: How to contribute to QZPay
+---
+
+import { Aside, Steps, Card, CardGrid } from '@astrojs/starlight/components';
+
+# Contributing to QZPay
+
+Thank you for your interest in contributing to QZPay! This guide will help you get started.
+
+## Ways to Contribute
+
+<CardGrid>
+  <Card title="Report Bugs" icon="warning">
+    Found a bug? Open an issue with reproduction steps.
+  </Card>
+  <Card title="Suggest Features" icon="rocket">
+    Have an idea? Start a discussion or open a feature request.
+  </Card>
+  <Card title="Improve Docs" icon="open-book">
+    Fix typos, add examples, or improve explanations.
+  </Card>
+  <Card title="Write Code" icon="seti:typescript">
+    Fix bugs, add features, or create new adapters.
+  </Card>
+</CardGrid>
+
+## Getting Started
+
+<Steps>
+
+1. **Fork the repository**
+
+   Click the "Fork" button on [GitHub](https://github.com/qazuor/qzpay).
+
+2. **Clone your fork**
+
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/qzpay.git
+   cd qzpay
+   ```
+
+3. **Install dependencies**
+
+   ```bash
+   pnpm install
+   ```
+
+4. **Create a branch**
+
+   ```bash
+   git checkout -b feature/your-feature-name
+   # or
+   git checkout -b fix/your-bug-fix
+   ```
+
+5. **Make your changes**
+
+   Write your code following the guidelines below.
+
+6. **Run tests**
+
+   ```bash
+   pnpm test
+   ```
+
+7. **Submit a pull request**
+
+   Push your branch and open a PR against `main`.
+
+</Steps>
+
+## Development Setup
+
+### Prerequisites
+
+- Node.js 18+
+- pnpm 8+
+- Git
+
+### Project Structure
+
+```
+qzpay/
+├── packages/
+│   ├── core/          # Core billing engine
+│   ├── stripe/        # Stripe adapter
+│   ├── mercadopago/   # MercadoPago adapter
+│   ├── drizzle/       # Drizzle storage adapter
+│   ├── react/         # React components
+│   ├── hono/          # Hono integration
+│   ├── nestjs/        # NestJS module
+│   └── cli/           # CLI tool
+├── apps/
+│   └── docs/          # Documentation site
+├── examples/          # Example implementations
+└── .claude/           # AI assistant configuration
+```
+
+### Useful Commands
+
+```bash
+# Development
+pnpm dev              # Start all packages in dev mode
+pnpm dev --filter @qazuor/qzpay-core  # Dev specific package
+
+# Testing
+pnpm test             # Run all tests
+pnpm test --filter @qazuor/qzpay-core  # Test specific package
+pnpm test:coverage    # Run with coverage
+
+# Building
+pnpm build            # Build all packages
+pnpm typecheck        # Type check all packages
+
+# Linting
+pnpm lint             # Lint all packages
+pnpm lint:fix         # Auto-fix lint issues
+
+# Documentation
+pnpm docs             # Start docs dev server
+```
+
+## Code Guidelines
+
+### TypeScript
+
+- Use TypeScript for all code
+- Enable strict mode
+- Export all public types
+- Document public APIs with JSDoc
+
+```typescript
+/**
+ * Creates a new customer in the billing system.
+ *
+ * @param input - Customer creation parameters
+ * @returns The created customer
+ * @throws {ValidationError} If input is invalid
+ *
+ * @example
+ * ```typescript
+ * const customer = await billing.customers.create({
+ *   email: 'user@example.com',
+ *   name: 'John Doe'
+ * });
+ * ```
+ */
+async create(input: CreateCustomerInput): Promise<Customer> {
+  // ...
+}
+```
+
+### Code Style
+
+- Use Prettier for formatting (configured in the repo)
+- Use ESLint rules (configured in the repo)
+- Prefer `const` over `let`
+- Use descriptive variable names
+- Keep functions small and focused
+
+### Testing
+
+- Write tests for all new functionality
+- Aim for high coverage (90%+)
+- Use descriptive test names
+- Follow AAA pattern (Arrange, Act, Assert)
+
+```typescript
+describe('customers.create', () => {
+  it('creates a customer with email and name', async () => {
+    // Arrange
+    const input = {
+      email: 'test@example.com',
+      name: 'Test User'
+    };
+
+    // Act
+    const customer = await billing.customers.create(input);
+
+    // Assert
+    expect(customer.email).toBe(input.email);
+    expect(customer.name).toBe(input.name);
+    expect(customer.id).toMatch(/^cus_/);
+  });
+
+  it('throws ValidationError for invalid email', async () => {
+    await expect(
+      billing.customers.create({ email: 'invalid' })
+    ).rejects.toThrow(ValidationError);
+  });
+});
+```
+
+### Commits
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+type(scope): description
+
+[optional body]
+
+[optional footer]
+```
+
+Types:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting)
+- `refactor`: Code refactoring
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks
+
+Examples:
+```
+feat(core): add subscription pause functionality
+fix(stripe): handle webhook signature with raw body
+docs(react): add PricingTable customization examples
+```
+
+## Pull Request Process
+
+### Before Submitting
+
+- [ ] Tests pass (`pnpm test`)
+- [ ] Code is linted (`pnpm lint`)
+- [ ] Types check (`pnpm typecheck`)
+- [ ] Documentation is updated (if applicable)
+- [ ] Commits follow conventional format
+
+### PR Title
+
+Use the same format as commits:
+```
+feat(core): add subscription pause functionality
+```
+
+### PR Description
+
+Include:
+- **What** - What changes are being made
+- **Why** - Why are these changes needed
+- **How** - How were these changes implemented
+- **Testing** - How was this tested
+
+### Review Process
+
+1. A maintainer will review your PR
+2. Address any feedback
+3. Once approved, a maintainer will merge
+
+## Creating Adapters
+
+### Payment Provider Adapters
+
+See the [Creating Adapters guide](/en/guides/creating-adapters/) for detailed instructions.
+
+Key points:
+- Implement the `PaymentProvider` interface
+- Include comprehensive tests
+- Support all required operations
+- Document provider-specific behavior
+
+### Storage Adapters
+
+Implement the `BillingStorage` interface:
+- All repository methods
+- Transaction support
+- Error handling
+
+## Documentation
+
+### Writing Docs
+
+- Use clear, concise language
+- Include code examples
+- Test all code examples
+- Use proper Markdown/MDX formatting
+
+### Documentation Structure
+
+```
+docs/
+├── en/                    # English (primary)
+│   ├── getting-started/
+│   ├── concepts/
+│   ├── guides/
+│   ├── packages/
+│   ├── api/
+│   ├── resources/
+│   └── community/
+└── es/                    # Spanish (translation)
+```
+
+### Adding Translations
+
+1. Copy the English file to the language directory
+2. Translate all content
+3. Keep code examples in English
+4. Update the language sidebar in `astro.config.mjs`
+
+## Getting Help
+
+- **Questions** - Open a [GitHub Discussion](https://github.com/qazuor/qzpay/discussions)
+- **Bugs** - Open a [GitHub Issue](https://github.com/qazuor/qzpay/issues)
+- **Chat** - Join our community channels
+
+<Aside type="tip">
+First time contributing to open source? Check out [How to Contribute to Open Source](https://opensource.guide/how-to-contribute/) for helpful tips.
+</Aside>
+
+## Recognition
+
+Contributors are recognized in:
+- GitHub contributors list
+- Release notes for significant contributions
+- README acknowledgments
+
+Thank you for helping make QZPay better!

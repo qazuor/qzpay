@@ -1,0 +1,223 @@
+---
+title: Hoja de Ruta
+description: Planes futuros y próximas características para QZPay
+---
+
+import { Aside, Badge, Card, CardGrid } from '@astrojs/starlight/components';
+
+# Hoja de Ruta
+
+Esta hoja de ruta describe nuestras características e mejoras planificadas para QZPay. Las prioridades pueden cambiar según los comentarios de la comunidad y los patrones de uso del mundo real.
+
+<Aside type="note">
+Esta hoja de ruta es indicativa, no un compromiso. Las características pueden agregarse, modificarse o posponerse según las necesidades de la comunidad y consideraciones técnicas.
+</Aside>
+
+## Enfoque Actual
+
+### v1.1 - Calidad y Pulido
+
+<Badge text="En Progreso" variant="caution" />
+
+Mejoras al lanzamiento estable actual:
+
+- [ ] Mensajes de error mejorados con orientación accionable
+- [ ] Optimizaciones de rendimiento para conjuntos de datos grandes
+- [ ] Variantes adicionales de componentes React
+- [ ] Inferencia de TypeScript mejorada
+- [ ] Cobertura de pruebas extendida
+
+### v1.2 - Experiencia del Desarrollador
+
+<Badge text="Planificado" variant="note" />
+
+- [ ] Mejores herramientas de depuración
+- [ ] Modo de desarrollo con registro detallado
+- [ ] Herramientas de visualización de esquemas
+- [ ] Emuladores de proveedores para desarrollo local
+
+## Próximas Características
+
+### Nuevos Proveedores de Pago
+
+#### Adaptador de PayPal
+<Badge text="Planificado" variant="note" />
+
+Integración completa de PayPal incluyendo:
+- PayPal Checkout
+- Suscripciones de PayPal
+- Manejo de webhooks
+- Soporte multi-moneda
+
+#### Adaptador de Braintree
+<Badge text="Planificado" variant="note" />
+
+Integración de Braintree para:
+- Procesamiento de tarjetas de crédito
+- PayPal a través de Braintree
+- Pagos con Venmo
+- Apple Pay / Google Pay
+
+#### Otros Proveedores (En Consideración)
+- Square
+- Paddle
+- LemonSqueezy
+- Razorpay (India)
+- Adyen
+
+### Nuevos Adaptadores de Almacenamiento
+
+#### Adaptador de Prisma
+<Badge text="Planificado" variant="note" />
+
+Soporte oficial de Prisma:
+- Generación de esquemas
+- Integración de migraciones
+- Soporte de transacciones
+- Consultas con tipos seguros
+
+#### Adaptador de TypeORM
+<Badge text="En Consideración" variant="tip" />
+
+Para proyectos que usan TypeORM.
+
+### Integraciones de Framework
+
+#### Integración con Express
+<Badge text="Planificado" variant="note" />
+
+Paquete dedicado para Express.js:
+- Middleware preconstruido
+- Manejadores de rutas
+- Integración de manejo de errores
+
+#### Integración con Fastify
+<Badge text="Planificado" variant="note" />
+
+Plugin de Fastify con:
+- Registro de rutas
+- Validación de esquemas
+- Integración de hooks
+
+#### Paquete Vue.js
+<Badge text="En Consideración" variant="tip" />
+
+Hooks de API de composición de Vue y componentes similares al paquete React.
+
+#### Paquete Svelte
+<Badge text="En Consideración" variant="tip" />
+
+Stores y componentes de Svelte para UI de facturación.
+
+## Solicitudes de Características
+
+### Analíticas y Reportes
+<Badge text="En Consideración" variant="tip" />
+
+- Panel de analíticas de ingresos
+- Análisis de abandono
+- Seguimiento de MRR/ARR
+- Análisis de cohortes
+- Exportación a plataformas de analíticas
+
+### Características Avanzadas de Facturación
+<Badge text="En Consideración" variant="tip" />
+
+- Facturación medida con modelos de precios complejos
+- Descuentos por volumen
+- Precios escalonados
+- Precios híbridos (base + uso)
+- Ciclos de facturación personalizados
+
+### Multi-Tenencia
+<Badge text="En Consideración" variant="tip" />
+
+Soporte para aplicaciones SaaS multi-tenant:
+- Facturación por organización/equipo
+- Precios por asiento
+- Asignación de uso por tenant
+
+### Gestión de Dunning
+<Badge text="Planificado" variant="note" />
+
+Manejo mejorado de pagos fallidos:
+- Programas de reintento configurables
+- Emails de notificación al cliente
+- Degradación elegante de características
+- Analíticas de recuperación
+
+### Portal de Autoservicio
+<Badge text="En Consideración" variant="tip" />
+
+Portal de cliente integrable:
+- Gestión de suscripciones
+- Actualizaciones de métodos de pago
+- Historial de facturas
+- Panel de uso
+
+## Infraestructura
+
+### Panel de Administración
+<Badge text="Planificado" variant="note" />
+
+Interfaz de administración web para:
+- Gestión de clientes
+- Vista general de suscripciones
+- Métricas de ingresos
+- Logs de eventos
+- Configuración
+
+### Versionado de API
+<Badge text="Planificado" variant="note" />
+
+Estrategia de versionado de API estable:
+- Endpoints versionados
+- Avisos de deprecación
+- Helpers de migración
+
+## Contribuciones de la Comunidad
+
+¡Damos la bienvenida a contribuciones de la comunidad! Áreas donde puedes ayudar:
+
+<CardGrid>
+  <Card title="Adaptadores de Pago" icon="credit-card">
+    Crear adaptadores para proveedores de pago en tu región
+  </Card>
+  <Card title="Adaptadores de Almacenamiento" icon="seti:db">
+    Agregar soporte para tu ORM o base de datos preferida
+  </Card>
+  <Card title="Integraciones de Framework" icon="puzzle">
+    Construir integraciones para otros frameworks
+  </Card>
+  <Card title="Documentación" icon="open-book">
+    Mejorar docs, agregar ejemplos, traducir contenido
+  </Card>
+</CardGrid>
+
+Consulta la [Guía de Contribución](/es/community/contributing/) para comenzar.
+
+## Solicitar una Característica
+
+¿Tienes una idea para QZPay? ¡Nos encantaría escucharla!
+
+1. **Revisar solicitudes existentes** - Buscar en [GitHub Issues](https://github.com/qazuor/qzpay/issues) solicitudes similares
+2. **Abrir una discusión** - Iniciar una [GitHub Discussion](https://github.com/qazuor/qzpay/discussions) para recopilar comentarios
+3. **Enviar un issue** - Crear un issue de solicitud de característica con detalles
+
+Al solicitar una característica, incluye:
+- **Caso de uso** - ¿Qué problema resuelve esto?
+- **Solución propuesta** - ¿Cómo debería funcionar?
+- **Alternativas consideradas** - ¿Qué otros enfoques consideraste?
+- **Prioridad** - ¿Qué tan importante es esto para tu proyecto?
+
+## Calendario de Lanzamientos
+
+Nuestro objetivo es lanzar actualizaciones regularmente:
+
+- **Lanzamientos de parche** (1.0.x) - Según sea necesario para corrección de errores
+- **Lanzamientos menores** (1.x.0) - Cada 4-8 semanas con nuevas características
+- **Lanzamientos mayores** (x.0.0) - Según sea necesario para cambios incompatibles (intentamos minimizar estos)
+
+<Aside type="tip">
+Suscríbete a [GitHub Releases](https://github.com/qazuor/qzpay/releases) para ser notificado de nuevas versiones.
+</Aside>

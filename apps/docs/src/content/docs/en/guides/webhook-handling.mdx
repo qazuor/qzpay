@@ -1,0 +1,387 @@
+---
+title: Webhook Handling
+description: Best practices for handling webhooks in QZPay
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+# Webhook Handling Guide
+
+Webhooks are critical for maintaining sync between payment providers and your application.
+
+## Why Webhooks Matter
+
+```
+┌─────────────┐                 ┌─────────────┐
+│   Stripe    │──── webhook ───▶│  Your App   │
+│ MercadoPago │                 │   (QZPay)   │
+└─────────────┘                 └─────────────┘
+       │                              │
+       │    Customer pays             │
+       │    Subscription changes      │
+       │    Payment fails             │
+       │                              │
+       └──────────────────────────────┘
+         Real-time sync via webhooks
+```
+
+<Aside type="caution">
+Never rely solely on client-side payment confirmations. Always verify via webhooks.
+</Aside>
+
+## Setup
+
+### Endpoint Configuration
+
+```typescript
+// src/routes/webhooks.ts
+import { Hono } from 'hono';
+import { createWebhookRouter } from '@qazuor/qzpay-hono';
+import { billing, stripeAdapter, mpAdapter } from '../billing';
+
+const webhooks = new Hono();
+
+// Stripe webhook with Hono integration
+const stripeWebhook = createWebhookRouter({
+  billing,
+  paymentAdapter: stripeAdapter,
+  handlers: {
+    'customer.subscription.created': async (c, event) => {
+      console.log('New subscription:', event.data);
+    },
+    'invoice.payment_succeeded': async (c, event) => {
+      console.log('Payment succeeded:', event.data);
+    }
+  }
+});
+
+webhooks.route('/stripe', stripeWebhook);
+
+// MercadoPago webhook
+const mpWebhook = createWebhookRouter({
+  billing,
+  paymentAdapter: mpAdapter,
+  handlers: {
+    'payment': async (c, event) => {
+      console.log('Payment event:', event.data);
+    },
+    'subscription_preapproval': async (c, event) => {
+      console.log('Subscription event:', event.data);
+    }
+  }
+});
+
+webhooks.route('/mercadopago', mpWebhook);
+
+export default webhooks;
+```
+
+### Provider Configuration
+
+<Steps>
+
+1. **Stripe Dashboard**
+
+   Go to Developers → Webhooks → Add endpoint:
+   - URL: `https://yourdomain.com/webhooks/stripe`
+   - Events: Select billing-related events
+
+2. **MercadoPago Portal**
+
+   Go to Your applications → Webhooks:
+   - URL: `https://yourdomain.com/webhooks/mercadopago`
+   - Topics: Payments, Subscriptions
+
+3. **Store Secrets**
+
+   ```bash
+   STRIPE_WEBHOOK_SECRET=whsec_xxx
+   MP_WEBHOOK_SECRET=xxx
+   ```
+
+</Steps>
+
+## Security
+
+### Signature Verification
+
+The Hono integration automatically verifies webhook signatures via middleware:
+
+```typescript
+// When using createWebhookRouter, signatures are verified automatically
+// Stripe: Uses HMAC-SHA256
+// MercadoPago: Uses HMAC signature or fetches from API
+
+// For manual verification, use the payment adapter directly:
+try {
+  const event = stripeAdapter.webhooks.constructEvent(body, signature);
+  // Process event...
+} catch (error) {
+  if (error instanceof WebhookSignatureError) {
+    // Log security event
+    await logSecurityEvent('invalid_webhook_signature', {
+      provider: 'stripe',
+      ip: c.req.ip
+    });
+    return c.json({ error: 'Invalid signature' }, 400);
+  }
+  throw error;
+}
+```
+
+### Replay Attack Prevention
+
+```typescript
+const billing = createQZPayBilling({
+  paymentAdapter,
+  storage,
+  config: {
+    // Reject webhooks older than 5 minutes
+    webhookTolerance: 300 // seconds
+  }
+});
+```
+
+### Idempotency
+
+QZPay tracks processed webhook events:
+
+```typescript
+// Same event received twice? Second call is ignored
+// Event ID is stored to prevent duplicate processing
+
+billing.on('webhook.processed', (event) => {
+  console.log('Processed:', event.data.eventId);
+});
+
+billing.on('webhook.duplicate', (event) => {
+  console.log('Duplicate ignored:', event.data.eventId);
+});
+```
+
+## Event Handling
+
+### Built-in Processing
+
+QZPay automatically processes common events:
+
+| Webhook Event | QZPay Action |
+|--------------|--------------|
+| `customer.subscription.created` | Create subscription record |
+| `customer.subscription.updated` | Update subscription status |
+| `customer.subscription.deleted` | Mark subscription canceled |
+| `invoice.payment_succeeded` | Record payment, update status |
+| `invoice.payment_failed` | Update status, increment retry count |
+
+### Custom Handlers
+
+Add your business logic:
+
+```typescript
+// After successful subscription creation
+billing.on('subscription.created', async (event) => {
+  const { customerId, planId, id } = event.data;
+
+  // Provision features
+  const plan = await billing.plans.get(planId);
+  await provisionFeatures(customerId, plan.entitlements);
+
+  // Send welcome email
+  await emailService.send(customerId, 'subscription_welcome', {
+    planName: plan.name,
+    features: plan.entitlements
+  });
+
+  // Track in analytics
+  await analytics.track('subscription_started', {
+    customerId,
+    planId,
+    subscriptionId: id
+  });
+});
+
+// After payment failure
+billing.on('payment.failed', async (event) => {
+  const { customerId, amount, failureCode } = event.data;
+
+  // Notify customer
+  await emailService.send(customerId, 'payment_failed', {
+    amount,
+    reason: getHumanReadableReason(failureCode),
+    updateUrl: `${APP_URL}/billing/payment-method`
+  });
+
+  // Alert team for large amounts
+  if (amount > 100000) { // $1000+
+    await slackNotify(`High-value payment failed: ${amount / 100}`);
+  }
+});
+
+// After cancellation
+billing.on('subscription.canceled', async (event) => {
+  const { customerId, canceledAt, currentPeriodEnd } = event.data;
+
+  // Schedule feature revocation
+  await jobQueue.schedule('revoke_features', {
+    customerId,
+    executeAt: currentPeriodEnd
+  });
+
+  // Send feedback survey
+  await emailService.send(customerId, 'cancellation_survey', {
+    surveyUrl: `${APP_URL}/feedback/cancellation`
+  });
+});
+```
+
+## Error Handling
+
+### Response Codes
+
+When using `createWebhookRouter`, error handling is built-in. For custom handlers:
+
+```typescript
+const webhookRouter = createWebhookRouter({
+  billing,
+  paymentAdapter: stripeAdapter,
+  handlers: { /* ... */ },
+  onError: async (error, c) => {
+    if (error instanceof WebhookSignatureError) {
+      // 400 = Bad request, won't retry
+      return c.json({ error: 'Invalid signature' }, 400);
+    }
+
+    if (error instanceof WebhookProcessingError) {
+      // Log error but return 200 to prevent retry loops
+      console.error('Processing error:', error);
+      return c.json({ received: true, warning: 'Processing failed' });
+    }
+
+    // 500 = Server error, provider will retry
+    console.error('Unexpected error:', error);
+    return c.json({ error: 'Internal error' }, 500);
+  }
+});
+```
+
+<Aside type="tip">
+Return 2xx for successfully received webhooks, even if your business logic fails. Only return 5xx for transient errors where a retry would help.
+</Aside>
+
+### Retry Handling
+
+Providers retry failed webhooks:
+
+| Provider | Retry Schedule |
+|----------|---------------|
+| Stripe | Up to 72 hours, exponential backoff |
+| MercadoPago | Up to 48 hours |
+
+```typescript
+// Design handlers to be idempotent
+billing.on('payment.succeeded', async (event) => {
+  // Check if already processed
+  const existing = await db.receipts.findByPaymentId(event.data.id);
+  if (existing) {
+    console.log('Receipt already sent, skipping');
+    return;
+  }
+
+  // Process and mark as done
+  await sendReceipt(event.data);
+  await db.receipts.create({ paymentId: event.data.id });
+});
+```
+
+## Testing
+
+### Local Development
+
+Use provider CLIs to forward webhooks:
+
+```bash
+# Stripe
+stripe listen --forward-to localhost:3000/webhooks/stripe
+
+# Trigger test events
+stripe trigger customer.subscription.created
+stripe trigger invoice.payment_succeeded
+```
+
+### Test Fixtures
+
+```typescript
+import { createMockWebhookEvent } from '@qazuor/qzpay-core/testing';
+
+describe('Webhook Handlers', () => {
+  it('processes subscription.created', async () => {
+    const event = createMockWebhookEvent('subscription.created', {
+      id: 'sub_test',
+      customerId: 'cus_test',
+      planId: 'price_test',
+      status: 'active'
+    });
+
+    // Your handler logic receives the event from the router
+    await subscriptionCreatedHandler(event);
+
+    expect(subscriptionCreatedHandler).toHaveBeenCalled();
+  });
+});
+```
+
+## Monitoring
+
+### Logging
+
+```typescript
+billing.on('webhook.received', (event) => {
+  logger.info('Webhook received', {
+    provider: event.data.provider,
+    type: event.data.type,
+    id: event.data.id
+  });
+});
+
+billing.on('webhook.processed', (event) => {
+  logger.info('Webhook processed', {
+    type: event.data.type,
+    duration: event.data.processingTime
+  });
+});
+
+billing.on('webhook.failed', (event) => {
+  logger.error('Webhook failed', {
+    type: event.data.type,
+    error: event.data.error
+  });
+});
+```
+
+### Alerting
+
+```typescript
+// Alert on repeated failures
+const failureCount = new Map<string, number>();
+
+billing.on('webhook.failed', async (event) => {
+  const key = event.data.type;
+  const count = (failureCount.get(key) || 0) + 1;
+  failureCount.set(key, count);
+
+  if (count >= 5) {
+    await alertTeam(`Webhook ${key} failing repeatedly`);
+    failureCount.set(key, 0);
+  }
+});
+```
+
+## Best Practices
+
+1. **Verify all signatures** before processing
+2. **Process asynchronously** for heavy operations
+3. **Make handlers idempotent** to handle retries
+4. **Log all webhook activity** for debugging
+5. **Monitor failure rates** and alert on anomalies
+6. **Test with provider tools** before going live
+7. **Use HTTPS only** for webhook endpoints

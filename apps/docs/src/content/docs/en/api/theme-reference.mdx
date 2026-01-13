@@ -1,0 +1,369 @@
+---
+title: Theme Reference
+description: Complete reference for all customizable theme properties
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Theme Reference
+
+Complete reference for all customizable theme properties in `@qazuor/qzpay-react`.
+
+## Theme Structure
+
+```typescript
+interface QZPayTheme {
+  colors: QZPayThemeColors;
+  typography: QZPayThemeTypography;
+  spacing: QZPayThemeSpacing;
+  borderRadius: QZPayThemeBorderRadius;
+  shadows: QZPayThemeShadows;
+  transitions: QZPayThemeTransitions;
+}
+```
+
+## Colors (21 properties)
+
+### Primary Colors
+
+| Property | Description | Default (Light) | Default (Dark) |
+|----------|-------------|-----------------|----------------|
+| `primary` | Primary brand color | `#2563eb` | `#3b82f6` |
+| `primaryHover` | Primary hover state | `#1d4ed8` | `#2563eb` |
+| `primaryText` | Text on primary background | `#ffffff` | `#ffffff` |
+
+### Secondary Colors
+
+| Property | Description | Default (Light) | Default (Dark) |
+|----------|-------------|-----------------|----------------|
+| `secondary` | Secondary actions | `#6b7280` | `#9ca3af` |
+| `secondaryHover` | Secondary hover state | `#4b5563` | `#6b7280` |
+| `secondaryText` | Text on secondary background | `#ffffff` | `#ffffff` |
+
+### Status Colors - Success
+
+| Property | Description | Default (Light) | Default (Dark) |
+|----------|-------------|-----------------|----------------|
+| `success` | Success/confirmation | `#16a34a` | `#22c55e` |
+| `successBackground` | Success background | `#dcfce7` | `#166534` |
+| `successText` | Success text | `#166534` | `#dcfce7` |
+
+### Status Colors - Warning
+
+| Property | Description | Default (Light) | Default (Dark) |
+|----------|-------------|-----------------|----------------|
+| `warning` | Warning/caution | `#d97706` | `#f59e0b` |
+| `warningBackground` | Warning background | `#fef3c7` | `#92400e` |
+| `warningText` | Warning text | `#92400e` | `#fef3c7` |
+
+### Status Colors - Error
+
+| Property | Description | Default (Light) | Default (Dark) |
+|----------|-------------|-----------------|----------------|
+| `error` | Error/danger | `#dc2626` | `#ef4444` |
+| `errorBackground` | Error background | `#fee2e2` | `#991b1b` |
+| `errorText` | Error text | `#dc2626` | `#fee2e2` |
+
+### Neutral Colors
+
+| Property | Description | Default (Light) | Default (Dark) |
+|----------|-------------|-----------------|----------------|
+| `background` | Main background | `#ffffff` | `#111827` |
+| `surface` | Card/panel surfaces | `#f9fafb` | `#1f2937` |
+| `border` | Borders | `#e5e7eb` | `#374151` |
+| `muted` | Muted/disabled elements | `#9ca3af` | `#6b7280` |
+
+### Text Colors
+
+| Property | Description | Default (Light) | Default (Dark) |
+|----------|-------------|-----------------|----------------|
+| `text` | Primary text | `#111827` | `#f9fafb` |
+| `textSecondary` | Secondary text | `#6b7280` | `#9ca3af` |
+| `textDisabled` | Disabled text | `#9ca3af` | `#4b5563` |
+
+## Typography (11 properties)
+
+### Font Families
+
+| Property | Description | Default |
+|----------|-------------|---------|
+| `fontFamily` | Base font | `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif` |
+| `fontFamilyMono` | Monospace font | `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace` |
+
+### Font Sizes
+
+| Property | Description | Default |
+|----------|-------------|---------|
+| `fontSizeBase` | Base size | `16px` |
+| `fontSizeSm` | Small text | `14px` |
+| `fontSizeLg` | Large text | `18px` |
+| `fontSizeXl` | Heading text | `24px` |
+
+### Font Weights
+
+| Property | Description | Default |
+|----------|-------------|---------|
+| `fontWeightNormal` | Normal | `400` |
+| `fontWeightMedium` | Medium | `500` |
+| `fontWeightBold` | Bold | `700` |
+
+### Line Heights
+
+| Property | Description | Default |
+|----------|-------------|---------|
+| `lineHeightBase` | Base | `1.5` |
+| `lineHeightTight` | Headings | `1.25` |
+| `lineHeightRelaxed` | Readable text | `1.75` |
+
+## Spacing (6 sizes)
+
+| Property | Description | Default |
+|----------|-------------|---------|
+| `xs` | Extra small | `4px` |
+| `sm` | Small | `8px` |
+| `md` | Medium | `16px` |
+| `lg` | Large | `24px` |
+| `xl` | Extra large | `32px` |
+| `xxl` | 2x extra large | `48px` |
+
+## Border Radius (6 sizes)
+
+| Property | Description | Default |
+|----------|-------------|---------|
+| `none` | No radius | `0` |
+| `sm` | Small | `4px` |
+| `md` | Default | `8px` |
+| `lg` | Large | `12px` |
+| `xl` | Extra large | `16px` |
+| `full` | Pill/circle | `9999px` |
+
+## Shadows (4 levels)
+
+| Property | Description | Default |
+|----------|-------------|---------|
+| `none` | No shadow | `none` |
+| `sm` | Subtle | `0 1px 2px 0 rgb(0 0 0 / 0.05)` |
+| `md` | Medium | `0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)` |
+| `lg` | Prominent | `0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)` |
+
+## Transitions (4 properties)
+
+| Property | Description | Default |
+|----------|-------------|---------|
+| `fast` | Quick interactions | `150ms` |
+| `normal` | Standard animations | `200ms` |
+| `slow` | Deliberate animations | `300ms` |
+| `easing` | Easing function | `cubic-bezier(0.4, 0, 0.2, 1)` |
+
+## Creating a Custom Theme
+
+```typescript
+import {
+  QZPayThemeProvider,
+  qzpayMergeTheme,
+  qzpayDefaultTheme
+} from '@qazuor/qzpay-react';
+
+const customTheme = qzpayMergeTheme(qzpayDefaultTheme, {
+  colors: {
+    primary: '#8b5cf6',      // Purple primary
+    primaryHover: '#7c3aed',
+    success: '#10b981',      // Emerald success
+    error: '#f43f5e'         // Rose error
+  },
+  borderRadius: {
+    sm: '2px',
+    md: '4px',
+    lg: '8px'
+  },
+  typography: {
+    fontFamily: '"Inter", sans-serif'
+  }
+});
+
+function App() {
+  return (
+    <QZPayThemeProvider theme={customTheme}>
+      <YourApp />
+    </QZPayThemeProvider>
+  );
+}
+```
+
+## Style Creators
+
+Pre-built style functions for consistent component styling:
+
+### Button Styles
+
+```typescript
+import { qzpayButtonStyles } from '@qazuor/qzpay-react';
+
+const styles = qzpayButtonStyles(theme);
+// Returns: { base, primary, secondary, danger, disabled }
+```
+
+### Input Styles
+
+```typescript
+import { qzpayInputStyles } from '@qazuor/qzpay-react';
+
+const styles = qzpayInputStyles(theme);
+// Returns: { base, focus, error, disabled }
+```
+
+### Card Styles
+
+```typescript
+import { qzpayCardStyles } from '@qazuor/qzpay-react';
+
+const styles = qzpayCardStyles(theme);
+// Returns: { base, interactive, selected }
+```
+
+### Badge Styles
+
+```typescript
+import { qzpayBadgeStyles } from '@qazuor/qzpay-react';
+
+const styles = qzpayBadgeStyles(theme);
+// Returns: { base, success, warning, error, info, neutral }
+```
+
+### Table Styles
+
+```typescript
+import { qzpayTableStyles } from '@qazuor/qzpay-react';
+
+const styles = qzpayTableStyles(theme);
+// Returns: { table, header, headerCell, row, cell }
+```
+
+## Using Themed Styles
+
+```tsx
+import { useQZPayTheme, useThemedStyles, qzpayButtonStyles } from '@qazuor/qzpay-react';
+
+function CustomButton({ children }) {
+  const theme = useQZPayTheme();
+  const buttonStyles = useThemedStyles(qzpayButtonStyles);
+
+  return (
+    <button style={{
+      ...buttonStyles.base,
+      ...buttonStyles.primary,
+      borderRadius: theme.borderRadius.md
+    }}>
+      {children}
+    </button>
+  );
+}
+```
+
+## CSS Variables
+
+The theme generates CSS variables automatically:
+
+```css
+/* Color variables */
+--qzpay-color-primary
+--qzpay-color-primary-hover
+--qzpay-color-primary-text
+--qzpay-color-secondary
+--qzpay-color-success
+--qzpay-color-warning
+--qzpay-color-error
+--qzpay-color-background
+--qzpay-color-surface
+--qzpay-color-border
+--qzpay-color-text
+--qzpay-color-text-secondary
+
+/* Typography variables */
+--qzpay-font-family
+--qzpay-font-family-mono
+--qzpay-font-size-base
+--qzpay-font-size-sm
+--qzpay-font-size-lg
+
+/* Spacing variables */
+--qzpay-spacing-xs
+--qzpay-spacing-sm
+--qzpay-spacing-md
+--qzpay-spacing-lg
+--qzpay-spacing-xl
+
+/* Border radius variables */
+--qzpay-radius-sm
+--qzpay-radius-md
+--qzpay-radius-lg
+--qzpay-radius-full
+
+/* Shadow variables */
+--qzpay-shadow-sm
+--qzpay-shadow-md
+--qzpay-shadow-lg
+
+/* Transition variables */
+--qzpay-transition-fast
+--qzpay-transition-normal
+--qzpay-transition-slow
+```
+
+### Using CSS Variables
+
+```css
+.custom-component {
+  background: var(--qzpay-color-surface);
+  border: 1px solid var(--qzpay-color-border);
+  border-radius: var(--qzpay-radius-md);
+  padding: var(--qzpay-spacing-md);
+  font-family: var(--qzpay-font-family);
+  transition: all var(--qzpay-transition-normal) var(--qzpay-transition-easing);
+}
+
+.custom-component:hover {
+  box-shadow: var(--qzpay-shadow-md);
+}
+```
+
+## Built-in Themes
+
+### Default Theme (Light)
+
+```typescript
+import { qzpayDefaultTheme } from '@qazuor/qzpay-react';
+```
+
+### Dark Theme
+
+```typescript
+import { qzpayDarkTheme } from '@qazuor/qzpay-react';
+```
+
+### Switching Themes
+
+```tsx
+import {
+  QZPayThemeProvider,
+  qzpayDefaultTheme,
+  qzpayDarkTheme
+} from '@qazuor/qzpay-react';
+
+function App() {
+  const [isDark, setIsDark] = useState(false);
+
+  return (
+    <QZPayThemeProvider theme={isDark ? qzpayDarkTheme : qzpayDefaultTheme}>
+      <button onClick={() => setIsDark(!isDark)}>
+        Toggle Theme
+      </button>
+      <YourApp />
+    </QZPayThemeProvider>
+  );
+}
+```
+
+<Aside type="tip">
+Use `qzpayMergeTheme` to create variations of existing themes instead of defining all properties from scratch.
+</Aside>

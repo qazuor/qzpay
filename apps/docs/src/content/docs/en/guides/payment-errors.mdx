@@ -1,0 +1,419 @@
+---
+title: Payment Error Handling
+description: Handle payment failures gracefully with retries, dunning, and recovery
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Payment Error Handling
+
+Learn how to handle payment failures, implement retry logic, and recover from failed transactions.
+
+## Payment Error Types
+
+### Stripe Error Codes
+
+| Code | Category | User Action |
+|------|----------|-------------|
+| `card_declined` | Hard decline | Try different card |
+| `insufficient_funds` | Soft decline | Try again or use different card |
+| `expired_card` | Hard decline | Update card details |
+| `incorrect_cvc` | Input error | Re-enter card details |
+| `incorrect_number` | Input error | Re-enter card number |
+| `processing_error` | Temporary | Retry after a moment |
+
+### MercadoPago Rejection Codes
+
+| Code | Meaning | Recovery |
+|------|---------|----------|
+| `cc_rejected_bad_filled_card_number` | Invalid card number | Re-enter card |
+| `cc_rejected_bad_filled_date` | Invalid expiration | Check expiration date |
+| `cc_rejected_bad_filled_security_code` | Invalid CVV | Re-enter security code |
+| `cc_rejected_card_disabled` | Card disabled | Contact bank |
+| `cc_rejected_call_for_authorize` | Requires authorization | Call bank |
+| `cc_rejected_duplicated_payment` | Duplicate | Wait, may have succeeded |
+| `cc_rejected_high_risk` | Fraud prevention | Try different card |
+| `cc_rejected_insufficient_amount` | Insufficient funds | Use different card |
+| `cc_rejected_max_attempts` | Too many attempts | Wait and retry later |
+
+## Handling Payment Errors
+
+### Basic Error Handling
+
+```typescript
+try {
+  const payment = await billing.payments.process({
+    customerId: 'cus_123',
+    amount: 9900,
+    currency: 'usd',
+    paymentMethodId: 'pm_xxx'
+  });
+
+  return { success: true, paymentId: payment.id };
+} catch (error) {
+  if (error.code) {
+    return handlePaymentError(error);
+  }
+  throw error;
+}
+
+function handlePaymentError(error: { code: string; message: string }) {
+  const userMessages: Record<string, string> = {
+    card_declined: 'Your card was declined. Please try a different payment method.',
+    insufficient_funds: 'Insufficient funds. Please try a different card.',
+    expired_card: 'Your card has expired. Please update your payment method.',
+    incorrect_cvc: 'The security code is incorrect. Please check and try again.',
+    incorrect_number: 'The card number is incorrect. Please check and try again.',
+    processing_error: 'A temporary error occurred. Please try again.'
+  };
+
+  return {
+    success: false,
+    error: userMessages[error.code] ?? 'Payment failed. Please try again.'
+  };
+}
+```
+
+### Categorizing Errors
+
+```typescript
+type ErrorCategory = 'retryable' | 'card_issue' | 'input_error' | 'fraud';
+
+function categorizeError(code: string): ErrorCategory {
+  const retryable = ['processing_error', 'rate_limit'];
+  const cardIssue = ['card_declined', 'insufficient_funds', 'expired_card', 'cc_rejected_card_disabled'];
+  const inputError = ['incorrect_cvc', 'incorrect_number', 'cc_rejected_bad_filled_card_number'];
+  const fraud = ['cc_rejected_high_risk', 'fraudulent'];
+
+  if (retryable.includes(code)) return 'retryable';
+  if (cardIssue.includes(code)) return 'card_issue';
+  if (inputError.includes(code)) return 'input_error';
+  if (fraud.includes(code)) return 'fraud';
+
+  return 'card_issue'; // Default
+}
+
+// Usage
+const category = categorizeError(error.code);
+
+switch (category) {
+  case 'retryable':
+    // Automatically retry
+    break;
+  case 'card_issue':
+    // Ask user to try different card
+    break;
+  case 'input_error':
+    // Show form validation errors
+    break;
+  case 'fraud':
+    // Log for review, suggest different payment method
+    break;
+}
+```
+
+## Automatic Payment Retries
+
+### Configure Retry Behavior
+
+```typescript
+const billing = createQZPayBilling({
+  storage,
+  paymentAdapter,
+  config: {
+    paymentRetry: {
+      attempts: 4,
+      schedule: [1, 3, 5, 7] // Days after initial failure
+    },
+    gracePeriodDays: 7 // Days of access after first failure
+  }
+});
+```
+
+### Retry Schedule
+
+Default retry schedule:
+- Day 1: First retry
+- Day 3: Second retry
+- Day 5: Third retry
+- Day 7: Final retry
+
+<Aside type="tip">
+During the grace period, customers retain access to their subscription even with payment issues.
+</Aside>
+
+### Listen to Retry Events
+
+```typescript
+billing.on('payment.failed', async (event) => {
+  const { customerId, subscriptionId, failureReason, attemptCount } = event.data;
+
+  // Notify customer
+  await sendEmail(customerId, 'payment_failed', {
+    reason: failureReason,
+    attemptNumber: attemptCount,
+    nextRetryDate: calculateNextRetry(attemptCount)
+  });
+});
+
+billing.on('subscription.past_due', async (event) => {
+  // All retries exhausted
+  await sendEmail(event.data.customerId, 'subscription_suspended');
+});
+```
+
+## Implementing Dunning
+
+Dunning is the process of communicating with customers about failed payments.
+
+### Dunning Email Sequence
+
+```typescript
+// Day 0: Payment failed
+billing.on('payment.failed', async (event) => {
+  if (event.data.attemptCount === 1) {
+    await sendEmail(event.data.customerId, 'payment_failed_initial', {
+      updatePaymentUrl: `${APP_URL}/billing/payment-method`,
+      nextRetryDate: addDays(new Date(), 1)
+    });
+  }
+});
+
+// Day 3: Second reminder
+billing.on('payment.retry_scheduled', async (event) => {
+  if (event.data.attemptCount === 2) {
+    await sendEmail(event.data.customerId, 'payment_reminder', {
+      daysRemaining: 4,
+      updatePaymentUrl: `${APP_URL}/billing/payment-method`
+    });
+  }
+});
+
+// Day 7: Final warning
+billing.on('payment.retry_scheduled', async (event) => {
+  if (event.data.attemptCount === 4) {
+    await sendEmail(event.data.customerId, 'final_payment_warning', {
+      suspensionDate: addDays(new Date(), 1),
+      updatePaymentUrl: `${APP_URL}/billing/payment-method`
+    });
+  }
+});
+
+// After all retries fail
+billing.on('subscription.unpaid', async (event) => {
+  await sendEmail(event.data.customerId, 'subscription_suspended', {
+    reactivateUrl: `${APP_URL}/billing/reactivate`
+  });
+});
+```
+
+## 3D Secure Handling
+
+### Detecting 3DS Requirements
+
+<Tabs>
+  <TabItem label="Stripe">
+```typescript
+import { isPaymentRequires3DS, extract3DSDetails } from '@qazuor/qzpay-stripe';
+
+billing.on('payment.requires_action', async (event) => {
+  if (isPaymentRequires3DS(event.rawEvent)) {
+    const details = extract3DSDetails(event.rawEvent);
+
+    // Return client secret for frontend 3DS flow
+    return {
+      status: 'requires_action',
+      clientSecret: details.clientSecret,
+      nextActionUrl: details.nextActionUrl
+    };
+  }
+});
+```
+  </TabItem>
+  <TabItem label="MercadoPago">
+```typescript
+// MercadoPago 3DS is handled via status_detail
+if (payment.statusDetail === 'pending_challenge') {
+  // 3D Secure challenge required
+  return {
+    status: 'requires_action',
+    challengeUrl: payment.threeDSecure?.challengeUrl
+  };
+}
+```
+  </TabItem>
+</Tabs>
+
+### Frontend 3DS Flow (Stripe)
+
+```typescript
+import { loadStripe } from '@stripe/stripe-js';
+
+const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
+
+async function handle3DS(clientSecret: string) {
+  const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret);
+
+  if (error) {
+    // 3DS failed or was canceled
+    return { success: false, error: error.message };
+  }
+
+  if (paymentIntent.status === 'succeeded') {
+    // Payment completed after 3DS
+    return { success: true };
+  }
+}
+```
+
+## Dispute Handling
+
+### Detecting Disputes
+
+```typescript
+import { isDisputeEvent, extractDisputeDetails } from '@qazuor/qzpay-stripe';
+
+billing.on('payment.disputed', async (event) => {
+  if (isDisputeEvent(event.rawEvent)) {
+    const dispute = extractDisputeDetails(event.rawEvent);
+
+    // Log for review
+    await logDispute({
+      disputeId: dispute.disputeId,
+      chargeId: dispute.chargeId,
+      amount: dispute.amount,
+      reason: dispute.reason,
+      evidenceDueBy: dispute.evidenceDueBy
+    });
+
+    // Notify team
+    await notifyTeam('dispute_created', {
+      amount: dispute.amount,
+      reason: dispute.reason,
+      deadline: dispute.evidenceDueBy
+    });
+  }
+});
+```
+
+### Dispute Reasons
+
+| Reason | Description |
+|--------|-------------|
+| `fraudulent` | Customer claims they didn't authorize |
+| `duplicate` | Customer charged multiple times |
+| `product_not_received` | Customer didn't receive product |
+| `product_unacceptable` | Product doesn't match description |
+| `subscription_canceled` | Charged after cancellation |
+| `unrecognized` | Customer doesn't recognize charge |
+
+## Fraud Prevention
+
+### Detecting Fraud Warnings
+
+```typescript
+import { isFraudWarningEvent, extractFraudWarningDetails } from '@qazuor/qzpay-stripe';
+
+billing.on('fraud.warning', async (event) => {
+  if (isFraudWarningEvent(event.rawEvent)) {
+    const warning = extractFraudWarningDetails(event.rawEvent);
+
+    if (warning.actionable) {
+      // Can still refund the charge
+      await billing.payments.refund({
+        paymentId: warning.paymentIntentId,
+        reason: 'fraudulent'
+      });
+    }
+
+    // Log for review
+    await logFraudWarning(warning);
+  }
+});
+```
+
+### Event Priority
+
+```typescript
+import { requiresImmediateAction, classifyStripeEvent } from '@qazuor/qzpay-stripe';
+
+// Events that require immediate action:
+// - payment_intent.requires_action
+// - charge.dispute.created
+// - radar.early_fraud_warning.created
+// - invoice.payment_failed
+
+if (requiresImmediateAction(event)) {
+  // Handle high priority
+  await handleUrgentEvent(event);
+} else {
+  // Queue for normal processing
+  await queueEvent(event);
+}
+```
+
+## Recovery Strategies
+
+### Offering Payment Method Update
+
+```typescript
+// Generate secure link for payment update
+async function generatePaymentUpdateLink(customerId: string): Promise<string> {
+  const token = await generateSecureToken(customerId, '24h');
+  return `${APP_URL}/billing/update-payment?token=${token}`;
+}
+
+// In dunning email
+await sendEmail(customerId, 'update_payment', {
+  updateUrl: await generatePaymentUpdateLink(customerId)
+});
+```
+
+### Offering Downgrade
+
+```typescript
+// If customer can't afford current plan
+billing.on('subscription.past_due', async (event) => {
+  const subscription = event.data;
+
+  // Check if there's a cheaper plan
+  const cheaperPlan = await findCheaperPlan(subscription.planId);
+
+  if (cheaperPlan) {
+    await sendEmail(subscription.customerId, 'offer_downgrade', {
+      currentPlan: subscription.planId,
+      suggestedPlan: cheaperPlan.id,
+      savings: calculateSavings(subscription.planId, cheaperPlan.id)
+    });
+  }
+});
+```
+
+### Pause Instead of Cancel
+
+```typescript
+// Offer to pause instead of losing the customer
+billing.on('subscription.unpaid', async (event) => {
+  // Instead of immediate cancellation
+  await billing.subscriptions.pause(event.data.id);
+
+  await sendEmail(event.data.customerId, 'subscription_paused', {
+    resumeUrl: `${APP_URL}/billing/resume`,
+    pauseDuration: '30 days'
+  });
+});
+```
+
+## Best Practices
+
+1. **Never expose raw error codes** - Translate to user-friendly messages
+2. **Implement retry with backoff** - Don't hammer the payment provider
+3. **Send timely notifications** - Inform customers before access is revoked
+4. **Offer recovery options** - Payment update links, downgrades, pauses
+5. **Log everything** - Track errors for analysis and fraud detection
+6. **Handle 3DS gracefully** - Don't lose the sale on authentication
+7. **Monitor dispute rate** - High rates can result in provider penalties
+
+<Aside type="caution">
+Keep your dispute rate below 1% to avoid penalties from payment providers. Implement clear refund policies and accurate product descriptions.
+</Aside>

@@ -1,0 +1,266 @@
+---
+title: Testing
+description: Probando tu integración con QZPay
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Guía de Testing
+
+Mejores prácticas para probar tu integración con QZPay.
+
+## Ambiente de Pruebas
+
+### Modos de Prueba del Proveedor
+
+Siempre usa credenciales de prueba durante desarrollo:
+
+```bash
+# Claves de prueba de Stripe
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+
+# Sandbox de MercadoPago
+MP_ACCESS_TOKEN=TEST-xxx
+MP_PUBLIC_KEY=TEST-xxx
+```
+
+### Storage en Memoria
+
+Para unit tests, usa el storage mock:
+
+```typescript
+import { createMockStorage } from '@qazuor/qzpay-core/testing';
+
+const mockStorage = createMockStorage();
+
+const billing = createQZPayBilling({
+  paymentAdapter: mockProvider,
+  storage: mockStorage
+});
+```
+
+## Unit Testing
+
+### Testeando Operaciones de Cliente
+
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { createQZPayBilling, type QZPayBilling } from '@qazuor/qzpay-core';
+import { createMockProvider, createMockStorage } from '@qazuor/qzpay-core/testing';
+
+describe('CustomerService', () => {
+  let billing: QZPayBilling;
+  let mockProvider: MockProvider;
+  let mockStorage: MockStorage;
+
+  beforeEach(() => {
+    mockProvider = createMockProvider();
+    mockStorage = createMockStorage();
+    billing = createQZPayBilling({
+      paymentAdapter: mockProvider,
+      storage: mockStorage
+    });
+  });
+
+  it('crea un cliente', async () => {
+    const customer = await billing.customers.create({
+      email: 'test@ejemplo.com',
+      name: 'Usuario Test'
+    });
+
+    expect(customer.id).toBeDefined();
+    expect(customer.email).toBe('test@ejemplo.com');
+    expect(mockProvider.customers.create).toHaveBeenCalled();
+    expect(mockStorage.customers.create).toHaveBeenCalled();
+  });
+});
+```
+
+### Testeando Lógica de Suscripción
+
+```typescript
+describe('SubscriptionService', () => {
+  it('crea una suscripción con prueba', async () => {
+    const customer = await billing.customers.create({
+      email: 'test@ejemplo.com'
+    });
+
+    const subscription = await billing.subscriptions.create({
+      customerId: customer.id,
+      planId: 'price_test',
+      trialDays: 14
+    });
+
+    expect(subscription.status).toBe('trialing');
+    expect(subscription.trialEnd).toBeDefined();
+  });
+
+  it('cancela al final del período', async () => {
+    const subscription = await createActiveSubscription();
+
+    const cancelled = await billing.subscriptions.cancel(subscription.id, {
+      atPeriodEnd: true
+    });
+
+    expect(cancelled.cancelAtPeriodEnd).toBe(true);
+    expect(cancelled.status).toBe('active');
+  });
+});
+```
+
+### Testeando Event Handlers
+
+```typescript
+describe('Event Handlers', () => {
+  it('emite evento subscription.created', async () => {
+    const handler = vi.fn();
+    billing.on('subscription.created', handler);
+
+    await billing.subscriptions.create({
+      customerId: 'cus_test',
+      planId: 'price_test'
+    });
+
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'subscription.created',
+        data: expect.objectContaining({
+          customerId: 'cus_test'
+        })
+      })
+    );
+  });
+});
+```
+
+## Integration Testing
+
+### Con Base de Datos Real
+
+```typescript
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+describe('Integration Tests', () => {
+  let container: PostgreSqlContainer;
+  let db: ReturnType<typeof drizzle>;
+  let billing: QZPayBilling;
+
+  beforeAll(async () => {
+    container = await new PostgreSqlContainer().start();
+
+    const sql = postgres(container.getConnectionUri());
+    db = drizzle(sql);
+
+    // Ejecuta migraciones
+    await migrate(db, { migrationsFolder: './drizzle' });
+
+    billing = createQZPayBilling({
+      paymentAdapter: createMockProvider(),
+      storage: createQZPayDrizzleAdapter(db)
+    });
+  }, 60000);
+
+  afterAll(async () => {
+    await container.stop();
+  });
+
+  it('persiste cliente en base de datos', async () => {
+    const customer = await billing.customers.create({
+      email: 'integration@test.com'
+    });
+
+    const fromDb = await db.query.customers.findFirst({
+      where: eq(customers.id, customer.id)
+    });
+
+    expect(fromDb).toBeDefined();
+    expect(fromDb?.email).toBe('integration@test.com');
+  });
+});
+```
+
+## Testing de Webhooks
+
+### Eventos Webhook Mock
+
+```typescript
+import { createMockWebhookEvent } from '@qazuor/qzpay-core/testing';
+
+describe('Procesamiento de Webhook', () => {
+  it('procesa subscription.updated', async () => {
+    const event = createMockWebhookEvent('customer.subscription.updated', {
+      id: 'sub_123',
+      status: 'past_due'
+    });
+
+    // Testea tu manejador de webhook directamente
+    await tuManejadorDeSuscripcion(event);
+
+    const subscription = await billing.subscriptions.get('sub_123');
+    expect(subscription.status).toBe('past_due');
+  });
+});
+```
+
+### Con Stripe CLI
+
+```bash
+# Forwarding webhooks al servidor local
+stripe listen --forward-to localhost:3000/webhooks/stripe
+
+# Trigger eventos específicos
+stripe trigger customer.subscription.created
+stripe trigger invoice.payment_failed
+```
+
+## Tarjetas de Prueba
+
+### Tarjetas de Prueba Stripe
+
+| Número | Descripción |
+|--------|-------------|
+| `4242424242424242` | Pago exitoso |
+| `4000000000000002` | Tarjeta rechazada |
+| `4000002500003155` | Requiere 3D Secure |
+| `4000000000009995` | Fondos insuficientes |
+
+### Tarjetas de Prueba MercadoPago
+
+| Número | Descripción |
+|--------|-------------|
+| `5031 7557 3453 0604` | Aprobado |
+| `5031 7557 3453 0620` | Pendiente |
+| `5031 7557 3453 0612` | Rechazado |
+
+## Objetivos de Cobertura
+
+QZPay apunta a alta cobertura de tests:
+
+```bash
+# Ejecuta reporte de cobertura
+pnpm test:coverage
+```
+
+Cobertura objetivo:
+- Statements: 90%+
+- Branches: 85%+
+- Functions: 90%+
+- Lines: 90%+
+
+<Aside type="tip">
+Enfócate en testear lógica de negocio y casos edge, no solo en alcanzar números de cobertura.
+</Aside>
+
+## Mejores Prácticas
+
+1. **Usa test containers** para tests de base de datos
+2. **Mockea APIs externas** en unit tests
+3. **Usa APIs reales** solo en tests E2E
+4. **Testea paths de error** tan exhaustivamente como happy paths
+5. **Verifica emisiones de eventos** para todas las operaciones
+6. **Testea idempotencia de webhooks** con eventos duplicados
+7. **Limpia datos de test** para evitar contaminación

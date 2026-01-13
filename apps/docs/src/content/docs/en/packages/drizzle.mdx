@@ -1,0 +1,419 @@
+---
+title: "@qazuor/qzpay-drizzle"
+description: Drizzle ORM storage adapter for PostgreSQL
+---
+
+import { Aside, Badge, LinkCard } from '@astrojs/starlight/components';
+
+# @qazuor/qzpay-drizzle
+
+<Badge text="Storage" variant="caution" />
+
+<LinkCard
+  title="View on npm"
+  href="https://www.npmjs.com/package/@qazuor/qzpay-drizzle"
+  description="@qazuor/qzpay-drizzle"
+/>
+
+PostgreSQL storage adapter using Drizzle ORM.
+
+## Installation
+
+```bash
+pnpm add @qazuor/qzpay-drizzle drizzle-orm postgres zod
+pnpm add -D drizzle-kit
+```
+
+## Setup
+
+### 1. Configure Database Connection
+
+```typescript
+// src/db/index.ts
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import * as schema from '@qazuor/qzpay-drizzle';
+
+const sql = postgres(process.env.DATABASE_URL!);
+export const db = drizzle(sql, { schema });
+```
+
+### 2. Create Storage Adapter
+
+```typescript
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+import { db } from './db';
+
+const storage = createQZPayDrizzleAdapter(db);
+
+// Or use the class directly
+import { QZPayDrizzleStorageAdapter } from '@qazuor/qzpay-drizzle';
+
+const storage = new QZPayDrizzleStorageAdapter(db, {
+  livemode: process.env.NODE_ENV === 'production'
+});
+```
+
+### 3. Use with QZPay
+
+```typescript
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+const billing = createQZPayBilling({
+  storage: createQZPayDrizzleAdapter(db),
+  paymentAdapter: stripeAdapter
+});
+```
+
+## Database Schema
+
+All tables use the `billing_` prefix. The package provides 24 tables:
+
+### Core Tables
+
+| Table | Description |
+|-------|-------------|
+| `billing_customers` | Customer information |
+| `billing_subscriptions` | Subscription records |
+| `billing_payments` | Payment transactions |
+| `billing_payment_methods` | Saved payment methods |
+| `billing_invoices` | Invoice headers |
+| `billing_invoice_lines` | Invoice line items |
+| `billing_invoice_payments` | Invoice payment links |
+
+### Plans & Pricing
+
+| Table | Description |
+|-------|-------------|
+| `billing_plans` | Subscription plans |
+| `billing_prices` | Plan pricing |
+| `billing_promo_codes` | Discount codes |
+| `billing_promo_code_usage` | Promo code redemptions |
+| `billing_addons` | Add-on products |
+| `billing_subscription_addons` | Subscription add-ons |
+
+### Entitlements & Limits
+
+| Table | Description |
+|-------|-------------|
+| `billing_entitlements` | Feature definitions |
+| `billing_customer_entitlements` | Customer features |
+| `billing_limits` | Limit definitions |
+| `billing_customer_limits` | Customer limits |
+| `billing_usage_records` | Usage tracking |
+
+### Marketplace & Audit
+
+| Table | Description |
+|-------|-------------|
+| `billing_vendors` | Marketplace vendors |
+| `billing_vendor_payouts` | Vendor payouts |
+| `billing_audit_logs` | Change history |
+| `billing_webhook_events` | Webhook records |
+| `billing_webhook_dead_letter` | Failed webhooks |
+| `billing_idempotency_keys` | Idempotency tracking |
+
+## Configure Drizzle Kit
+
+```typescript
+// drizzle.config.ts
+import { defineConfig } from 'drizzle-kit';
+
+export default defineConfig({
+  schema: './node_modules/@qazuor/qzpay-drizzle/dist/schema',
+  out: './drizzle',
+  dialect: 'postgresql',
+  dbCredentials: {
+    url: process.env.DATABASE_URL!
+  }
+});
+```
+
+## Migrations
+
+```bash
+# Generate migrations
+pnpm drizzle-kit generate
+
+# Push to database (development)
+pnpm drizzle-kit push
+
+# Run migrations (production)
+pnpm drizzle-kit migrate
+
+# Open Drizzle Studio
+pnpm drizzle-kit studio
+```
+
+Or use the built-in migration utilities:
+
+```typescript
+import { runMigrations, hasPendingMigrations } from '@qazuor/qzpay-drizzle';
+
+// Check for pending migrations
+const pending = await hasPendingMigrations(db);
+
+// Run migrations
+await runMigrations(db);
+```
+
+## Storage Namespaces
+
+The adapter provides 12 storage namespaces:
+
+```typescript
+storage.customers       // Customer operations
+storage.subscriptions   // Subscription operations
+storage.payments        // Payment operations
+storage.paymentMethods  // Payment method operations
+storage.invoices        // Invoice operations
+storage.plans           // Plan operations
+storage.prices          // Price operations
+storage.promoCodes      // Promo code operations
+storage.vendors         // Vendor operations
+storage.entitlements    // Entitlement operations
+storage.limits          // Limit operations
+storage.addons          // Add-on operations
+```
+
+### Customer Storage
+
+```typescript
+// Create
+const customer = await storage.customers.create({
+  email: 'user@example.com',
+  name: 'John Doe'
+});
+
+// Find by ID
+const customer = await storage.customers.findById(id);
+
+// Find by email
+const customer = await storage.customers.findByEmail(email);
+
+// Find by external ID
+const customer = await storage.customers.findByExternalId(externalId);
+
+// Update
+await storage.customers.update(id, { name: 'Jane Doe' });
+
+// Delete (soft delete)
+await storage.customers.delete(id);
+
+// List with pagination
+const { data, total } = await storage.customers.list({ limit: 10, offset: 0 });
+```
+
+### Subscription Storage
+
+```typescript
+// Create
+const sub = await storage.subscriptions.create({
+  customerId,
+  planId: 'pro',
+  status: 'active'
+});
+
+// Find by customer
+const subs = await storage.subscriptions.findByCustomerId(customerId);
+
+// Update
+await storage.subscriptions.update(id, { status: 'canceled' });
+
+// List with pagination
+const { data, total } = await storage.subscriptions.list({ limit: 10 });
+```
+
+### Entitlement Storage
+
+```typescript
+// Create entitlement definition
+await storage.entitlements.createDefinition({
+  key: 'advanced_analytics',
+  name: 'Advanced Analytics',
+  featureType: 'boolean'
+});
+
+// Grant to customer
+await storage.entitlements.grant({
+  customerId,
+  entitlementKey: 'advanced_analytics'
+});
+
+// Check customer entitlement
+const hasAccess = await storage.entitlements.check(customerId, 'advanced_analytics');
+
+// Revoke
+await storage.entitlements.revoke(customerId, 'advanced_analytics');
+```
+
+### Limit Storage
+
+```typescript
+// Create limit definition
+await storage.limits.createDefinition({
+  key: 'api_calls',
+  name: 'API Calls',
+  defaultLimit: 1000,
+  resetInterval: 'month'
+});
+
+// Set customer limit
+await storage.limits.set({
+  customerId,
+  limitKey: 'api_calls',
+  limit: 5000
+});
+
+// Increment usage
+await storage.limits.increment({
+  customerId,
+  limitKey: 'api_calls',
+  amount: 1
+});
+
+// Check limit
+const result = await storage.limits.check(customerId, 'api_calls');
+```
+
+## Transactions
+
+```typescript
+// Execute operations in a transaction
+await storage.transaction(async (tx) => {
+  // Create customer
+  const customer = await tx.customers.create({ email: 'user@example.com' });
+
+  // Create subscription
+  await tx.subscriptions.create({
+    customerId: customer.id,
+    planId: 'pro'
+  });
+
+  // If any operation fails, all are rolled back
+});
+```
+
+## Advanced Features
+
+### Optimistic Locking
+
+All mutable entities include a `version` field for optimistic locking:
+
+```typescript
+import { withOptimisticRetry } from '@qazuor/qzpay-drizzle';
+
+await withOptimisticRetry(async () => {
+  const customer = await storage.customers.findById(id);
+  await storage.customers.update(id, {
+    name: 'New Name',
+    version: customer.version // Version check
+  });
+});
+```
+
+### Soft Delete
+
+Entities support soft delete via `deletedAt` timestamp:
+
+```typescript
+import { excludeDeleted, onlyDeleted, isSoftDeleted } from '@qazuor/qzpay-drizzle';
+
+// Filter out deleted records (default behavior)
+const customers = await storage.customers.list();
+
+// Include deleted records
+const allCustomers = await db.query.customers.findMany();
+
+// Only deleted records
+const deletedCustomers = await db.query.customers.findMany({
+  where: onlyDeleted()
+});
+```
+
+### Pagination Utilities
+
+```typescript
+import {
+  buildOffsetPaginatedResult,
+  normalizePaginationOptions
+} from '@qazuor/qzpay-drizzle';
+
+const options = normalizePaginationOptions({ page: 2, pageSize: 20 });
+// Returns: { limit: 20, offset: 20 }
+```
+
+## Repositories
+
+For direct database access, use the repositories:
+
+```typescript
+import {
+  QZPayCustomersRepository,
+  QZPaySubscriptionsRepository,
+  QZPayPaymentsRepository,
+  QZPayInvoicesRepository,
+  QZPayPlansRepository,
+  QZPayEntitlementsRepository,
+  QZPayLimitsRepository
+} from '@qazuor/qzpay-drizzle';
+
+const customersRepo = new QZPayCustomersRepository(db);
+const customers = await customersRepo.findMany({ limit: 10 });
+```
+
+## Schema Exports
+
+Import individual schema components:
+
+```typescript
+import {
+  // Tables
+  customers,
+  subscriptions,
+  payments,
+  invoices,
+  plans,
+  prices,
+  entitlements,
+  limits,
+
+  // Zod schemas for validation
+  insertCustomerSchema,
+  selectCustomerSchema,
+  insertSubscriptionSchema,
+  selectSubscriptionSchema,
+
+  // TypeScript types
+  type Customer,
+  type Subscription,
+  type Payment,
+  type Invoice
+} from '@qazuor/qzpay-drizzle';
+```
+
+## Custom Extensions
+
+Extend the schema with your own tables:
+
+```typescript
+// src/db/schema.ts
+import { pgTable, varchar, timestamp, text } from 'drizzle-orm/pg-core';
+import { customers } from '@qazuor/qzpay-drizzle';
+
+// Re-export all QZPay tables
+export * from '@qazuor/qzpay-drizzle';
+
+// Add custom tables with relations
+export const userProfiles = pgTable('user_profiles', {
+  id: varchar('id').primaryKey(),
+  customerId: varchar('customer_id').references(() => customers.id),
+  bio: text('bio'),
+  createdAt: timestamp('created_at').defaultNow()
+});
+```
+
+<Aside type="tip">
+Use Drizzle's relation helpers to connect your tables to the billing schema for type-safe joins.
+</Aside>

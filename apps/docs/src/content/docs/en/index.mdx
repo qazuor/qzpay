@@ -1,0 +1,73 @@
+---
+title: QZPay - Universal Billing Library
+description: A comprehensive billing and payments library for Node.js applications
+template: splash
+hero:
+  tagline: Universal billing and payments library for Node.js applications. Support for Stripe, MercadoPago, and more.
+  image:
+    file: ../../../assets/logo-dark.svg
+  actions:
+    - text: Get Started
+      link: /en/getting-started/introduction/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/qazuor/qzpay
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Features
+
+<CardGrid stagger>
+  <Card title="Provider Agnostic" icon="puzzle">
+    Switch between Stripe, MercadoPago, or any custom provider without changing your business logic.
+  </Card>
+  <Card title="Type Safe" icon="approve-check">
+    Full TypeScript support with comprehensive types for all billing operations.
+  </Card>
+  <Card title="Framework Integrations" icon="rocket">
+    Ready-to-use integrations for Hono, NestJS, and React applications.
+  </Card>
+  <Card title="Battle Tested" icon="shield">
+    Over 3,800 tests with 90%+ code coverage across all packages.
+  </Card>
+</CardGrid>
+
+## Packages
+
+| Package | Description |
+|---------|-------------|
+| `@qazuor/qzpay-core` | Core billing types, services, and utilities |
+| `@qazuor/qzpay-stripe` | Stripe payment provider adapter |
+| `@qazuor/qzpay-mercadopago` | MercadoPago payment provider adapter |
+| `@qazuor/qzpay-drizzle` | Drizzle ORM storage adapter |
+| `@qazuor/qzpay-hono` | Hono middleware and routes |
+| `@qazuor/qzpay-nestjs` | NestJS module and decorators |
+| `@qazuor/qzpay-react` | React hooks and components |
+
+## Quick Example
+
+```typescript
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+const billing = createQZPayBilling({
+  paymentAdapter: createQZPayStripeAdapter({ apiKey: process.env.STRIPE_SECRET_KEY }),
+  storage: createQZPayDrizzleAdapter(db)
+});
+
+// Create a customer
+const customer = await billing.customers.create({
+  email: 'user@example.com',
+  name: 'John Doe'
+});
+
+// Create a subscription
+const subscription = await billing.subscriptions.create({
+  customerId: customer.id,
+  planId: 'pro-monthly'
+});
+```

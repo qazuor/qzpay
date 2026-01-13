@@ -1,0 +1,194 @@
+---
+title: Support
+description: How to get help with QZPay
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+# Support
+
+Need help with QZPay? Here's how to get assistance.
+
+## Self-Service Resources
+
+<CardGrid>
+  <Card title="Documentation" icon="open-book">
+    Comprehensive guides covering all aspects of QZPay.
+    [Browse Docs →](/en/getting-started/introduction/)
+  </Card>
+  <Card title="FAQ" icon="information">
+    Answers to commonly asked questions.
+    [View FAQ →](/en/resources/faq/)
+  </Card>
+  <Card title="Troubleshooting" icon="warning">
+    Solutions to common issues.
+    [Troubleshoot →](/en/resources/troubleshooting/)
+  </Card>
+  <Card title="Examples" icon="seti:folder">
+    Working code examples.
+    [See Examples →](https://github.com/qazuor/qzpay/tree/main/examples)
+  </Card>
+</CardGrid>
+
+## Community Support
+
+### GitHub Discussions
+
+The best place for questions, ideas, and community help.
+
+<LinkCard
+  title="GitHub Discussions"
+  href="https://github.com/qazuor/qzpay/discussions"
+  description="Ask questions and share ideas with the community"
+/>
+
+Use discussions for:
+- **Q&A** - Ask how to do something with QZPay
+- **Ideas** - Suggest new features or improvements
+- **Show and Tell** - Share what you've built with QZPay
+- **General** - Anything else related to QZPay
+
+### GitHub Issues
+
+For bug reports and feature requests.
+
+<LinkCard
+  title="GitHub Issues"
+  href="https://github.com/qazuor/qzpay/issues"
+  description="Report bugs and request features"
+/>
+
+Before opening an issue:
+1. Search existing issues to avoid duplicates
+2. Use the appropriate issue template
+3. Provide all requested information
+
+## Reporting Bugs
+
+When reporting a bug, please include:
+
+### Environment Information
+
+```
+QZPay Version: x.x.x
+Node.js Version: x.x.x
+Operating System: Linux/macOS/Windows
+Payment Provider: Stripe/MercadoPago
+Database: PostgreSQL/SQLite/MySQL
+```
+
+### Reproduction Steps
+
+1. What you were trying to do
+2. What you expected to happen
+3. What actually happened
+
+### Minimal Reproduction
+
+If possible, provide a minimal code example that reproduces the issue:
+
+```typescript
+import { createBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+
+const billing = createBilling({
+  paymentAdapter: createQZPayStripeAdapter({ apiKey: 'sk_test_xxx' }),
+  storage
+});
+
+// Code that causes the issue
+const result = await billing.customers.create({
+  email: 'test@example.com'
+});
+// Error: ...
+```
+
+### Error Messages
+
+Include the full error message and stack trace.
+
+## Feature Requests
+
+When requesting a feature:
+
+1. **Describe the problem** - What problem are you trying to solve?
+2. **Propose a solution** - How should it work?
+3. **Provide context** - Why is this important for your use case?
+4. **Consider alternatives** - What other approaches have you considered?
+
+## Security Issues
+
+<Aside type="caution">
+**Do not report security vulnerabilities publicly.** Please email security issues directly to security@qazuor.com.
+</Aside>
+
+Include:
+- Description of the vulnerability
+- Steps to reproduce
+- Potential impact
+- Suggested fix (if any)
+
+We will acknowledge receipt within 48 hours and provide updates on our investigation.
+
+## Professional Support
+
+For enterprise needs, custom development, or dedicated support:
+
+<LinkCard
+  title="Enterprise Support"
+  href="mailto:enterprise@qazuor.com"
+  description="Contact us for professional support options"
+/>
+
+Enterprise support includes:
+- Priority issue resolution
+- Direct communication channels
+- Custom feature development
+- Architecture review
+- Training and onboarding
+- SLA guarantees
+
+## Response Times
+
+### Community Support (Free)
+
+| Priority | Response Time |
+|----------|---------------|
+| Bug Reports | 1-3 business days |
+| Feature Requests | 3-5 business days |
+| Questions | Community-driven |
+
+<Aside type="note">
+Response times for community support are best-effort and depend on maintainer availability.
+</Aside>
+
+### Enterprise Support (Paid)
+
+| Priority | Response Time |
+|----------|---------------|
+| Critical | 4 hours |
+| High | 1 business day |
+| Normal | 2 business days |
+| Low | 5 business days |
+
+## Support Best Practices
+
+To get the best help:
+
+1. **Search first** - Check if your question has been answered
+2. **Be specific** - Provide detailed information about your issue
+3. **Show your work** - Include relevant code and error messages
+4. **Be patient** - Maintainers are often volunteers
+5. **Give back** - Help others when you can
+
+## Contributing
+
+The best way to ensure QZPay meets your needs is to contribute! See the [Contributing Guide](/en/community/contributing/) to get started.
+
+## Contact
+
+- **General Questions:** [GitHub Discussions](https://github.com/qazuor/qzpay/discussions)
+- **Bug Reports:** [GitHub Issues](https://github.com/qazuor/qzpay/issues)
+- **Security Issues:** security@qazuor.com
+- **Enterprise Support:** enterprise@qazuor.com
+- **Other Inquiries:** hello@qazuor.com

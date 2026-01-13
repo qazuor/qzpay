@@ -1,0 +1,265 @@
+---
+title: Styling Components
+description: Customizing the appearance of QZPay React components
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Styling Components
+
+QZPay React components are designed to be customizable while providing sensible defaults.
+
+## Theme System
+
+### Basic Theme Configuration
+
+```tsx
+import { QZPayProvider, createTheme } from '@qazuor/qzpay-react';
+
+const theme = createTheme({
+  colors: {
+    primary: '#3b82f6',
+    primaryHover: '#2563eb',
+    success: '#22c55e',
+    warning: '#f59e0b',
+    error: '#ef4444',
+    background: '#ffffff',
+    surface: '#f8fafc',
+    text: '#1e293b',
+    textMuted: '#64748b',
+    border: '#e2e8f0'
+  },
+  borderRadius: '8px',
+  fontFamily: 'Inter, system-ui, sans-serif'
+});
+
+function App() {
+  return (
+    <QZPayProvider theme={theme}>
+      <YourApp />
+    </QZPayProvider>
+  );
+}
+```
+
+### Dark Mode
+
+```tsx
+const darkTheme = createTheme({
+  colors: {
+    primary: '#60a5fa',
+    background: '#0f172a',
+    surface: '#1e293b',
+    text: '#f1f5f9',
+    textMuted: '#94a3b8',
+    border: '#334155'
+  }
+});
+
+// Toggle based on user preference
+const theme = isDarkMode ? darkTheme : lightTheme;
+
+<QZPayProvider theme={theme}>
+```
+
+### Using CSS Variables
+
+```tsx
+const theme = createTheme({
+  colors: {
+    primary: 'var(--brand-primary)',
+    background: 'var(--bg-color)',
+    // ...
+  }
+});
+```
+
+## Component-Level Styling
+
+### Class Name Props
+
+All components accept `className` for custom styling:
+
+```tsx
+import { PricingTable } from '@qazuor/qzpay-react';
+
+<PricingTable
+  className="my-pricing-table"
+  cardClassName="my-plan-card"
+  buttonClassName="my-select-button"
+/>
+```
+
+### Style Props
+
+```tsx
+<SubscriptionStatus
+  style={{ maxWidth: '400px', margin: '0 auto' }}
+  cardStyle={{ boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+/>
+```
+
+## CSS Classes Reference
+
+### PricingTable
+
+| Class | Element |
+|-------|---------|
+| `.qzpay-pricing-table` | Container |
+| `.qzpay-pricing-card` | Plan card |
+| `.qzpay-pricing-card--highlighted` | Featured plan |
+| `.qzpay-pricing-card--current` | Current plan |
+| `.qzpay-pricing-header` | Card header |
+| `.qzpay-pricing-price` | Price display |
+| `.qzpay-pricing-features` | Feature list |
+| `.qzpay-pricing-button` | Select button |
+
+### SubscriptionStatus
+
+| Class | Element |
+|-------|---------|
+| `.qzpay-subscription-status` | Container |
+| `.qzpay-subscription-badge` | Status badge |
+| `.qzpay-subscription-badge--active` | Active status |
+| `.qzpay-subscription-badge--trialing` | Trial status |
+| `.qzpay-subscription-badge--past-due` | Past due status |
+| `.qzpay-subscription-details` | Details section |
+| `.qzpay-subscription-actions` | Action buttons |
+
+### PaymentForm
+
+| Class | Element |
+|-------|---------|
+| `.qzpay-payment-form` | Form container |
+| `.qzpay-payment-input` | Input fields |
+| `.qzpay-payment-error` | Error message |
+| `.qzpay-payment-button` | Submit button |
+
+### InvoiceList
+
+| Class | Element |
+|-------|---------|
+| `.qzpay-invoice-list` | Container |
+| `.qzpay-invoice-item` | Invoice row |
+| `.qzpay-invoice-status` | Status indicator |
+| `.qzpay-invoice-amount` | Amount display |
+| `.qzpay-invoice-actions` | Download/view buttons |
+
+## Custom CSS Example
+
+```css
+/* Override default styles */
+.qzpay-pricing-table {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.qzpay-pricing-card {
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  padding: 2rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.qzpay-pricing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.qzpay-pricing-card--highlighted {
+  border-color: var(--primary-color);
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+
+.qzpay-pricing-button {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+```
+
+## Tailwind CSS Integration
+
+```tsx
+import { PricingTable } from '@qazuor/qzpay-react';
+
+<PricingTable
+  className="grid grid-cols-1 md:grid-cols-3 gap-6"
+  cardClassName="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6"
+  buttonClassName="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition"
+/>
+```
+
+## Styled Components / Emotion
+
+```tsx
+import styled from '@emotion/styled';
+import { PricingCard as BasePricingCard } from '@qazuor/qzpay-react';
+
+const StyledPricingCard = styled(BasePricingCard)`
+  background: ${props => props.highlighted ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white'};
+  color: ${props => props.highlighted ? 'white' : 'inherit'};
+  border-radius: 20px;
+  padding: 2rem;
+
+  &:hover {
+    transform: scale(1.02);
+  }
+`;
+```
+
+## Headless Components
+
+For complete control, use headless components:
+
+```tsx
+import { usePricingTable } from '@qazuor/qzpay-react';
+
+function CustomPricingTable() {
+  const { plans, currentPlanId, selectPlan, isLoading } = usePricingTable();
+
+  if (isLoading) return <YourSpinner />;
+
+  return (
+    <div className="your-custom-grid">
+      {plans.map(plan => (
+        <YourPlanCard
+          key={plan.id}
+          plan={plan}
+          isCurrent={plan.id === currentPlanId}
+          onSelect={() => selectPlan(plan.id)}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+<Aside type="tip">
+Headless components give you the logic and state management while you provide 100% of the UI.
+</Aside>
+
+## Design Tokens
+
+Export theme values for use elsewhere:
+
+```tsx
+import { useTheme } from '@qazuor/qzpay-react';
+
+function CustomComponent() {
+  const theme = useTheme();
+
+  return (
+    <div style={{
+      background: theme.colors.surface,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius
+    }}>
+      Custom styled content
+    </div>
+  );
+}
+```

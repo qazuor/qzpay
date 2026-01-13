@@ -1,0 +1,325 @@
+---
+title: Testing
+description: Testing your QZPay integration
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Testing Guide
+
+Best practices for testing your QZPay integration.
+
+## Test Environment
+
+### Provider Test Modes
+
+Always use test credentials during development:
+
+```bash
+# Stripe test keys
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+
+# MercadoPago sandbox
+MP_ACCESS_TOKEN=TEST-xxx
+MP_PUBLIC_KEY=TEST-xxx
+```
+
+### In-Memory Storage
+
+For unit tests, use the mock storage:
+
+```typescript
+import { createMockStorage } from '@qazuor/qzpay-core/testing';
+
+const mockStorage = createMockStorage();
+
+const billing = createQZPayBilling({
+  paymentAdapter: mockProvider,
+  storage: mockStorage
+});
+```
+
+## Unit Testing
+
+### Testing Customer Operations
+
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createMockProvider, createMockStorage } from '@qazuor/qzpay-core/testing';
+
+describe('CustomerService', () => {
+  let billing: ReturnType<typeof createQZPayBilling>;
+  let mockProvider: MockProvider;
+  let mockStorage: MockStorage;
+
+  beforeEach(() => {
+    mockProvider = createMockProvider();
+    mockStorage = createMockStorage();
+    billing = createQZPayBilling({
+      paymentAdapter: mockProvider,
+      storage: mockStorage
+    });
+  });
+
+  it('creates a customer', async () => {
+    const customer = await billing.customers.create({
+      email: 'test@example.com',
+      name: 'Test User'
+    });
+
+    expect(customer.id).toBeDefined();
+    expect(customer.email).toBe('test@example.com');
+    expect(mockProvider.customers.create).toHaveBeenCalled();
+    expect(mockStorage.customers.create).toHaveBeenCalled();
+  });
+
+  it('retrieves a customer', async () => {
+    const created = await billing.customers.create({
+      email: 'test@example.com'
+    });
+
+    const retrieved = await billing.customers.get(created.id);
+
+    expect(retrieved.id).toBe(created.id);
+    expect(retrieved.email).toBe('test@example.com');
+  });
+});
+```
+
+### Testing Subscription Logic
+
+```typescript
+describe('SubscriptionService', () => {
+  it('creates a subscription with trial', async () => {
+    const customer = await billing.customers.create({
+      email: 'test@example.com'
+    });
+
+    const subscription = await billing.subscriptions.create({
+      customerId: customer.id,
+      planId: 'price_test',
+      trialDays: 14
+    });
+
+    expect(subscription.status).toBe('trialing');
+    expect(subscription.trialEnd).toBeDefined();
+  });
+
+  it('cancels at period end', async () => {
+    const subscription = await createActiveSubscription();
+
+    const cancelled = await billing.subscriptions.cancel(subscription.id, {
+      atPeriodEnd: true
+    });
+
+    expect(cancelled.cancelAtPeriodEnd).toBe(true);
+    expect(cancelled.status).toBe('active'); // Still active until period end
+  });
+});
+```
+
+### Testing Event Handlers
+
+```typescript
+describe('Event Handlers', () => {
+  it('emits subscription.created event', async () => {
+    const handler = vi.fn();
+    billing.on('subscription.created', handler);
+
+    await billing.subscriptions.create({
+      customerId: 'cus_test',
+      planId: 'price_test'
+    });
+
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'subscription.created',
+        data: expect.objectContaining({
+          customerId: 'cus_test'
+        })
+      })
+    );
+  });
+});
+```
+
+## Integration Testing
+
+### With Real Database
+
+```typescript
+import { PostgreSqlContainer } from '@testcontainers/postgresql';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+describe('Integration Tests', () => {
+  let container: PostgreSqlContainer;
+  let db: ReturnType<typeof drizzle>;
+  let billing: ReturnType<typeof createQZPayBilling>;
+
+  beforeAll(async () => {
+    container = await new PostgreSqlContainer().start();
+
+    const sql = postgres(container.getConnectionUri());
+    db = drizzle(sql);
+
+    // Run migrations
+    await migrate(db, { migrationsFolder: './drizzle' });
+
+    billing = createQZPayBilling({
+      paymentAdapter: createMockProvider(),
+      storage: createQZPayDrizzleAdapter(db)
+    });
+  }, 60000);
+
+  afterAll(async () => {
+    await container.stop();
+  });
+
+  it('persists customer to database', async () => {
+    const customer = await billing.customers.create({
+      email: 'integration@test.com'
+    });
+
+    const fromDb = await db.query.customers.findFirst({
+      where: eq(customers.id, customer.id)
+    });
+
+    expect(fromDb).toBeDefined();
+    expect(fromDb?.email).toBe('integration@test.com');
+  });
+});
+```
+
+### With Real Provider (E2E)
+
+```typescript
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+
+describe('Stripe E2E', () => {
+  let billing: ReturnType<typeof createQZPayBilling>;
+
+  beforeAll(() => {
+    // Use Stripe test mode
+    billing = createQZPayBilling({
+      paymentAdapter: createQZPayStripeAdapter({
+        apiKey: process.env.STRIPE_TEST_SECRET_KEY!
+      }),
+      storage: createQZPayDrizzleAdapter(db)
+    });
+  });
+
+  it('creates real Stripe customer', async () => {
+    const customer = await billing.customers.create({
+      email: `e2e-${Date.now()}@test.com`
+    });
+
+    expect(customer.externalIds.stripe).toMatch(/^cus_/);
+
+    // Cleanup
+    await billing.customers.delete(customer.id);
+  });
+});
+```
+
+## Webhook Testing
+
+### Mock Webhook Events
+
+```typescript
+import { createMockWebhookEvent } from '@qazuor/qzpay-core/testing';
+
+describe('Webhook Processing', () => {
+  it('processes subscription.updated', async () => {
+    const event = createMockWebhookEvent('customer.subscription.updated', {
+      id: 'sub_123',
+      status: 'past_due'
+    });
+
+    // Test your webhook handler directly
+    await yourSubscriptionHandler(event);
+
+    const subscription = await billing.subscriptions.get('sub_123');
+    expect(subscription.status).toBe('past_due');
+  });
+
+  it('handles payment.failed', async () => {
+    const handler = vi.fn();
+    billing.on('payment.failed', handler);
+
+    const event = createMockWebhookEvent('invoice.payment_failed', {
+      id: 'in_123',
+      subscription: 'sub_123'
+    });
+
+    // Test your webhook handler which triggers billing events
+    await yourPaymentFailedHandler(event);
+
+    expect(handler).toHaveBeenCalled();
+  });
+});
+```
+
+### With Stripe CLI
+
+```bash
+# Forward webhooks to local server
+stripe listen --forward-to localhost:3000/webhooks/stripe
+
+# Trigger specific events
+stripe trigger customer.subscription.created
+stripe trigger invoice.payment_failed
+stripe trigger charge.dispute.created
+```
+
+## Test Cards
+
+### Stripe Test Cards
+
+| Number | Description |
+|--------|-------------|
+| `4242424242424242` | Successful payment |
+| `4000000000000002` | Card declined |
+| `4000002500003155` | Requires 3D Secure |
+| `4000000000009995` | Insufficient funds |
+| `4000000000000069` | Expired card |
+
+### MercadoPago Test Cards
+
+| Number | Description |
+|--------|-------------|
+| `5031 7557 3453 0604` | Approved |
+| `5031 7557 3453 0620` | Pending |
+| `5031 7557 3453 0612` | Rejected |
+
+## Coverage Goals
+
+QZPay aims for high test coverage:
+
+```bash
+# Run coverage report
+pnpm test:coverage
+```
+
+Target coverage:
+- Statements: 90%+
+- Branches: 85%+
+- Functions: 90%+
+- Lines: 90%+
+
+<Aside type="tip">
+Focus on testing business logic and edge cases, not just hitting coverage numbers.
+</Aside>
+
+## Best Practices
+
+1. **Use test containers** for database tests
+2. **Mock external APIs** in unit tests
+3. **Use real APIs** only in E2E tests
+4. **Test error paths** as thoroughly as happy paths
+5. **Verify event emissions** for all operations
+6. **Test webhook idempotency** with duplicate events
+7. **Clean up test data** to avoid test pollution

@@ -1,0 +1,246 @@
+---
+title: Preguntas Frecuentes
+description: Preguntas comunes sobre QZPay
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+# Preguntas Frecuentes
+
+## General
+
+### ¿Qué es QZPay?
+
+QZPay es una biblioteca universal de facturación y pagos para aplicaciones Node.js. Proporciona una API unificada para trabajar con múltiples proveedores de pago (Stripe, MercadoPago, etc.) y backends de almacenamiento (Drizzle, Prisma, etc.), facilitando la implementación de facturación por suscripción, pagos únicos y gestión de derechos.
+
+### ¿Por qué usar QZPay en lugar de usar Stripe/MercadoPago directamente?
+
+QZPay ofrece varias ventajas:
+
+1. **Abstracción de Proveedores** - Cambia de proveedor de pagos sin modificar tu lógica de negocio
+2. **API Unificada** - La misma interfaz sin importar qué proveedor uses
+3. **Soporte Multi-Proveedor** - Usa diferentes proveedores en diferentes regiones
+4. **Derechos Integrados** - Control de características y límites de uso incluidos
+5. **Flexibilidad de Almacenamiento** - Elige tu propia base de datos y ORM
+6. **Componentes React** - Componentes UI preconstruidos para flujos de facturación comunes
+
+### ¿Está QZPay listo para producción?
+
+Sí. QZPay v1.0 es estable y adecuado para uso en producción. La biblioteca sigue versionado semántico, y los cambios incompatibles se documentan en el [registro de cambios](/es/resources/changelog/).
+
+### ¿Qué proveedores de pago están soportados?
+
+Actualmente soportados:
+- **Stripe** - Soporte completo incluyendo suscripciones, pagos, facturas y webhooks
+- **MercadoPago** - Soporte completo para mercados latinoamericanos
+
+Próximamente:
+- PayPal
+- Braintree
+
+También puedes [crear adaptadores personalizados](/es/guides/creating-adapters/) para cualquier proveedor de pagos.
+
+### ¿Qué bases de datos están soportadas?
+
+QZPay soporta cualquier base de datos a través de adaptadores de almacenamiento:
+
+- **Drizzle** - Adaptador oficial con soporte completo
+- **Personalizado** - Crea adaptadores para Prisma, TypeORM, o cualquier base de datos
+
+## Licenciamiento
+
+### ¿Bajo qué licencia se libera QZPay?
+
+QZPay se libera bajo la licencia MIT, lo que lo hace gratuito para usar tanto en proyectos comerciales como de código abierto.
+
+### ¿Puedo usar QZPay en proyectos comerciales?
+
+Sí. La licencia MIT permite uso comercial, modificación y distribución.
+
+## Preguntas Técnicas
+
+### ¿QZPay soporta TypeScript?
+
+Sí. QZPay está escrito en TypeScript y proporciona definiciones de tipos completas para todas las APIs. No se necesitan paquetes `@types` adicionales.
+
+### ¿Qué versiones de Node.js están soportadas?
+
+QZPay requiere Node.js 18 o superior. Recomendamos usar la última versión LTS.
+
+### ¿Puedo usar QZPay con Next.js/Nuxt/SvelteKit?
+
+Sí. QZPay funciona con cualquier framework de Node.js. El paquete core se ejecuta en el servidor, y el paquete React proporciona componentes del lado del cliente.
+
+```typescript
+// Ejemplo de ruta API de Next.js
+import { createBilling } from '@qazuor/qzpay-core';
+
+export async function POST(req: Request) {
+  const billing = createBilling({ provider, storage });
+  // ...
+}
+```
+
+### ¿Cómo manejo múltiples monedas?
+
+QZPay soporta facturación multi-moneda. Los precios se almacenan con su código de moneda:
+
+```typescript
+await billing.prices.create({
+  productId: 'pro',
+  amount: 9900,
+  currency: 'usd',
+  interval: 'month'
+});
+
+await billing.prices.create({
+  productId: 'pro',
+  amount: 8900,
+  currency: 'eur',
+  interval: 'month'
+});
+```
+
+### ¿Cómo implemento feature flags basados en suscripción?
+
+Usa el sistema de derechos:
+
+```typescript
+// Define derechos en tu plan
+const plan = {
+  id: 'pro',
+  entitlements: ['advanced_export', 'api_access', 'priority_support']
+};
+
+// Verifica derechos en tu código
+const hasFeature = await billing.entitlements.check(customerId, 'advanced_export');
+
+// O usa componentes React
+<EntitlementGate feature="advanced_export" fallback={<UpgradePrompt />}>
+  <AdvancedExportButton />
+</EntitlementGate>
+```
+
+### ¿Cómo funciona la facturación basada en uso?
+
+QZPay rastrea el uso y aplica límites a través del servicio `limits`:
+
+```typescript
+// Registrar uso
+await billing.limits.recordUsage(customerId, 'api_calls', 1);
+
+// Verificar límites
+const limit = await billing.limits.check(customerId, 'api_calls');
+if (!limit.allowed) {
+  throw new Error('Límite de API excedido');
+}
+
+console.log(`Usado: ${limit.currentValue}/${limit.maxValue}`);
+```
+
+### ¿Puedo personalizar los componentes React?
+
+Sí, de múltiples formas:
+
+1. **Tema** - Usa `createTheme()` para personalizar colores, fuentes y espaciado
+2. **Clases CSS** - Todos los componentes tienen nombres de clase estilo BEM que puedes sobrescribir
+3. **Props className** - Pasa clases personalizadas directamente a los componentes
+4. **Hooks Headless** - Usa hooks como `usePricingTable()` para construir UIs completamente personalizadas
+
+Consulta la [guía de Estilizado de Componentes](/es/guides/styling-components/) para más detalles.
+
+### ¿Cómo funcionan los webhooks?
+
+QZPay procesa webhooks de proveedores de pago y los traduce a eventos unificados:
+
+```typescript
+// El proveedor envía webhook
+POST /webhooks/stripe
+{ "type": "customer.subscription.updated", ... }
+
+// QZPay procesa y emite evento unificado
+billing.on('subscription.updated', (event) => {
+  // Manejar actualización de suscripción
+});
+```
+
+Consulta la [guía de Manejo de Webhooks](/es/guides/webhook-handling/) para detalles de implementación.
+
+## Migración
+
+### ¿Cómo migro del SDK de Stripe a QZPay?
+
+QZPay puede funcionar junto con código Stripe existente. Comienza por:
+
+1. Instalar los paquetes de QZPay
+2. Configurar el adaptador de Stripe con tu clave API existente
+3. Ejecutar el comando de sincronización para importar datos existentes
+4. Reemplazar gradualmente llamadas directas a Stripe con llamadas a QZPay
+
+```bash
+pnpm qzpay sync --provider stripe
+```
+
+Consulta la [Guía de Migración](/es/resources/migration/) para pasos detallados.
+
+### ¿Puedo migrar de un proveedor de pagos a otro?
+
+Sí, esta es una de las características clave de QZPay. Como todos los proveedores usan la misma interfaz, puedes:
+
+1. Agregar el nuevo adaptador de proveedor
+2. Sincronizar clientes/suscripciones existentes donde sea posible
+3. Usar el nuevo proveedor para nuevos clientes
+4. Migrar gradualmente los clientes existentes
+
+### ¿QZPay soporta importación/exportación de datos?
+
+Sí. El CLI proporciona comandos de importación/exportación:
+
+```bash
+# Exportar datos
+pnpm qzpay export --format json --output ./backup.json
+
+# Importar datos
+pnpm qzpay import --file ./backup.json
+```
+
+## Precios y Soporte
+
+### ¿Es QZPay gratuito?
+
+Sí. QZPay es de código abierto y gratuito para usar. No hay tarifas de licencia ni cargos por transacción de parte de QZPay. Solo pagas las tarifas que cobra tu proveedor de pagos.
+
+### ¿Cómo obtengo soporte?
+
+- **Documentación** - Guías completas y referencia de API
+- **GitHub Issues** - Reportes de bugs y solicitudes de características
+- **GitHub Discussions** - Preguntas y respuestas de la comunidad
+
+Consulta la [página de Soporte](/es/community/support/) para más detalles.
+
+### ¿Puedo obtener soporte profesional?
+
+Para soporte empresarial, desarrollo personalizado o consultoría, contáctanos en [support@qazuor.com](mailto:support@qazuor.com).
+
+## Seguridad
+
+### ¿Es QZPay seguro?
+
+QZPay sigue las mejores prácticas de seguridad:
+
+- No se almacenan datos sensibles (números de tarjeta, etc. permanecen con el proveedor)
+- Verificación de firma de webhooks
+- API con tipos seguros para prevenir errores comunes
+- Actualizaciones de seguridad regulares
+
+### ¿QZPay almacena números de tarjetas de crédito?
+
+No. QZPay nunca almacena números de tarjetas de crédito u otra información de pago sensible. Estos datos son manejados por tu proveedor de pagos (Stripe, MercadoPago, etc.) usando su tokenización segura.
+
+### ¿Cómo manejo el cumplimiento PCI?
+
+Como QZPay no almacena datos de tarjetas, puedes lograr el cumplimiento PCI a través de las soluciones hospedadas de tu proveedor de pagos (Stripe Elements, MercadoPago Checkout Pro, etc.).
+
+<Aside type="tip">
+¿Tienes una pregunta que no se responde aquí? Abre una discusión en [GitHub](https://github.com/qazuor/qzpay/discussions).
+</Aside>

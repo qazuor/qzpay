@@ -1,0 +1,188 @@
+---
+title: Subscriptions
+description: Managing subscription lifecycle in QZPay
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+# Subscriptions
+
+Subscriptions represent recurring billing relationships between customers and plans.
+
+## Subscription Lifecycle
+
+```
+┌─────────┐    ┌──────────┐    ┌────────┐    ┌───────────┐
+│ Created │───▶│ Trialing │───▶│ Active │───▶│ Cancelled │
+└─────────┘    └──────────┘    └────────┘    └───────────┘
+                                   │
+                                   ▼
+                              ┌──────────┐
+                              │ Past Due │
+                              └──────────┘
+                                   │
+                                   ▼
+                              ┌──────────┐
+                              │ Unpaid   │
+                              └──────────┘
+```
+
+## Creating Subscriptions
+
+### Basic Subscription
+
+```typescript
+const subscription = await billing.subscriptions.create({
+  customerId: 'cus_123',
+  planId: 'price_pro_monthly',
+  paymentMethodId: 'pm_card_visa'
+});
+```
+
+### With Trial Period
+
+```typescript
+const subscription = await billing.subscriptions.create({
+  customerId: 'cus_123',
+  planId: 'price_pro_monthly',
+  trialDays: 14
+});
+```
+
+### With Promo Code
+
+```typescript
+const subscription = await billing.subscriptions.create({
+  customerId: 'cus_123',
+  planId: 'price_pro_monthly',
+  promoCode: 'LAUNCH50'
+});
+```
+
+## Subscription Status
+
+| Status | Description |
+|--------|-------------|
+| `trialing` | In trial period, no payment yet |
+| `active` | Paid and active |
+| `past_due` | Payment failed, grace period |
+| `unpaid` | Multiple payment failures |
+| `paused` | Temporarily paused |
+| `cancelled` | Cancelled, may have access until period end |
+
+## Managing Subscriptions
+
+### Upgrading/Downgrading
+
+```typescript
+const subscription = await billing.subscriptions.update('sub_123', {
+  planId: 'price_enterprise_monthly',
+  proration: 'create_prorations' // or 'none'
+});
+```
+
+### Pausing
+
+```typescript
+const subscription = await billing.subscriptions.pause('sub_123');
+```
+
+### Resuming
+
+```typescript
+const subscription = await billing.subscriptions.resume('sub_123');
+```
+
+### Cancelling
+
+```typescript
+// Cancel at period end
+const subscription = await billing.subscriptions.cancel('sub_123', {
+  atPeriodEnd: true
+});
+
+// Cancel immediately
+const subscription = await billing.subscriptions.cancel('sub_123', {
+  atPeriodEnd: false
+});
+```
+
+<Aside type="tip">
+Cancelling at period end gives users access until their current billing period ends, providing a better customer experience.
+</Aside>
+
+## Retrieving Subscriptions
+
+### Single Subscription
+
+```typescript
+const subscription = await billing.subscriptions.get('sub_123');
+```
+
+### Customer's Subscriptions
+
+```typescript
+const subscriptions = await billing.subscriptions.getByCustomerId('cus_123');
+```
+
+### All Subscriptions
+
+```typescript
+const subscriptions = await billing.subscriptions.list({
+  status: 'active',
+  planId: 'price_pro_monthly',
+  limit: 10
+});
+```
+
+## Subscription Object
+
+```typescript
+interface Subscription {
+  id: string;
+  customerId: string;
+  planId: string;
+  status: SubscriptionStatus;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  trialStart?: Date;
+  trialEnd?: Date;
+  cancelAt?: Date;           // Scheduled cancellation date
+  canceledAt?: Date;         // When cancellation occurred
+  cancelAtPeriodEnd: boolean;
+  metadata: Record<string, string>;
+  externalIds: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+## Events
+
+| Event | Description |
+|-------|-------------|
+| `subscription.created` | New subscription created |
+| `subscription.updated` | Subscription was modified |
+| `subscription.canceled` | Subscription was canceled |
+| `subscription.paused` | Subscription was paused |
+| `subscription.resumed` | Subscription was resumed |
+| `subscription.trial_ending` | Trial ends in 3 days |
+
+```typescript
+billing.on('subscription.created', async (event) => {
+  const { customerId, planId } = event.data;
+  await provisionFeatures(customerId, planId);
+});
+
+billing.on('subscription.canceled', async (event) => {
+  await sendCancellationSurvey(event.data.customerId);
+});
+```
+
+## Best Practices
+
+1. **Always handle status changes** via webhooks
+2. **Implement grace periods** for failed payments
+3. **Send trial ending reminders** before conversion
+4. **Track cancellation reasons** for analytics
+5. **Use cancel at period end** for better UX

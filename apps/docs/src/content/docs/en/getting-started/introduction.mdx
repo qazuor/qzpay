@@ -1,0 +1,108 @@
+---
+title: Introduction
+description: Learn about QZPay and its core concepts
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Introduction to QZPay
+
+QZPay is a universal billing and payments library for Node.js applications. It provides a provider-agnostic abstraction layer that allows you to integrate with multiple payment providers (Stripe, MercadoPago, etc.) using a single, unified API.
+
+## Why QZPay?
+
+Building a billing system is complex. You need to handle:
+
+- **Customer management** - Creating, updating, and managing customer records
+- **Subscription lifecycle** - Trials, upgrades, downgrades, pauses, cancellations
+- **Payment processing** - One-time payments, recurring charges, refunds
+- **Webhooks** - Processing provider events reliably
+- **Entitlements** - Feature gating based on subscription plans
+- **Usage tracking** - Metered billing and usage limits
+
+QZPay handles all of this with a clean, type-safe API.
+
+## Core Principles
+
+### 1. Provider Agnostic
+
+Write your billing logic once, switch providers without code changes:
+
+```typescript
+// Using Stripe
+const billing = createQZPayBilling({
+  paymentAdapter: createQZPayStripeAdapter({ apiKey: stripeKey }),
+  storage: createQZPayDrizzleAdapter(db)
+});
+
+// Switch to MercadoPago - same API
+const billing = createQZPayBilling({
+  paymentAdapter: createQZPayMercadoPagoAdapter({ accessToken: mpToken }),
+  storage: createQZPayDrizzleAdapter(db)
+});
+```
+
+### 2. Type Safety
+
+Every operation is fully typed with TypeScript:
+
+```typescript
+// Full autocomplete and type checking
+const subscription = await billing.subscriptions.create({
+  customerId: customer.id,
+  planId: 'pro-monthly',
+  metadata: {
+    campaign: 'launch-2024'
+  }
+});
+
+// subscription is typed as Subscription
+subscription.status // 'active' | 'trialing' | 'past_due' | ...
+```
+
+### 3. Event-Driven
+
+React to billing events in your application:
+
+```typescript
+billing.on('subscription.created', async (event) => {
+  await sendWelcomeEmail(event.data.customerId);
+  await provisionFeatures(event.data.planId);
+});
+
+billing.on('payment.failed', async (event) => {
+  await notifyCustomer(event.data.customerId);
+});
+```
+
+<Aside type="tip">
+QZPay events are emitted after successful operations, making them perfect for side effects like sending emails or provisioning resources.
+</Aside>
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Your Application                     │
+├─────────────────────────────────────────────────────────┤
+│                      QZPayBilling                       │
+│  ┌──────────────┬──────────────┬──────────────────────┐ │
+│  │  Customers   │ Subscriptions │  Payments  │ ...    │ │
+│  └──────────────┴──────────────┴──────────────────────┘ │
+├─────────────────────────────────────────────────────────┤
+│         Provider Adapter          │     Storage        │
+│  ┌─────────────┬────────────────┐ │ ┌────────────────┐ │
+│  │   Stripe    │  MercadoPago   │ │ │    Drizzle     │ │
+│  └─────────────┴────────────────┘ │ └────────────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Requirements
+
+- Node.js 22 or later
+- TypeScript 5.7 or later
+- PostgreSQL (for Drizzle storage)
+
+## Next Steps
+
+Ready to get started? Head to the [Installation](/en/getting-started/installation/) guide.

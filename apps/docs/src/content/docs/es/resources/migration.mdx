@@ -1,0 +1,397 @@
+---
+title: Guía de Migración
+description: Cómo migrar a QZPay desde implementaciones de facturación existentes
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Guía de Migración
+
+Esta guía cubre cómo migrar a QZPay desde implementaciones de facturación existentes o entre proveedores de pago.
+
+## Migrando desde el SDK Directo de Stripe
+
+Si actualmente estás usando el SDK de Stripe directamente, QZPay proporciona una ruta de migración suave.
+
+### Antes de Comenzar
+
+<Aside type="caution">
+Siempre prueba las migraciones en un entorno de desarrollo primero. Nunca ejecutes migraciones no probadas contra datos de producción.
+</Aside>
+
+### Migración Paso a Paso
+
+<Steps>
+
+1. **Instalar paquetes de QZPay**
+
+   ```bash
+   pnpm add @qazuor/qzpay-core @qazuor/qzpay-stripe @qazuor/qzpay-drizzle
+   ```
+
+2. **Configurar el esquema de base de datos**
+
+   ```bash
+   # Inicializar esquema de QZPay
+   pnpm qzpay init
+
+   # Ejecutar migraciones
+   pnpm qzpay migrate
+   ```
+
+3. **Configurar QZPay con tu clave de Stripe existente**
+
+   ```typescript
+   import { createQZPayBilling } from '@qazuor/qzpay-core';
+   import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+   import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+   const billing = createQZPayBilling({
+     paymentAdapter: createQZPayStripeAdapter({
+       apiKey: process.env.STRIPE_SECRET_KEY! // La misma clave que ya estás usando
+     }),
+     storage: createQZPayDrizzleAdapter(db)
+   });
+   ```
+
+4. **Sincronizar datos existentes desde Stripe**
+
+   ```bash
+   # Sincronizar todos los datos
+   pnpm qzpay sync --provider stripe
+
+   # O sincronizar recursos específicos
+   pnpm qzpay sync --provider stripe --resources customers,subscriptions
+   ```
+
+5. **Actualizar tu código incrementalmente**
+
+   Reemplaza las llamadas al SDK de Stripe con llamadas de QZPay una a la vez:
+
+   ```typescript
+   // Antes: Stripe directo
+   const customer = await stripe.customers.create({
+     email: 'user@example.com',
+     metadata: { userId: '123' }
+   });
+
+   // Después: QZPay
+   const customer = await billing.customers.create({
+     email: 'user@example.com',
+     metadata: { userId: '123' }
+   });
+   ```
+
+6. **Actualizar manejadores de webhooks**
+
+   ```typescript
+   // Antes: Webhook directo de Stripe
+   app.post('/webhooks/stripe', async (req, res) => {
+     const event = stripe.webhooks.constructEvent(
+       req.body,
+       req.headers['stripe-signature'],
+       webhookSecret
+     );
+
+     switch (event.type) {
+       case 'customer.subscription.updated':
+         // Manejar actualización de suscripción
+         break;
+     }
+   });
+
+   // Después: Webhook de QZPay con integración Hono
+   import { createWebhookRouter } from '@qazuor/qzpay-hono';
+
+   const webhookRouter = createWebhookRouter({
+     billing,
+     paymentAdapter: stripeAdapter,
+     handlers: {
+       'customer.subscription.updated': async (c, event) => {
+         // Manejar actualización de suscripción
+       }
+     }
+   });
+
+   app.route('/webhooks/stripe', webhookRouter);
+
+   // También usa eventos de billing para lógica transversal
+   billing.on('subscription.updated', async (event) => {
+     // Manejar actualización de suscripción
+   });
+   ```
+
+</Steps>
+
+### Mapeo de Conceptos de Stripe a QZPay
+
+| Concepto de Stripe | Equivalente en QZPay |
+|-------------------|----------------------|
+| `stripe.customers` | `billing.customers` |
+| `stripe.subscriptions` | `billing.subscriptions` |
+| `stripe.paymentIntents` | `billing.payments` |
+| `stripe.invoices` | `billing.invoices` |
+| `stripe.products` | Parte de Plans |
+| `stripe.prices` | `billing.prices` |
+| `stripe.webhooks` | `createWebhookRouter()` de `@qazuor/qzpay-hono` |
+
+## Migrando desde MercadoPago
+
+<Steps>
+
+1. **Instalar paquetes**
+
+   ```bash
+   pnpm add @qazuor/qzpay-core @qazuor/qzpay-mercadopago @qazuor/qzpay-drizzle
+   ```
+
+2. **Configurar y sincronizar**
+
+   ```typescript
+   import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+
+   const billing = createQZPayBilling({
+     paymentAdapter: createQZPayMercadoPagoAdapter({
+       accessToken: process.env.MP_ACCESS_TOKEN!
+     }),
+     storage: createQZPayDrizzleAdapter(db)
+   });
+   ```
+
+   ```bash
+   pnpm qzpay sync --provider mercadopago
+   ```
+
+3. **Actualizar referencias de código**
+
+   ```typescript
+   // Antes: SDK de MercadoPago
+   const preference = await mercadopago.preferences.create({
+     items: [{ title: 'Pro Plan', unit_price: 99, quantity: 1 }]
+   });
+
+   // Después: QZPay (usando adaptador de pago)
+   const checkout = await mpAdapter.checkout.create({
+     customerId: providerCustomerId,
+     mode: 'subscription',
+     lineItems: [{ priceId: 'pro_monthly', quantity: 1 }],
+     successUrl: 'https://example.com/success',
+     cancelUrl: 'https://example.com/cancel'
+   }, ['pro_monthly']); // IDs de precios del proveedor
+   ```
+
+</Steps>
+
+## Migrando Entre Proveedores
+
+Una de las características clave de QZPay es la capacidad de cambiar proveedores de pago.
+
+### Stripe a MercadoPago (o viceversa)
+
+<Steps>
+
+1. **Agregar el nuevo proveedor**
+
+   ```bash
+   pnpm add @qazuor/qzpay-mercadopago
+   ```
+
+2. **Configurar setup multi-proveedor**
+
+   ```typescript
+   import { createQZPayBilling } from '@qazuor/qzpay-core';
+   import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+   import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+
+   // Mantener proveedor existente para clientes actuales
+   const stripeBilling = createQZPayBilling({
+     paymentAdapter: createQZPayStripeAdapter({ apiKey: stripeKey }),
+     storage
+   });
+
+   // Nuevo proveedor para nuevos clientes
+   const mpBilling = createQZPayBilling({
+     paymentAdapter: createQZPayMercadoPagoAdapter({ accessToken: mpToken }),
+     storage
+   });
+
+   // O usar enrutamiento basado en región
+   function getBilling(region: string) {
+     if (region === 'LATAM') return mpBilling;
+     return stripeBilling;
+   }
+   ```
+
+3. **Migrar clientes gradualmente**
+
+   Para cada cliente que quieras migrar:
+
+   ```typescript
+   async function migrateCustomer(customerId: string) {
+     // Obtener cliente del proveedor antiguo
+     const customer = await stripeBilling.customers.get(customerId);
+
+     // Crear en el nuevo proveedor
+     const newCustomer = await mpBilling.customers.create({
+       email: customer.email,
+       name: customer.name,
+       metadata: {
+         ...customer.metadata,
+         migratedFrom: 'stripe',
+         originalId: customer.externalIds.stripe
+       }
+     });
+
+     // Actualizar registro local para apuntar al nuevo proveedor
+     await storage.customers.update(customerId, {
+       externalIds: {
+         ...customer.externalIds,
+         mercadopago: newCustomer.externalIds.mercadopago
+       }
+     });
+   }
+   ```
+
+4. **Manejar suscripciones activas**
+
+   <Aside type="caution">
+   No puedes migrar directamente suscripciones activas. Necesitarás:
+   1. Dejar que el ciclo de facturación actual se complete
+   2. Cancelar la suscripción antigua al final del período
+   3. Crear una nueva suscripción con el nuevo proveedor
+   </Aside>
+
+   ```typescript
+   async function migrateSubscription(subscriptionId: string) {
+     const subscription = await stripeBilling.subscriptions.get(subscriptionId);
+
+     // Cancelar al final del período
+     await stripeBilling.subscriptions.cancel(subscriptionId, {
+       atPeriodEnd: true
+     });
+
+     // Programar creación de nueva suscripción
+     await scheduler.schedule({
+       at: subscription.currentPeriodEnd,
+       task: 'createNewSubscription',
+       data: {
+         customerId: subscription.customerId,
+         planId: subscription.planId,
+         provider: 'mercadopago'
+       }
+     });
+   }
+   ```
+
+</Steps>
+
+## Migración de Base de Datos
+
+### De Esquema Personalizado a Esquema de QZPay
+
+Si tienes datos de facturación existentes en un esquema personalizado:
+
+<Steps>
+
+1. **Exportar tus datos existentes**
+
+   ```typescript
+   // Exportar clientes existentes
+   const customers = await db.query('SELECT * FROM your_customers');
+
+   // Transformar al formato de QZPay
+   const transformed = customers.map(c => ({
+     email: c.email,
+     name: c.full_name,
+     metadata: {
+       legacyId: c.id,
+       // Mapear otros campos
+     }
+   }));
+   ```
+
+2. **Inicializar esquema de QZPay**
+
+   ```bash
+   pnpm qzpay init
+   pnpm qzpay migrate
+   ```
+
+3. **Importar datos transformados**
+
+   ```typescript
+   for (const customer of transformed) {
+     await billing.customers.create(customer);
+   }
+   ```
+
+4. **Sincronizar con el proveedor**
+
+   ```bash
+   # Asegurar que los registros del proveedor coincidan
+   pnpm qzpay sync --provider stripe --direction both
+   ```
+
+</Steps>
+
+### Manteniendo la Integridad de Datos
+
+Durante la migración, mantén la integridad referencial:
+
+```typescript
+// Crear tabla de mapeo
+const idMapping = new Map<string, string>();
+
+// Importar clientes primero
+for (const customer of legacyCustomers) {
+  const newCustomer = await billing.customers.create({
+    email: customer.email,
+    metadata: { legacyId: customer.id }
+  });
+  idMapping.set(customer.id, newCustomer.id);
+}
+
+// Luego importar suscripciones usando IDs mapeados
+for (const subscription of legacySubscriptions) {
+  const newCustomerId = idMapping.get(subscription.customer_id);
+  await billing.subscriptions.create({
+    customerId: newCustomerId!,
+    planId: mapPlanId(subscription.plan_id)
+  });
+}
+```
+
+## Estrategia de Reversión
+
+Siempre ten un plan de reversión:
+
+```typescript
+// Antes de migrar, crear respaldo
+await billing.export({
+  format: 'json',
+  output: `./backup-${Date.now()}.json`
+});
+
+// Si la migración falla, restaurar
+await billing.import({
+  file: './backup-timestamp.json',
+  strategy: 'replace'
+});
+```
+
+## Lista de Verificación Post-Migración
+
+Después de completar la migración:
+
+- [ ] Verificar que todos los clientes estén sincronizados
+- [ ] Verificar que todas las suscripciones estén activas
+- [ ] Probar manejo de webhooks
+- [ ] Probar flujos de checkout
+- [ ] Probar ciclo de vida de suscripción (upgrade, downgrade, cancelar)
+- [ ] Actualizar variables de entorno
+- [ ] Actualizar documentación
+- [ ] Monitorear errores en las primeras 24-48 horas
+
+<Aside type="tip">
+¿Necesitas ayuda con una migración compleja? Consulta la [página de Soporte](/es/community/support/) para opciones de asistencia.
+</Aside>

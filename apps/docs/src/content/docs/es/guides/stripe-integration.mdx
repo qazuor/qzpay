@@ -1,0 +1,287 @@
+---
+title: Integración con Stripe
+description: Guía completa para integrar Stripe con QZPay
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Guía de Integración con Stripe
+
+Esta guía te lleva paso a paso a través de la configuración de una integración completa con Stripe usando QZPay.
+
+## Prerrequisitos
+
+- Cuenta de Stripe con claves API
+- Node.js 22+
+- Base de datos PostgreSQL
+
+## Configuración
+
+<Steps>
+
+1. **Instala los paquetes**
+
+   ```bash
+   pnpm add @qazuor/qzpay-core @qazuor/qzpay-stripe @qazuor/qzpay-drizzle stripe drizzle-orm postgres
+   ```
+
+2. **Configura variables de entorno**
+
+   ```bash
+   # .env
+   DATABASE_URL=postgresql://user:pass@localhost:5432/billing
+   STRIPE_SECRET_KEY=sk_test_xxx
+   STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+   STRIPE_WEBHOOK_SECRET=whsec_xxx
+   ```
+
+3. **Configura la base de datos**
+
+   ```typescript
+   // src/db/schema.ts
+   export * from '@qazuor/qzpay-drizzle/schema';
+   ```
+
+   ```bash
+   pnpm drizzle-kit push
+   ```
+
+4. **Inicializa el servicio de facturación**
+
+   ```typescript
+   // src/billing.ts
+   import { createQZPayBilling } from '@qazuor/qzpay-core';
+   import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+   import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+   import { drizzle } from 'drizzle-orm/postgres-js';
+   import postgres from 'postgres';
+
+   const sql = postgres(process.env.DATABASE_URL!);
+   const db = drizzle(sql);
+
+   export const billing = createQZPayBilling({
+     paymentAdapter: createQZPayStripeAdapter({
+       apiKey: process.env.STRIPE_SECRET_KEY!
+     }),
+     storage: createQZPayDrizzleAdapter(db)
+   });
+   ```
+
+</Steps>
+
+## Gestión de Clientes
+
+### Crear Clientes
+
+Cuando un usuario se registra, crea un cliente QZPay:
+
+```typescript
+export async function createBillingCustomer(user: User) {
+  const customer = await billing.customers.create({
+    email: user.email,
+    name: user.name,
+    metadata: {
+      userId: user.id,
+      registeredAt: new Date().toISOString()
+    }
+  });
+
+  // Almacena el ID de cliente en tu registro de usuario
+  await updateUser(user.id, { customerId: customer.id });
+
+  return customer;
+}
+```
+
+## Flujo de Suscripción
+
+### 1. Mostrar Planes
+
+```typescript
+// Obtener planes de Stripe
+const plans = await billing.plans.list();
+
+// Retornar al frontend
+return plans.map(plan => ({
+  id: plan.id,
+  name: plan.name,
+  price: plan.prices[0].amount,
+  interval: plan.prices[0].interval
+}));
+```
+
+### 2. Crear Sesión de Checkout
+
+Usa el adaptador de pago para crear sesiones de checkout:
+
+```typescript
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+
+const stripeAdapter = createQZPayStripeAdapter({
+  apiKey: process.env.STRIPE_SECRET_KEY!
+});
+
+export async function createCheckoutSession(
+  customerId: string,
+  priceId: string
+) {
+  // Obtener ID del proveedor del cliente
+  const customer = await billing.customers.get(customerId);
+  const providerCustomerId = customer?.externalIds?.stripe;
+
+  const session = await stripeAdapter.checkout.create({
+    customerId: providerCustomerId,
+    mode: 'subscription',
+    lineItems: [{ priceId, quantity: 1 }],
+    successUrl: `${APP_URL}/exito?session_id={CHECKOUT_SESSION_ID}`,
+    cancelUrl: `${APP_URL}/precios`
+  }, [priceId]); // IDs de precios del proveedor
+
+  return { url: session.url };
+}
+```
+
+### 3. Manejar Éxito
+
+```typescript
+// Después de checkout exitoso, Stripe redirige a successUrl
+// El webhook maneja la creación real de la suscripción
+
+export async function handleCheckoutSuccess(sessionId: string) {
+  // Recuperar la sesión de checkout de Stripe
+  const session = await stripeAdapter.checkout.retrieve(sessionId);
+
+  // La suscripción ya está creada vía webhook
+  // Buscar la suscripción por ID del proveedor
+  const subscription = await billing.subscriptions.getByExternalId(
+    session.subscriptionId!
+  );
+
+  return subscription;
+}
+```
+
+## Manejo de Webhooks
+
+### Configurar Webhooks
+
+<Steps>
+
+1. **Crea endpoint de webhook**
+
+   ```typescript
+   // src/routes/webhooks.ts
+   import { Hono } from 'hono';
+   import { createWebhookRouter } from '@qazuor/qzpay-hono';
+   import { billing, stripeAdapter } from '../billing';
+
+   // Crear router de webhook con integración Hono
+   const webhookRouter = createWebhookRouter({
+     billing,
+     paymentAdapter: stripeAdapter,
+     handlers: {
+       'customer.subscription.created': async (c, event) => {
+         console.log('Nueva suscripción:', event.data);
+       },
+       'invoice.payment_succeeded': async (c, event) => {
+         console.log('Pago exitoso:', event.data);
+       }
+     },
+     onEvent: async (c, event) => {
+       // Llamado para todos los eventos
+       console.log('Evento webhook:', event.type);
+     }
+   });
+
+   const app = new Hono();
+   app.route('/stripe', webhookRouter);
+
+   export default app;
+   ```
+
+2. **Configura en el Dashboard de Stripe**
+
+   Ve a Developers → Webhooks → Add endpoint:
+
+   - URL: `https://tudominio.com/webhooks/stripe`
+   - Eventos: `customer.subscription.*`, `invoice.*`
+
+3. **Prueba localmente con Stripe CLI**
+
+   ```bash
+   stripe listen --forward-to localhost:3000/webhooks/stripe
+   ```
+
+</Steps>
+
+### Handlers de Eventos Personalizados
+
+```typescript
+billing.on('subscription.created', async (event) => {
+  const { customerId, planId } = event.data;
+
+  // Provisionar funcionalidades
+  await provisionFeatures(customerId, planId);
+
+  // Enviar email de bienvenida
+  await sendEmail(customerId, 'bienvenida_al_plan', { planId });
+});
+
+billing.on('subscription.canceled', async (event) => {
+  // Revocar funcionalidades al final del período
+  await scheduleFeatureRevocation(
+    event.data.customerId,
+    event.data.currentPeriodEnd
+  );
+});
+```
+
+## Gestionar Suscripciones
+
+### Cambiar Planes
+
+```typescript
+export async function changePlan(
+  subscriptionId: string,
+  newPriceId: string
+) {
+  return billing.subscriptions.update(subscriptionId, {
+    planId: newPriceId,
+    proration: 'create_prorations'
+  });
+}
+```
+
+### Cancelación
+
+```typescript
+export async function cancelSubscription(
+  subscriptionId: string,
+  feedback?: string
+) {
+  const subscription = await billing.subscriptions.cancel(subscriptionId, {
+    atPeriodEnd: true
+  });
+
+  if (feedback) {
+    await storeFeedback(subscriptionId, feedback);
+  }
+
+  return subscription;
+}
+```
+
+## Testing
+
+Usa modo test de Stripe para desarrollo:
+
+```bash
+STRIPE_SECRET_KEY=sk_test_xxx
+```
+
+Números de tarjeta de prueba:
+| Tarjeta | Escenario |
+|---------|-----------|
+| `4242424242424242` | Éxito |
+| `4000000000000002` | Rechazada |
+| `4000002500003155` | Requiere 3DS |

@@ -1,0 +1,226 @@
+---
+title: Referencia API
+description: Referencia completa de API para paquetes QZPay
+---
+
+# Referencia API
+
+Documentación de referencia completa para todos los paquetes de QZPay.
+
+## Tipos Core
+
+### Customer
+
+```typescript
+interface Customer {
+  id: string;
+  email: string;
+  name?: string;
+  phone?: string;
+  address?: Address;
+  metadata: Record<string, string>;
+  externalIds: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt?: Date;
+}
+```
+
+### Subscription
+
+```typescript
+interface Subscription {
+  id: string;
+  customerId: string;
+  planId: string;
+  status: SubscriptionStatus;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  trialStart?: Date;
+  trialEnd?: Date;
+  cancelAt?: Date;           // Fecha de cancelación programada
+  canceledAt?: Date;         // Cuándo ocurrió la cancelación
+  cancelAtPeriodEnd: boolean;
+  metadata: Record<string, string>;
+  externalIds: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type SubscriptionStatus =
+  | 'trialing'
+  | 'active'
+  | 'past_due'
+  | 'unpaid'
+  | 'paused'
+  | 'canceled'
+  | 'incomplete'
+  | 'incomplete_expired';
+```
+
+### Payment
+
+```typescript
+interface Payment {
+  id: string;
+  customerId: string;
+  subscriptionId?: string;
+  invoiceId?: string;
+  amount: number;
+  currency: string;
+  status: PaymentStatus;
+  paymentMethodId?: string;
+  description?: string;
+  metadata: Record<string, string>;
+  refundedAmount: number;
+  externalIds: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type PaymentStatus =
+  | 'pending'
+  | 'processing'
+  | 'succeeded'
+  | 'failed'
+  | 'canceled'
+  | 'refunded'
+  | 'partially_refunded'
+  | 'disputed';
+```
+
+### Invoice
+
+```typescript
+interface Invoice {
+  id: string;
+  customerId: string;
+  subscriptionId?: string;
+  number: string;
+  status: InvoiceStatus;
+  amount: number;
+  currency: string;
+  dueDate?: Date;
+  paidAt?: Date;
+  items: InvoiceItem[];
+  metadata: Record<string, string>;
+  externalIds: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type InvoiceStatus =
+  | 'draft'
+  | 'open'
+  | 'paid'
+  | 'void'
+  | 'uncollectible';
+```
+
+### Plan & Price
+
+```typescript
+interface Plan {
+  id: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  prices: Price[];
+  entitlements: Entitlement[];
+  metadata: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface Price {
+  id: string;
+  planId: string;
+  amount: number;
+  currency: string;
+  interval: BillingInterval;
+  intervalCount: number;
+  trialDays?: number;
+  active: boolean;
+  externalIds: Record<string, string>;
+}
+
+type BillingInterval = 'day' | 'week' | 'month' | 'year';
+```
+
+### Entitlement
+
+```typescript
+interface Entitlement {
+  feature: string;
+  type: 'boolean' | 'limit';
+  value: boolean | number;
+  used?: number;
+  remaining?: number;
+}
+```
+
+## Eventos
+
+### Tipos de Eventos
+
+#### Eventos de Cliente
+| Evento | Payload |
+|--------|---------|
+| `customer.created` | `Customer` |
+| `customer.updated` | `Customer` |
+| `customer.deleted` | `Customer` |
+
+#### Eventos de Suscripción
+| Evento | Payload |
+|--------|---------|
+| `subscription.created` | `Subscription` |
+| `subscription.updated` | `Subscription` |
+| `subscription.canceled` | `Subscription` |
+| `subscription.paused` | `Subscription` |
+| `subscription.resumed` | `Subscription` |
+| `subscription.trial_ending` | `Subscription` (vía job scheduler) |
+| `subscription.trial_ended` | `Subscription` (vía job scheduler) |
+| `subscription.addon_added` | `{ subscription, subscriptionAddOn, addon }` |
+| `subscription.addon_removed` | `{ subscription, subscriptionAddOn, addon }` |
+| `subscription.addon_updated` | `{ subscription, subscriptionAddOn, addon }` |
+
+#### Eventos de Pago
+| Evento | Payload |
+|--------|---------|
+| `payment.succeeded` | `Payment` |
+| `payment.failed` | `Payment` |
+| `payment.refunded` | `Payment` |
+
+#### Eventos de Factura
+| Evento | Payload |
+|--------|---------|
+| `invoice.created` | `Invoice` |
+| `invoice.paid` | `Invoice` |
+| `invoice.voided` | `Invoice` |
+
+#### Eventos de Add-on
+| Evento | Payload |
+|--------|---------|
+| `addon.created` | `AddOn` |
+| `addon.updated` | `AddOn` |
+| `addon.deleted` | `AddOn` |
+
+## Errores
+
+### Clases de Error
+
+| Error | Descripción |
+|-------|-------------|
+| `QZPayError` | Clase base de error |
+| `CustomerNotFoundError` | El cliente no existe |
+| `SubscriptionNotFoundError` | La suscripción no existe |
+| `PaymentFailedError` | El pago no pudo procesarse |
+| `CardDeclinedError` | La tarjeta fue rechazada |
+| `WebhookSignatureError` | Firma de webhook inválida |
+| `WebhookProcessingError` | Error procesando webhook |
+| `EntitlementDeniedError` | El cliente no tiene el entitlement |
+| `UsageLimitExceededError` | Límite de uso excedido |
+
+---
+
+*Documentación API completa auto-generada próximamente con TypeDoc.*

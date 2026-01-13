@@ -1,0 +1,248 @@
+---
+title: Manejo de Webhooks
+description: Mejores prácticas para manejar webhooks en QZPay
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+# Guía de Manejo de Webhooks
+
+Los webhooks son críticos para mantener sincronización entre proveedores de pago y tu aplicación.
+
+## Por qué Importan los Webhooks
+
+<Aside type="caution">
+Nunca confíes únicamente en confirmaciones de pago del lado cliente. Siempre verifica vía webhooks.
+</Aside>
+
+Los webhooks son esenciales para:
+- **Cambios de estado de suscripción** - Saber cuándo se cancela
+- **Confirmaciones de pago** - Verificación del lado servidor
+- **Notificaciones de disputa** - Responder rápidamente a contracargos
+- **Actualizaciones de factura** - Rastrear estado de pago
+
+## Configuración
+
+### Configuración del Endpoint
+
+```typescript
+// src/routes/webhooks.ts
+import { Hono } from 'hono';
+import { createWebhookRouter } from '@qazuor/qzpay-hono';
+import { billing, stripeAdapter, mpAdapter } from '../billing';
+
+const webhooks = new Hono();
+
+// Webhook de Stripe con integración Hono
+const stripeWebhook = createWebhookRouter({
+  billing,
+  paymentAdapter: stripeAdapter,
+  handlers: {
+    'customer.subscription.created': async (c, event) => {
+      console.log('Nueva suscripción:', event.data);
+    },
+    'invoice.payment_succeeded': async (c, event) => {
+      console.log('Pago exitoso:', event.data);
+    }
+  }
+});
+
+webhooks.route('/stripe', stripeWebhook);
+
+// Webhook de MercadoPago
+const mpWebhook = createWebhookRouter({
+  billing,
+  paymentAdapter: mpAdapter,
+  handlers: {
+    'payment': async (c, event) => {
+      console.log('Evento de pago:', event.data);
+    },
+    'subscription_preapproval': async (c, event) => {
+      console.log('Evento de suscripción:', event.data);
+    }
+  }
+});
+
+webhooks.route('/mercadopago', mpWebhook);
+
+export default webhooks;
+```
+
+### Configuración del Proveedor
+
+<Steps>
+
+1. **Dashboard de Stripe**
+
+   Ve a Developers → Webhooks → Add endpoint:
+   - URL: `https://tudominio.com/webhooks/stripe`
+   - Eventos: Selecciona eventos relacionados con facturación
+
+2. **Portal de MercadoPago**
+
+   Ve a Tus aplicaciones → Webhooks:
+   - URL: `https://tudominio.com/webhooks/mercadopago`
+   - Topics: Pagos, Suscripciones
+
+3. **Almacena Secretos**
+
+   ```bash
+   STRIPE_WEBHOOK_SECRET=whsec_xxx
+   MP_WEBHOOK_SECRET=xxx
+   ```
+
+</Steps>
+
+## Seguridad
+
+### Verificación de Firma
+
+La integración Hono automáticamente verifica firmas de webhook vía middleware:
+
+```typescript
+// Cuando usas createWebhookRouter, las firmas se verifican automáticamente
+// Stripe: Usa HMAC-SHA256
+// MercadoPago: Usa firma HMAC o consulta desde API
+
+// Para verificación manual, usa el adaptador de pago directamente:
+try {
+  const event = stripeAdapter.webhooks.constructEvent(body, signature);
+  // Procesar evento...
+} catch (error) {
+  if (error instanceof WebhookSignatureError) {
+    await logSecurityEvent('invalid_webhook_signature', {
+      provider: 'stripe',
+      ip: c.req.ip
+    });
+    return c.json({ error: 'Firma inválida' }, 400);
+  }
+  throw error;
+}
+```
+
+### Prevención de Ataques de Repetición
+
+```typescript
+const billing = createQZPayBilling({
+  paymentAdapter,
+  storage,
+  config: {
+    // Rechaza webhooks más antiguos que 5 minutos
+    webhookTolerance: 300 // segundos
+  }
+});
+```
+
+### Idempotencia
+
+QZPay rastrea eventos de webhook procesados:
+
+```typescript
+// ¿El mismo evento recibido dos veces? La segunda llamada se ignora
+// El ID del evento se almacena para prevenir procesamiento duplicado
+
+billing.on('webhook.duplicate', (event) => {
+  console.log('Duplicado ignorado:', event.data.eventId);
+});
+```
+
+## Manejo de Eventos
+
+### Procesamiento Incorporado
+
+QZPay procesa eventos comunes automáticamente:
+
+| Evento Webhook | Acción QZPay |
+|----------------|--------------|
+| `customer.subscription.created` | Crear registro de suscripción |
+| `customer.subscription.updated` | Actualizar estado |
+| `customer.subscription.deleted` | Marcar cancelada |
+| `invoice.payment_succeeded` | Registrar pago |
+| `invoice.payment_failed` | Actualizar estado |
+
+### Handlers Personalizados
+
+```typescript
+billing.on('subscription.created', async (event) => {
+  const { customerId, planId, id } = event.data;
+
+  // Provisionar funcionalidades
+  const plan = await billing.plans.get(planId);
+  await provisionFeatures(customerId, plan.entitlements);
+
+  // Enviar email de bienvenida
+  await emailService.send(customerId, 'subscription_welcome', {
+    planName: plan.name,
+    features: plan.entitlements
+  });
+});
+
+billing.on('payment.failed', async (event) => {
+  const { customerId, amount, failureCode } = event.data;
+
+  // Notificar cliente
+  await emailService.send(customerId, 'payment_failed', {
+    amount,
+    reason: getHumanReadableReason(failureCode),
+    updateUrl: `${APP_URL}/billing/metodo-pago`
+  });
+});
+```
+
+## Manejo de Errores
+
+### Códigos de Respuesta
+
+Cuando usas `createWebhookRouter`, el manejo de errores viene incorporado. Para handlers personalizados:
+
+```typescript
+const webhookRouter = createWebhookRouter({
+  billing,
+  paymentAdapter: stripeAdapter,
+  handlers: { /* ... */ },
+  onError: async (error, c) => {
+    if (error instanceof WebhookSignatureError) {
+      // 400 = Bad request, no reintentará
+      return c.json({ error: 'Firma inválida' }, 400);
+    }
+
+    if (error instanceof WebhookProcessingError) {
+      // Loguea error pero retorna 200 para prevenir loops de reintento
+      console.error('Error de procesamiento:', error);
+      return c.json({ received: true, warning: 'Procesamiento falló' });
+    }
+
+    // 500 = Error servidor, el proveedor reintentará
+    console.error('Error inesperado:', error);
+    return c.json({ error: 'Error interno' }, 500);
+  }
+});
+```
+
+<Aside type="tip">
+Retorna 2xx para webhooks recibidos exitosamente, incluso si tu lógica de negocio falla. Solo retorna 5xx para errores transitorios donde un reintento ayudaría.
+</Aside>
+
+## Testing
+
+### Desarrollo Local
+
+Usa CLI del proveedor para forwarding:
+
+```bash
+# Stripe
+stripe listen --forward-to localhost:3000/webhooks/stripe
+
+# Trigger eventos de prueba
+stripe trigger customer.subscription.created
+stripe trigger invoice.payment_succeeded
+```
+
+## Mejores Prácticas
+
+1. **Siempre verifica firmas** antes de procesar
+2. **Procesa webhooks de forma idempotente**
+3. **Retorna rápidamente** - procesamiento pesado de forma asíncrona
+4. **Loguea toda actividad de webhook** para debugging
+5. **Monitorea tasas de fallo** y configura alertas
+6. **Usa secretos de webhook** desde variables de entorno

@@ -1,0 +1,194 @@
+---
+title: Soporte
+description: Cómo obtener ayuda con QZPay
+---
+
+import { Aside, Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+# Soporte
+
+¿Necesitas ayuda con QZPay? Aquí te explicamos cómo obtener asistencia.
+
+## Recursos de Autoservicio
+
+<CardGrid>
+  <Card title="Documentación" icon="open-book">
+    Guías completas que cubren todos los aspectos de QZPay.
+    [Explorar Docs →](/es/getting-started/introduction/)
+  </Card>
+  <Card title="FAQ" icon="information">
+    Respuestas a preguntas frecuentes.
+    [Ver FAQ →](/es/resources/faq/)
+  </Card>
+  <Card title="Solución de Problemas" icon="warning">
+    Soluciones a problemas comunes.
+    [Solucionar →](/es/resources/troubleshooting/)
+  </Card>
+  <Card title="Ejemplos" icon="seti:folder">
+    Ejemplos de código funcionales.
+    [Ver Ejemplos →](https://github.com/qazuor/qzpay/tree/main/examples)
+  </Card>
+</CardGrid>
+
+## Soporte de la Comunidad
+
+### Discusiones de GitHub
+
+El mejor lugar para preguntas, ideas y ayuda de la comunidad.
+
+<LinkCard
+  title="Discusiones de GitHub"
+  href="https://github.com/qazuor/qzpay/discussions"
+  description="Haz preguntas y comparte ideas con la comunidad"
+/>
+
+Usa las discusiones para:
+- **Preguntas y Respuestas** - Pregunta cómo hacer algo con QZPay
+- **Ideas** - Sugiere nuevas funcionalidades o mejoras
+- **Mostrar y Contar** - Comparte lo que has construido con QZPay
+- **General** - Cualquier otra cosa relacionada con QZPay
+
+### Issues de GitHub
+
+Para reportes de errores y solicitudes de funcionalidades.
+
+<LinkCard
+  title="Issues de GitHub"
+  href="https://github.com/qazuor/qzpay/issues"
+  description="Reporta errores y solicita funcionalidades"
+/>
+
+Antes de abrir un issue:
+1. Busca issues existentes para evitar duplicados
+2. Usa la plantilla de issue apropiada
+3. Proporciona toda la información solicitada
+
+## Reportar Errores
+
+Al reportar un error, por favor incluye:
+
+### Información del Entorno
+
+```
+QZPay Version: x.x.x
+Node.js Version: x.x.x
+Operating System: Linux/macOS/Windows
+Payment Provider: Stripe/MercadoPago
+Database: PostgreSQL/SQLite/MySQL
+```
+
+### Pasos de Reproducción
+
+1. Qué estabas tratando de hacer
+2. Qué esperabas que sucediera
+3. Qué sucedió realmente
+
+### Reproducción Mínima
+
+Si es posible, proporciona un ejemplo de código mínimo que reproduzca el problema:
+
+```typescript
+import { createBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+
+const billing = createBilling({
+  paymentAdapter: createQZPayStripeAdapter({ apiKey: 'sk_test_xxx' }),
+  storage
+});
+
+// Code that causes the issue
+const result = await billing.customers.create({
+  email: 'test@example.com'
+});
+// Error: ...
+```
+
+### Mensajes de Error
+
+Incluye el mensaje de error completo y el stack trace.
+
+## Solicitudes de Funcionalidades
+
+Al solicitar una funcionalidad:
+
+1. **Describe el problema** - ¿Qué problema estás tratando de resolver?
+2. **Propón una solución** - ¿Cómo debería funcionar?
+3. **Proporciona contexto** - ¿Por qué es importante para tu caso de uso?
+4. **Considera alternativas** - ¿Qué otros enfoques has considerado?
+
+## Problemas de Seguridad
+
+<Aside type="caution">
+**No reportes vulnerabilidades de seguridad públicamente.** Por favor envía los problemas de seguridad directamente a security@qazuor.com.
+</Aside>
+
+Incluye:
+- Descripción de la vulnerabilidad
+- Pasos para reproducir
+- Impacto potencial
+- Solución sugerida (si la hay)
+
+Confirmaremos la recepción dentro de 48 horas y proporcionaremos actualizaciones sobre nuestra investigación.
+
+## Soporte Profesional
+
+Para necesidades empresariales, desarrollo personalizado o soporte dedicado:
+
+<LinkCard
+  title="Soporte Empresarial"
+  href="mailto:enterprise@qazuor.com"
+  description="Contáctanos para opciones de soporte profesional"
+/>
+
+El soporte empresarial incluye:
+- Resolución prioritaria de problemas
+- Canales de comunicación directa
+- Desarrollo de funcionalidades personalizadas
+- Revisión de arquitectura
+- Capacitación e incorporación
+- Garantías de SLA
+
+## Tiempos de Respuesta
+
+### Soporte de Comunidad (Gratuito)
+
+| Prioridad | Tiempo de Respuesta |
+|-----------|---------------------|
+| Reportes de Errores | 1-3 días hábiles |
+| Solicitudes de Funcionalidades | 3-5 días hábiles |
+| Preguntas | Impulsado por la comunidad |
+
+<Aside type="note">
+Los tiempos de respuesta para soporte de comunidad son de mejor esfuerzo y dependen de la disponibilidad de los mantenedores.
+</Aside>
+
+### Soporte Empresarial (Pagado)
+
+| Prioridad | Tiempo de Respuesta |
+|-----------|---------------------|
+| Crítico | 4 horas |
+| Alto | 1 día hábil |
+| Normal | 2 días hábiles |
+| Bajo | 5 días hábiles |
+
+## Mejores Prácticas de Soporte
+
+Para obtener la mejor ayuda:
+
+1. **Busca primero** - Verifica si tu pregunta ya ha sido respondida
+2. **Sé específico** - Proporciona información detallada sobre tu problema
+3. **Muestra tu trabajo** - Incluye código relevante y mensajes de error
+4. **Ten paciencia** - Los mantenedores a menudo son voluntarios
+5. **Contribuye** - Ayuda a otros cuando puedas
+
+## Contribuir
+
+La mejor manera de asegurar que QZPay satisfaga tus necesidades es contribuir. Consulta la [Guía de Contribución](/es/community/contributing/) para comenzar.
+
+## Contacto
+
+- **Preguntas Generales:** [Discusiones de GitHub](https://github.com/qazuor/qzpay/discussions)
+- **Reportes de Errores:** [Issues de GitHub](https://github.com/qazuor/qzpay/issues)
+- **Problemas de Seguridad:** security@qazuor.com
+- **Soporte Empresarial:** enterprise@qazuor.com
+- **Otras Consultas:** hello@qazuor.com

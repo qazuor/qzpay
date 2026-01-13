@@ -1,0 +1,389 @@
+---
+title: Creating Custom Adapters
+description: How to create custom payment provider and storage adapters for QZPay
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+# Creating Custom Adapters
+
+QZPay is designed to be extensible. You can create adapters for any payment provider or storage system.
+
+## Adapter Types
+
+QZPay uses two types of adapters:
+
+1. **Payment Provider Adapters** - Connect to payment services (Stripe, MercadoPago, PayPal, etc.)
+2. **Storage Adapters** - Persist billing data (Drizzle, Prisma, TypeORM, etc.)
+
+## Creating a Payment Provider Adapter
+
+### Interface Overview
+
+```typescript
+import type { PaymentProvider } from '@qazuor/qzpay-core';
+
+interface PaymentProvider {
+  name: string;
+  customers: CustomerAdapter;
+  subscriptions: SubscriptionAdapter;
+  payments: PaymentAdapter;
+  webhooks: WebhookAdapter;
+  checkout: CheckoutAdapter;
+  prices: PriceAdapter;
+  setupIntents?: SetupIntentAdapter;
+}
+```
+
+### Step-by-Step Implementation
+
+<Steps>
+
+1. **Set up your package**
+
+   ```bash
+   mkdir qzpay-paypal
+   cd qzpay-paypal
+   pnpm init
+   pnpm add @qazuor/qzpay-core @paypal/checkout-server-sdk
+   ```
+
+2. **Create the main adapter class**
+
+   ```typescript
+   // src/index.ts
+   import type { PaymentProvider } from '@qazuor/qzpay-core';
+   import { PayPalCustomerAdapter } from './adapters/customer';
+   import { PayPalSubscriptionAdapter } from './adapters/subscription';
+   import { PayPalPaymentAdapter } from './adapters/payment';
+   import { PayPalWebhookAdapter } from './adapters/webhook';
+   import { PayPalCheckoutAdapter } from './adapters/checkout';
+   import { PayPalPriceAdapter } from './adapters/price';
+
+   export interface PayPalConfig {
+     clientId: string;
+     clientSecret: string;
+     environment: 'sandbox' | 'production';
+     webhookId?: string;
+   }
+
+   export class PayPalAdapter implements PaymentProvider {
+     name = 'paypal';
+
+     customers: PayPalCustomerAdapter;
+     subscriptions: PayPalSubscriptionAdapter;
+     payments: PayPalPaymentAdapter;
+     webhooks: PayPalWebhookAdapter;
+     checkout: PayPalCheckoutAdapter;
+     prices: PayPalPriceAdapter;
+
+     constructor(config: PayPalConfig) {
+       const client = this.createClient(config);
+
+       this.customers = new PayPalCustomerAdapter(client);
+       this.subscriptions = new PayPalSubscriptionAdapter(client);
+       this.payments = new PayPalPaymentAdapter(client);
+       this.webhooks = new PayPalWebhookAdapter(client, config.webhookId);
+       this.checkout = new PayPalCheckoutAdapter(client);
+       this.prices = new PayPalPriceAdapter(client);
+     }
+
+     private createClient(config: PayPalConfig) {
+       // Create PayPal SDK client
+     }
+   }
+   ```
+
+3. **Implement the CustomerAdapter**
+
+   ```typescript
+   // src/adapters/customer.ts
+   import type { CustomerAdapter, Customer, CreateCustomerInput } from '@qazuor/qzpay-core';
+
+   export class PayPalCustomerAdapter implements CustomerAdapter {
+     constructor(private client: PayPalClient) {}
+
+     async create(input: CreateCustomerInput): Promise<Customer> {
+       // PayPal doesn't have a traditional customer object
+       // You might store customer info locally or use PayPal Vault
+       const response = await this.client.customers.create({
+         email: input.email,
+         name: input.name
+       });
+
+       return {
+         id: generateId('cus'),
+         email: input.email,
+         name: input.name,
+         externalIds: { paypal: response.id },
+         metadata: input.metadata ?? {},
+         createdAt: new Date(),
+         updatedAt: new Date()
+       };
+     }
+
+     async get(id: string): Promise<Customer | null> {
+       // Implementation
+     }
+
+     async update(id: string, input: UpdateCustomerInput): Promise<Customer> {
+       // Implementation
+     }
+
+     async delete(id: string): Promise<void> {
+       // Implementation
+     }
+
+     async list(options: ListOptions): Promise<Customer[]> {
+       // Implementation
+     }
+   }
+   ```
+
+4. **Implement the SubscriptionAdapter**
+
+   ```typescript
+   // src/adapters/subscription.ts
+   import type {
+     SubscriptionAdapter,
+     Subscription,
+     CreateSubscriptionInput
+   } from '@qazuor/qzpay-core';
+
+   export class PayPalSubscriptionAdapter implements SubscriptionAdapter {
+     constructor(private client: PayPalClient) {}
+
+     async create(input: CreateSubscriptionInput): Promise<Subscription> {
+       const response = await this.client.subscriptions.create({
+         plan_id: input.planId,
+         subscriber: {
+           email_address: input.customerEmail
+         },
+         application_context: {
+           return_url: input.successUrl,
+           cancel_url: input.cancelUrl
+         }
+       });
+
+       return this.mapToSubscription(response);
+     }
+
+     async cancel(id: string, options?: CancelOptions): Promise<Subscription> {
+       await this.client.subscriptions.cancel(id, {
+         reason: options?.reason
+       });
+
+       return this.get(id);
+     }
+
+     async pause(id: string): Promise<Subscription> {
+       await this.client.subscriptions.suspend(id, {
+         reason: 'Customer requested pause'
+       });
+
+       return this.get(id);
+     }
+
+     async resume(id: string): Promise<Subscription> {
+       await this.client.subscriptions.activate(id, {
+         reason: 'Customer requested resume'
+       });
+
+       return this.get(id);
+     }
+
+     private mapToSubscription(response: PayPalSubscription): Subscription {
+       return {
+         id: generateId('sub'),
+         customerId: response.subscriber.payer_id,
+         planId: response.plan_id,
+         status: this.mapStatus(response.status),
+         externalIds: { paypal: response.id },
+         // ... map other fields
+       };
+     }
+
+     private mapStatus(paypalStatus: string): SubscriptionStatus {
+       const statusMap: Record<string, SubscriptionStatus> = {
+         'ACTIVE': 'active',
+         'SUSPENDED': 'paused',
+         'CANCELLED': 'canceled',
+         'EXPIRED': 'canceled'
+       };
+       return statusMap[paypalStatus] ?? 'active';
+     }
+   }
+   ```
+
+5. **Implement the WebhookAdapter**
+
+   ```typescript
+   // src/adapters/webhook.ts
+   import type { WebhookAdapter, WebhookEvent } from '@qazuor/qzpay-core';
+   import { WebhookSignatureError } from '@qazuor/qzpay-core';
+
+   export class PayPalWebhookAdapter implements WebhookAdapter {
+     constructor(
+       private client: PayPalClient,
+       private webhookId?: string
+     ) {}
+
+     async verifySignature(
+       payload: string,
+       headers: Record<string, string>
+     ): Promise<boolean> {
+       const verification = await this.client.notifications.verify({
+         auth_algo: headers['paypal-auth-algo'],
+         cert_url: headers['paypal-cert-url'],
+         transmission_id: headers['paypal-transmission-id'],
+         transmission_sig: headers['paypal-transmission-sig'],
+         transmission_time: headers['paypal-transmission-time'],
+         webhook_id: this.webhookId,
+         webhook_event: JSON.parse(payload)
+       });
+
+       return verification.verification_status === 'SUCCESS';
+     }
+
+     async parseEvent(payload: string): Promise<WebhookEvent> {
+       const event = JSON.parse(payload);
+
+       return {
+         id: event.id,
+         type: this.mapEventType(event.event_type),
+         data: this.mapEventData(event),
+         timestamp: new Date(event.create_time)
+       };
+     }
+
+     private mapEventType(paypalType: string): string {
+       const eventMap: Record<string, string> = {
+         'BILLING.SUBSCRIPTION.CREATED': 'subscription.created',
+         'BILLING.SUBSCRIPTION.ACTIVATED': 'subscription.updated',
+         'BILLING.SUBSCRIPTION.CANCELLED': 'subscription.canceled',
+         'PAYMENT.SALE.COMPLETED': 'payment.succeeded',
+         'PAYMENT.SALE.DENIED': 'payment.failed'
+       };
+       return eventMap[paypalType] ?? paypalType;
+     }
+   }
+   ```
+
+</Steps>
+
+## Creating a Storage Adapter
+
+### Interface Overview
+
+```typescript
+import type { BillingStorage } from '@qazuor/qzpay-core';
+
+interface BillingStorage {
+  customers: CustomerRepository;
+  subscriptions: SubscriptionRepository;
+  payments: PaymentRepository;
+  invoices: InvoiceRepository;
+  plans: PlanRepository;
+  entitlements: EntitlementRepository;
+  usage: UsageRepository;
+  events: EventRepository;
+  transaction<T>(fn: (storage: BillingStorage) => Promise<T>): Promise<T>;
+}
+```
+
+### Example: Prisma Storage Adapter
+
+```typescript
+// src/index.ts
+import type { BillingStorage } from '@qazuor/qzpay-core';
+import { PrismaClient } from '@prisma/client';
+
+export class PrismaStorage implements BillingStorage {
+  customers: PrismaCustomerRepository;
+  subscriptions: PrismaSubscriptionRepository;
+  payments: PrismaPaymentRepository;
+  // ... other repositories
+
+  constructor(private prisma: PrismaClient) {
+    this.customers = new PrismaCustomerRepository(prisma);
+    this.subscriptions = new PrismaSubscriptionRepository(prisma);
+    this.payments = new PrismaPaymentRepository(prisma);
+    // ... initialize other repositories
+  }
+
+  async transaction<T>(fn: (storage: BillingStorage) => Promise<T>): Promise<T> {
+    return this.prisma.$transaction(async (tx) => {
+      const txStorage = new PrismaStorage(tx as PrismaClient);
+      return fn(txStorage);
+    });
+  }
+}
+
+// src/repositories/customer.ts
+export class PrismaCustomerRepository implements CustomerRepository {
+  constructor(private prisma: PrismaClient) {}
+
+  async create(input: CreateCustomerInput): Promise<Customer> {
+    const customer = await this.prisma.customer.create({
+      data: {
+        id: generateId('cus'),
+        email: input.email,
+        name: input.name,
+        metadata: input.metadata ?? {}
+      }
+    });
+
+    return this.mapToCustomer(customer);
+  }
+
+  // ... other methods
+}
+```
+
+## Testing Your Adapter
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { PayPalAdapter } from '../src';
+
+describe('PayPalAdapter', () => {
+  const adapter = new PayPalAdapter({
+    clientId: process.env.PAYPAL_CLIENT_ID!,
+    clientSecret: process.env.PAYPAL_CLIENT_SECRET!,
+    environment: 'sandbox'
+  });
+
+  describe('customers', () => {
+    it('creates a customer', async () => {
+      const customer = await adapter.customers.create({
+        email: 'test@example.com',
+        name: 'Test User'
+      });
+
+      expect(customer.id).toBeDefined();
+      expect(customer.email).toBe('test@example.com');
+    });
+  });
+
+  describe('webhooks', () => {
+    it('verifies valid signature', async () => {
+      const isValid = await adapter.webhooks.verifySignature(
+        mockPayload,
+        mockHeaders
+      );
+
+      expect(isValid).toBe(true);
+    });
+  });
+});
+```
+
+## Publishing Your Adapter
+
+1. Follow QZPay naming conventions: `qzpay-{provider}` or `@yourorg/qzpay-{provider}`
+2. Include comprehensive documentation
+3. Add to the [community adapters list](https://github.com/qazuor/qzpay/wiki/Community-Adapters)
+
+<Aside type="tip">
+Consider contributing your adapter to the official QZPay organization. See the [Contributing Guide](/en/community/contributing/) for details.
+</Aside>

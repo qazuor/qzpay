@@ -1,0 +1,188 @@
+---
+title: Suscripciones
+description: Gestión del ciclo de vida de suscripciones en QZPay
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+# Suscripciones
+
+Las suscripciones representan relaciones de facturación recurrente entre clientes y planes.
+
+## Ciclo de Vida de Suscripciones
+
+```
+┌─────────┐    ┌──────────┐    ┌────────┐    ┌───────────┐
+│ Creada  │───▶│ En Prueba│───▶│ Activa │───▶│ Cancelada │
+└─────────┘    └──────────┘    └────────┘    └───────────┘
+                                   │
+                                   ▼
+                              ┌──────────┐
+                              │ Vencida  │
+                              └──────────┘
+                                   │
+                                   ▼
+                              ┌──────────┐
+                              │ Impaga   │
+                              └──────────┘
+```
+
+## Crear Suscripciones
+
+### Suscripción Básica
+
+```typescript
+const subscription = await billing.subscriptions.create({
+  customerId: 'cus_123',
+  planId: 'price_pro_monthly',
+  paymentMethodId: 'pm_card_visa'
+});
+```
+
+### Con Período de Prueba
+
+```typescript
+const subscription = await billing.subscriptions.create({
+  customerId: 'cus_123',
+  planId: 'price_pro_monthly',
+  trialDays: 14
+});
+```
+
+### Con Código Promocional
+
+```typescript
+const subscription = await billing.subscriptions.create({
+  customerId: 'cus_123',
+  planId: 'price_pro_monthly',
+  promoCode: 'LANZAMIENTO50'
+});
+```
+
+## Estados de Suscripción
+
+| Estado | Descripción |
+|--------|-------------|
+| `trialing` | En período de prueba, sin pago aún |
+| `active` | Pagada y activa |
+| `past_due` | Pago fallido, período de gracia |
+| `unpaid` | Múltiples fallos de pago |
+| `paused` | Temporalmente pausada |
+| `canceled` | Cancelada, puede tener acceso hasta fin del período |
+
+## Gestionar Suscripciones
+
+### Upgrade/Downgrade
+
+```typescript
+const subscription = await billing.subscriptions.update('sub_123', {
+  planId: 'price_enterprise_monthly',
+  proration: 'create_prorations' // o 'none'
+});
+```
+
+### Pausar
+
+```typescript
+const subscription = await billing.subscriptions.pause('sub_123');
+```
+
+### Reanudar
+
+```typescript
+const subscription = await billing.subscriptions.resume('sub_123');
+```
+
+### Cancelar
+
+```typescript
+// Cancelar al final del período
+const subscription = await billing.subscriptions.cancel('sub_123', {
+  atPeriodEnd: true
+});
+
+// Cancelar inmediatamente
+const subscription = await billing.subscriptions.cancel('sub_123', {
+  atPeriodEnd: false
+});
+```
+
+<Aside type="tip">
+Cancelar al final del período da a los usuarios acceso hasta que termine su período de facturación actual, proporcionando una mejor experiencia de cliente.
+</Aside>
+
+## Recuperar Suscripciones
+
+### Suscripción Individual
+
+```typescript
+const subscription = await billing.subscriptions.get('sub_123');
+```
+
+### Suscripciones del Cliente
+
+```typescript
+const subscriptions = await billing.subscriptions.getByCustomerId('cus_123');
+```
+
+### Todas las Suscripciones
+
+```typescript
+const subscriptions = await billing.subscriptions.list({
+  status: 'active',
+  planId: 'price_pro_monthly',
+  limit: 10
+});
+```
+
+## Objeto Subscription
+
+```typescript
+interface Subscription {
+  id: string;
+  customerId: string;
+  planId: string;
+  status: SubscriptionStatus;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  trialStart?: Date;
+  trialEnd?: Date;
+  cancelAt?: Date;           // Fecha de cancelación programada
+  canceledAt?: Date;         // Cuándo ocurrió la cancelación
+  cancelAtPeriodEnd: boolean;
+  metadata: Record<string, string>;
+  externalIds: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+## Eventos
+
+| Evento | Descripción |
+|-------|-------------|
+| `subscription.created` | Nueva suscripción creada |
+| `subscription.updated` | Suscripción fue modificada |
+| `subscription.canceled` | Suscripción fue cancelada |
+| `subscription.paused` | Suscripción fue pausada |
+| `subscription.resumed` | Suscripción fue reanudada |
+| `subscription.trial_ending` | La prueba termina en 3 días |
+
+```typescript
+billing.on('subscription.created', async (event) => {
+  const { customerId, planId } = event.data;
+  await provisionFeatures(customerId, planId);
+});
+
+billing.on('subscription.canceled', async (event) => {
+  await sendCancellationSurvey(event.data.customerId);
+});
+```
+
+## Mejores Prácticas
+
+1. **Siempre maneja cambios de estado** vía webhooks
+2. **Implementa períodos de gracia** para pagos fallidos
+3. **Envía recordatorios de fin de prueba** antes de la conversión
+4. **Rastrea razones de cancelación** para análisis
+5. **Usa cancelar al final del período** para mejor UX

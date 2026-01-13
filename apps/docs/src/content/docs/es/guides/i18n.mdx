@@ -1,0 +1,164 @@
+---
+title: Internacionalizacion (i18n)
+description: Hoja de ruta para localizar mensajes y componentes de QZPay
+---
+
+import { Aside, Badge, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Internacionalizacion (i18n)
+
+<Badge text="Planificado" variant="caution" />
+
+<Aside type="caution" title="Estado de la Funcionalidad">
+**La internacionalizacion esta planificada para una version futura de QZPay.** Las funcionalidades descritas a continuacion representan nuestra hoja de ruta y aun no estan implementadas. Actualmente, todo el texto de la UI esta en ingles.
+
+Si necesitas soporte i18n ahora, puedes implementar manejo de mensajes personalizado en la capa de tu aplicacion.
+</Aside>
+
+## Soluciones Alternativas Actuales
+
+Mientras el soporte completo de i18n esta planificado, puedes implementar localizacion en tu aplicacion:
+
+### Texto Personalizado con Tema
+
+```tsx
+import { PricingTable, useQZPayTheme } from '@qazuor/qzpay-react';
+
+// Crea un componente wrapper con tu propio i18n
+function LocalizedPricingTable() {
+  const { t } = useYourI18nLibrary(); // Tu solucion i18n
+
+  return (
+    <div>
+      <h2>{t('pricing.title')}</h2>
+      <PricingTable
+        onSelectPlan={(plan, price) => handleSelect(plan, price)}
+        selectedPlanId={currentPlan}
+        currency="usd"
+        interval="month"
+      />
+    </div>
+  );
+}
+```
+
+### Formateo de Moneda
+
+Usa la API Intl del navegador para formatear monedas:
+
+```typescript
+function formatCurrency(amount: number, currency: string, locale: string): string {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: currency.toUpperCase()
+  }).format(amount / 100); // Convertir de centavos
+}
+
+// Uso
+formatCurrency(9900, 'usd', 'en-US'); // "$99.00"
+formatCurrency(9900, 'eur', 'es-ES'); // "99,00 €"
+formatCurrency(9900, 'ars', 'es-AR'); // "$ 99,00"
+```
+
+### Formateo de Fechas
+
+```typescript
+function formatDate(date: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(date);
+}
+
+// Uso
+formatDate(new Date(), 'en-US'); // "January 9, 2024"
+formatDate(new Date(), 'es-ES'); // "9 de enero de 2024"
+```
+
+## Funcionalidades i18n Planificadas
+
+Las siguientes funcionalidades estan en nuestra hoja de ruta:
+
+### Configuracion del Provider (Planificado)
+
+```tsx
+import { QZPayProvider } from '@qazuor/qzpay-react';
+import { esMessages } from '@qazuor/qzpay-react/locales/es';
+
+function App() {
+  return (
+    <QZPayProvider
+      billing={billing}
+      locale="es"
+      messages={esMessages}
+    >
+      <YourApp />
+    </QZPayProvider>
+  );
+}
+```
+
+### Locales Planificados
+
+| Locale | Idioma | Estado |
+|--------|--------|--------|
+| `en` | Ingles (predeterminado) | Integrado (actual) |
+| `es` | Espanol | Planificado |
+| `pt` | Portugues | Planificado |
+
+### Claves de Mensajes Planificadas
+
+#### Mensajes de Suscripcion
+
+| Clave | Predeterminado (Ingles) |
+|-------|------------------------|
+| `subscription.status.active` | Active |
+| `subscription.status.trialing` | Trial |
+| `subscription.status.past_due` | Past Due |
+| `subscription.status.canceled` | Canceled |
+| `subscription.status.paused` | Paused |
+| `subscription.cancel.button` | Cancel Subscription |
+| `subscription.cancel.confirm` | Are you sure? |
+| `subscription.upgrade.button` | Upgrade |
+| `subscription.downgrade.button` | Downgrade |
+
+#### Mensajes de Pago
+
+| Clave | Predeterminado (Ingles) |
+|-------|------------------------|
+| `payment.status.pending` | Pending |
+| `payment.status.succeeded` | Succeeded |
+| `payment.status.failed` | Failed |
+| `payment.error.declined` | Card declined |
+| `payment.error.expired` | Card expired |
+| `payment.error.insufficient` | Insufficient funds |
+| `payment.button.pay` | Pay Now |
+| `payment.button.retry` | Retry Payment |
+
+#### Mensajes de Componentes
+
+| Clave | Predeterminado (Ingles) |
+|-------|------------------------|
+| `pricing.popular` | Most Popular |
+| `pricing.current` | Current Plan |
+| `pricing.select` | Select Plan |
+| `invoice.download` | Download |
+| `invoice.view` | View Invoice |
+
+## Contribuir Traducciones
+
+Damos la bienvenida a contribuciones de la comunidad para traducciones. Cuando i18n este implementado, podras contribuir traducciones mediante:
+
+1. Hacer fork del repositorio
+2. Crear archivo de locale en `packages/react/src/locales/`
+3. Traducir todas las claves de mensajes
+4. Enviar un pull request
+
+<Aside type="tip">
+¿Quieres ayudar a implementar i18n? Consulta nuestra [Guia de Contribucion](/es/community/contributing/) o abre un issue en GitHub para discutir el enfoque de implementacion.
+</Aside>
+
+## Solicitud de Funcionalidad
+
+Si i18n es una prioridad para tu proyecto, por favor vota o comenta en la [solicitud de funcionalidad i18n](https://github.com/qazuor/qzpay/issues) en GitHub para ayudarnos a priorizar el desarrollo.

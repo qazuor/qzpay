@@ -1,0 +1,73 @@
+---
+title: QZPay - Librería Universal de Facturación
+description: Una librería completa de facturación y pagos para aplicaciones Node.js
+template: splash
+hero:
+  tagline: Librería universal de facturación y pagos para aplicaciones Node.js. Soporte para Stripe, MercadoPago y más.
+  image:
+    file: ../../../assets/logo-dark.svg
+  actions:
+    - text: Comenzar
+      link: /es/getting-started/introduction/
+      icon: right-arrow
+      variant: primary
+    - text: Ver en GitHub
+      link: https://github.com/qazuor/qzpay
+      icon: external
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Características
+
+<CardGrid stagger>
+  <Card title="Agnóstico al Proveedor" icon="puzzle">
+    Cambia entre Stripe, MercadoPago o cualquier proveedor personalizado sin modificar tu lógica de negocio.
+  </Card>
+  <Card title="Tipado Seguro" icon="approve-check">
+    Soporte completo de TypeScript con tipos exhaustivos para todas las operaciones de facturación.
+  </Card>
+  <Card title="Integraciones de Framework" icon="rocket">
+    Integraciones listas para usar con Hono, NestJS y aplicaciones React.
+  </Card>
+  <Card title="Probado en Batalla" icon="shield">
+    Más de 3,800 tests con 90%+ de cobertura de código en todos los paquetes.
+  </Card>
+</CardGrid>
+
+## Paquetes
+
+| Paquete | Descripción |
+|---------|-------------|
+| `@qazuor/qzpay-core` | Tipos, servicios y utilidades base de facturación |
+| `@qazuor/qzpay-stripe` | Adaptador de proveedor de pagos Stripe |
+| `@qazuor/qzpay-mercadopago` | Adaptador de proveedor de pagos MercadoPago |
+| `@qazuor/qzpay-drizzle` | Adaptador de almacenamiento Drizzle ORM |
+| `@qazuor/qzpay-hono` | Middleware y rutas para Hono |
+| `@qazuor/qzpay-nestjs` | Módulo y decoradores para NestJS |
+| `@qazuor/qzpay-react` | Hooks y componentes React |
+
+## Ejemplo Rápido
+
+```typescript
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+const billing = createQZPayBilling({
+  paymentAdapter: createQZPayStripeAdapter({ apiKey: process.env.STRIPE_SECRET_KEY }),
+  storage: createQZPayDrizzleAdapter(db)
+});
+
+// Crear un cliente
+const customer = await billing.customers.create({
+  email: 'usuario@ejemplo.com',
+  name: 'Juan Pérez'
+});
+
+// Crear una suscripción
+const subscription = await billing.subscriptions.create({
+  customerId: customer.id,
+  planId: 'pro-monthly'
+});
+```

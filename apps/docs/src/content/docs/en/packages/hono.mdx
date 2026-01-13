@@ -1,0 +1,417 @@
+---
+title: "@qazuor/qzpay-hono"
+description: Hono middleware and routes for QZPay
+---
+
+import { Aside, Badge, LinkCard } from '@astrojs/starlight/components';
+
+# @qazuor/qzpay-hono
+
+<Badge text="Integration" variant="success" />
+
+<LinkCard
+  title="View on npm"
+  href="https://www.npmjs.com/package/@qazuor/qzpay-hono"
+  description="@qazuor/qzpay-hono"
+/>
+
+Ready-to-use Hono routes and middleware for QZPay.
+
+## Installation
+
+```bash
+pnpm add @qazuor/qzpay-hono hono zod
+```
+
+## Quick Setup
+
+```typescript
+import { Hono } from 'hono';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+import {
+  createQZPayMiddleware,
+  createWebhookRouter,
+  createBillingRoutes
+} from '@qazuor/qzpay-hono';
+
+// Initialize adapters
+const storage = createQZPayDrizzleAdapter(db);
+const stripeAdapter = createQZPayStripeAdapter({
+  apiKey: process.env.STRIPE_SECRET_KEY!,
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!
+});
+
+// Create billing instance
+const billing = createQZPayBilling({
+  storage,
+  paymentAdapter: stripeAdapter
+});
+
+// Create Hono app
+const app = new Hono();
+
+// Add QZPay middleware for all routes
+app.use('*', createQZPayMiddleware({ billing }));
+
+// Add webhook handler
+const webhookRouter = createWebhookRouter({
+  billing,
+  paymentAdapter: stripeAdapter,
+  handlers: {
+    'customer.subscription.created': async (c, event) => {
+      console.log('New subscription:', event.data);
+    }
+  }
+});
+app.route('/webhooks/stripe', webhookRouter);
+
+// Add billing API routes
+const billingRoutes = createBillingRoutes({
+  billing,
+  prefix: '/api/billing'
+});
+app.route('/', billingRoutes);
+
+export default app;
+```
+
+## Middleware
+
+### QZPay Middleware
+
+Adds the billing instance to the Hono context:
+
+```typescript
+import { createQZPayMiddleware, getQZPay } from '@qazuor/qzpay-hono';
+
+// Add to app
+app.use('*', createQZPayMiddleware({ billing }));
+
+// Access in handlers
+app.get('/api/customer', async (c) => {
+  const billing = getQZPay(c);
+  const customer = await billing.customers.get('cus_xxx');
+  return c.json(customer);
+});
+```
+
+### Webhook Middleware
+
+For custom webhook handling:
+
+```typescript
+import {
+  createWebhookMiddleware,
+  createWebhookResponse,
+  getWebhookEvent
+} from '@qazuor/qzpay-hono';
+
+app.post('/webhooks/stripe',
+  createWebhookMiddleware({ paymentAdapter: stripeAdapter }),
+  async (c) => {
+    const event = getWebhookEvent(c);
+
+    // Handle event
+    switch (event.type) {
+      case 'customer.subscription.created':
+        // Handle subscription
+        break;
+    }
+
+    return createWebhookResponse(c, { received: true });
+  }
+);
+```
+
+## Routes
+
+### Billing Routes
+
+```typescript
+import { createBillingRoutes } from '@qazuor/qzpay-hono';
+
+const billingRoutes = createBillingRoutes({
+  billing,
+  prefix: '/api/billing'
+});
+
+app.route('/', billingRoutes);
+
+// Available endpoints:
+// POST   /api/billing/customers
+// GET    /api/billing/customers/:id
+// PATCH  /api/billing/customers/:id
+// DELETE /api/billing/customers/:id
+
+// POST   /api/billing/subscriptions
+// GET    /api/billing/subscriptions/:id
+// PATCH  /api/billing/subscriptions/:id
+// POST   /api/billing/subscriptions/:id/cancel
+// POST   /api/billing/subscriptions/:id/pause
+// POST   /api/billing/subscriptions/:id/resume
+
+// POST   /api/billing/payments
+// GET    /api/billing/payments/:id
+// POST   /api/billing/payments/:id/refund
+
+// GET    /api/billing/plans
+// GET    /api/billing/plans/:id
+
+// POST   /api/billing/checkout/sessions
+```
+
+### Webhook Router
+
+```typescript
+import { createWebhookRouter } from '@qazuor/qzpay-hono';
+
+const webhookRouter = createWebhookRouter({
+  billing,
+  paymentAdapter: stripeAdapter,
+  handlers: {
+    'customer.subscription.created': async (c, event) => {
+      console.log('New subscription:', event.data.object);
+    },
+    'invoice.payment_succeeded': async (c, event) => {
+      console.log('Payment succeeded:', event.data.object);
+    },
+    'customer.subscription.deleted': async (c, event) => {
+      console.log('Subscription canceled:', event.data.object);
+    }
+  }
+});
+
+app.route('/webhooks/stripe', webhookRouter);
+
+// Endpoint: POST /webhooks/stripe
+```
+
+### Simple Webhook Handler
+
+For basic webhook handling without custom logic:
+
+```typescript
+import { createSimpleWebhookHandler } from '@qazuor/qzpay-hono';
+
+app.post('/webhooks/stripe', createSimpleWebhookHandler({
+  billing,
+  paymentAdapter: stripeAdapter
+}));
+```
+
+## Rate Limiting
+
+### Basic Rate Limiter
+
+```typescript
+import { createRateLimitMiddleware } from '@qazuor/qzpay-hono';
+
+app.use('/api/*', createRateLimitMiddleware({
+  windowMs: 60000, // 1 minute
+  max: 100, // 100 requests per window
+  keyGenerator: (c) => c.req.header('x-api-key') || 'anonymous'
+}));
+```
+
+### Pre-configured Rate Limiters
+
+```typescript
+import {
+  createApiKeyRateLimiter,
+  createCustomerRateLimiter,
+  createStrictRateLimiter
+} from '@qazuor/qzpay-hono';
+
+// Rate limit by API key
+app.use('/api/*', createApiKeyRateLimiter({
+  windowMs: 60000,
+  max: 100
+}));
+
+// Rate limit by customer ID
+app.use('/api/*', createCustomerRateLimiter({
+  windowMs: 60000,
+  max: 50,
+  getCustomerId: (c) => c.get('customerId')
+}));
+
+// Strict rate limiter for sensitive endpoints
+app.use('/api/payments/*', createStrictRateLimiter({
+  windowMs: 60000,
+  max: 10
+}));
+```
+
+### Key Generators
+
+```typescript
+import {
+  rateLimitKeyByIP,
+  rateLimitKeyByApiKey,
+  rateLimitKeyByCustomerId
+} from '@qazuor/qzpay-hono';
+
+app.use('/api/*', createRateLimitMiddleware({
+  windowMs: 60000,
+  max: 100,
+  keyGenerator: rateLimitKeyByApiKey // or rateLimitKeyByIP, rateLimitKeyByCustomerId
+}));
+```
+
+### Custom Rate Limit Store
+
+```typescript
+import { QZPayMemoryRateLimitStore } from '@qazuor/qzpay-hono';
+
+const store = new QZPayMemoryRateLimitStore();
+
+app.use('/api/*', createRateLimitMiddleware({
+  windowMs: 60000,
+  max: 100,
+  store
+}));
+```
+
+## Validators
+
+The package exports Zod validators for extending routes:
+
+```typescript
+import {
+  CreateCustomerSchema,
+  UpdateCustomerSchema,
+  CreateSubscriptionSchema,
+  ProcessPaymentSchema,
+  CreateInvoiceSchema,
+  zValidator
+} from '@qazuor/qzpay-hono';
+
+app.post('/custom-endpoint',
+  zValidator('json', CreateCustomerSchema),
+  async (c) => {
+    const data = c.req.valid('json');
+    // data is typed and validated
+  }
+);
+```
+
+### Available Schemas
+
+| Schema | Description |
+|--------|-------------|
+| `CreateCustomerSchema` | Create customer validation |
+| `UpdateCustomerSchema` | Update customer validation |
+| `CreateSubscriptionSchema` | Create subscription validation |
+| `UpdateSubscriptionSchema` | Update subscription validation |
+| `CancelSubscriptionSchema` | Cancel subscription validation |
+| `ProcessPaymentSchema` | Process payment validation |
+| `RefundPaymentSchema` | Refund payment validation |
+| `CreateInvoiceSchema` | Create invoice validation |
+| `PaginationSchema` | Pagination query parameters |
+
+## Full Example
+
+```typescript
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+import {
+  createQZPayMiddleware,
+  createBillingRoutes,
+  createWebhookRouter,
+  createRateLimitMiddleware
+} from '@qazuor/qzpay-hono';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+
+// Database setup
+const sql = postgres(process.env.DATABASE_URL!);
+const db = drizzle(sql);
+
+// Billing setup
+const storage = createQZPayDrizzleAdapter(db);
+const stripeAdapter = createQZPayStripeAdapter({
+  apiKey: process.env.STRIPE_SECRET_KEY!,
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!
+});
+
+const billing = createQZPayBilling({
+  storage,
+  paymentAdapter: stripeAdapter
+});
+
+// Event handlers
+billing.on('subscription.created', async (event) => {
+  console.log('New subscription:', event.data.id);
+});
+
+billing.on('payment.succeeded', async (event) => {
+  console.log('Payment received:', event.data.amount);
+});
+
+// App setup
+const app = new Hono();
+
+// Global middleware
+app.use('*', cors());
+app.use('*', createQZPayMiddleware({ billing }));
+
+// Public webhook endpoints (no rate limit)
+const webhookRouter = createWebhookRouter({
+  billing,
+  paymentAdapter: stripeAdapter
+});
+app.route('/webhooks/stripe', webhookRouter);
+
+// Protected API routes
+app.use('/api/*', createRateLimitMiddleware({
+  windowMs: 60000,
+  max: 100
+}));
+
+const billingRoutes = createBillingRoutes({ billing });
+app.route('/api/billing', billingRoutes);
+
+export default app;
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  // Middleware types
+  QZPayHonoEnv,
+  QZPayHonoVariables,
+  QZPayMiddlewareConfig,
+  // Webhook types
+  QZPayWebhookEnv,
+  QZPayWebhookVariables,
+  QZPayWebhookMiddlewareConfig,
+  QZPayWebhookHandler,
+  QZPayWebhookHandlerMap,
+  QZPayWebhookRouterConfig,
+  QZPayWebhookResponse,
+  // Route types
+  QZPayBillingRoutesConfig,
+  QZPayApiResponse,
+  QZPayApiPaginationParams,
+  QZPayApiListResponse,
+  // Rate limiting types
+  QZPayRateLimitStore,
+  QZPayRateLimitEntry,
+  QZPayRateLimitInfo,
+  QZPayRateLimitConfig
+} from '@qazuor/qzpay-hono';
+```
+
+<Aside type="tip">
+The webhook router automatically verifies webhook signatures when a webhook secret is configured in the payment adapter.
+</Aside>
+
+<Aside type="note">
+For MercadoPago webhooks, create a separate webhook router with the MercadoPago adapter and mount it at a different path (e.g., `/webhooks/mercadopago`).
+</Aside>

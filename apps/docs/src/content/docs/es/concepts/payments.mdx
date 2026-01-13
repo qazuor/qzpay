@@ -1,0 +1,138 @@
+---
+title: Pagos
+description: Procesamiento de pagos con QZPay
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+# Pagos
+
+QZPay soporta pagos únicos, cargos de suscripción y reembolsos.
+
+## Pagos Únicos
+
+### Pago Básico
+
+```typescript
+const payment = await billing.payments.process({
+  customerId: 'cus_123',
+  amount: 9900, // Monto en centavos
+  currency: 'USD',
+  paymentMethodId: 'pm_card_visa'
+});
+```
+
+### Con Metadata
+
+```typescript
+const payment = await billing.payments.process({
+  customerId: 'cus_123',
+  amount: 4900,
+  currency: 'USD',
+  paymentMethodId: 'pm_card_visa',
+  metadata: {
+    orderId: 'ord_123',
+    productId: 'prod_456'
+  }
+});
+```
+
+## Estados de Pago
+
+| Estado | Descripción |
+|--------|-------------|
+| `pending` | Pago iniciado, esperando procesamiento |
+| `processing` | Siendo procesado por el proveedor |
+| `succeeded` | Pago completado exitosamente |
+| `failed` | Pago falló |
+| `cancelled` | Pago fue cancelado |
+| `refunded` | Completamente reembolsado |
+| `partially_refunded` | Parcialmente reembolsado |
+
+## Reembolsos
+
+### Reembolso Total
+
+```typescript
+const refund = await billing.payments.refund({
+  paymentId: 'pay_123'
+});
+```
+
+### Reembolso Parcial
+
+```typescript
+const refund = await billing.payments.refund({
+  paymentId: 'pay_123',
+  amount: 2500, // Reembolsar $25.00
+  reason: 'customer_request'
+});
+```
+
+<Aside type="caution">
+Los reembolsos pueden tardar 5-10 días hábiles en aparecer en el estado de cuenta del cliente, dependiendo de su banco.
+</Aside>
+
+## Objeto Payment
+
+```typescript
+interface Payment {
+  id: string;
+  customerId: string;
+  subscriptionId?: string;
+  invoiceId?: string;
+  amount: number;
+  currency: string;
+  status: PaymentStatus;
+  paymentMethodId?: string;
+  description?: string;
+  metadata: Record<string, string>;
+  refundedAmount: number;
+  externalIds: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+## Eventos
+
+| Evento | Descripción |
+|-------|-------------|
+| `payment.succeeded` | Pago completado exitosamente |
+| `payment.failed` | Pago falló |
+| `payment.refunded` | Pago fue reembolsado |
+
+```typescript
+billing.on('payment.succeeded', async (event) => {
+  const { customerId, amount } = event.data;
+  await sendReceipt(customerId, amount);
+});
+
+billing.on('payment.failed', async (event) => {
+  await notifyPaymentFailure(event.data.customerId);
+});
+```
+
+## Manejo de Errores
+
+```typescript
+import { PaymentFailedError, CardDeclinedError } from '@qazuor/qzpay-core';
+
+try {
+  await billing.payments.process({ ... });
+} catch (error) {
+  if (error instanceof CardDeclinedError) {
+    // Pedir al cliente usar otra tarjeta
+  } else if (error instanceof PaymentFailedError) {
+    // Fallo de pago genérico
+  }
+}
+```
+
+## Mejores Prácticas
+
+1. **Siempre usa claves de idempotencia** para creación de pagos
+2. **Almacena referencias de pago** en tus registros de orden/transacción
+3. **Maneja webhooks** para actualizaciones de estado de pago
+4. **Implementa lógica de reintento** para pagos fallidos
+5. **Registra todos los eventos de pago** para propósitos de auditoría

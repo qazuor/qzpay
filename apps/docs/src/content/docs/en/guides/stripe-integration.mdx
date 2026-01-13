@@ -1,0 +1,343 @@
+---
+title: Stripe Integration
+description: Complete guide to integrating Stripe with QZPay
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Stripe Integration Guide
+
+This guide walks you through setting up a complete Stripe integration with QZPay.
+
+## Prerequisites
+
+- Stripe account with API keys
+- Node.js 22+
+- PostgreSQL database
+
+## Setup
+
+<Steps>
+
+1. **Install packages**
+
+   ```bash
+   pnpm add @qazuor/qzpay-core @qazuor/qzpay-stripe @qazuor/qzpay-drizzle stripe drizzle-orm postgres
+   ```
+
+2. **Configure environment variables**
+
+   ```bash
+   # .env
+   DATABASE_URL=postgresql://user:pass@localhost:5432/billing
+   STRIPE_SECRET_KEY=sk_test_xxx
+   STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+   STRIPE_WEBHOOK_SECRET=whsec_xxx
+   ```
+
+3. **Set up database**
+
+   ```typescript
+   // src/db/schema.ts
+   export * from '@qazuor/qzpay-drizzle/schema';
+   ```
+
+   ```bash
+   pnpm drizzle-kit push
+   ```
+
+4. **Initialize billing service**
+
+   ```typescript
+   // src/billing.ts
+   import { createQZPayBilling } from '@qazuor/qzpay-core';
+   import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+   import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+   import { drizzle } from 'drizzle-orm/postgres-js';
+   import postgres from 'postgres';
+
+   const sql = postgres(process.env.DATABASE_URL!);
+   const db = drizzle(sql);
+
+   export const billing = createQZPayBilling({
+     paymentAdapter: createQZPayStripeAdapter({
+       apiKey: process.env.STRIPE_SECRET_KEY!
+     }),
+     storage: createQZPayDrizzleAdapter(db)
+   });
+   ```
+
+</Steps>
+
+## Customer Management
+
+### Creating Customers
+
+When a user signs up, create a QZPay customer:
+
+```typescript
+export async function createBillingCustomer(user: User) {
+  const customer = await billing.customers.create({
+    email: user.email,
+    name: user.name,
+    metadata: {
+      userId: user.id,
+      registeredAt: new Date().toISOString()
+    }
+  });
+
+  // Store customer ID in your user record
+  await updateUser(user.id, { customerId: customer.id });
+
+  return customer;
+}
+```
+
+### Syncing with Stripe
+
+QZPay automatically syncs customers with Stripe:
+
+```typescript
+const customer = await billing.customers.create({ email: 'user@example.com' });
+
+// The customer is created in both QZPay storage AND Stripe
+console.log(customer.externalIds.stripe); // 'cus_xxx'
+```
+
+## Subscription Flow
+
+### 1. Display Plans
+
+```typescript
+// Fetch plans from Stripe
+const plans = await billing.plans.list();
+
+// Return to frontend
+return plans.map(plan => ({
+  id: plan.id,
+  name: plan.name,
+  price: plan.prices[0].amount,
+  interval: plan.prices[0].interval
+}));
+```
+
+### 2. Create Checkout Session
+
+Use the payment adapter to create checkout sessions:
+
+```typescript
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+
+const stripeAdapter = createQZPayStripeAdapter({
+  apiKey: process.env.STRIPE_SECRET_KEY!
+});
+
+export async function createCheckoutSession(
+  customerId: string,
+  priceId: string
+) {
+  // Get customer's provider ID
+  const customer = await billing.customers.get(customerId);
+  const providerCustomerId = customer?.externalIds?.stripe;
+
+  const session = await stripeAdapter.checkout.create({
+    customerId: providerCustomerId,
+    mode: 'subscription',
+    lineItems: [{ priceId, quantity: 1 }],
+    successUrl: `${APP_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancelUrl: `${APP_URL}/pricing`
+  }, [priceId]); // Provider price IDs
+
+  return { url: session.url };
+}
+```
+
+### 3. Handle Success
+
+```typescript
+// After successful checkout, Stripe redirects to successUrl
+// The webhook will handle the actual subscription creation
+
+export async function handleCheckoutSuccess(sessionId: string) {
+  // Retrieve the checkout session from Stripe
+  const session = await stripeAdapter.checkout.retrieve(sessionId);
+
+  // The subscription is already created via webhook
+  // Find the subscription by provider ID
+  const subscription = await billing.subscriptions.getByExternalId(
+    session.subscriptionId!
+  );
+
+  return subscription;
+}
+```
+
+## Webhook Handling
+
+### Setting Up Webhooks
+
+<Steps>
+
+1. **Create webhook endpoint**
+
+   ```typescript
+   // src/routes/webhooks.ts
+   import { Hono } from 'hono';
+   import { createWebhookRouter } from '@qazuor/qzpay-hono';
+   import { billing, stripeAdapter } from '../billing';
+
+   // Create webhook router with Hono integration
+   const webhookRouter = createWebhookRouter({
+     billing,
+     paymentAdapter: stripeAdapter,
+     handlers: {
+       'customer.subscription.created': async (c, event) => {
+         console.log('New subscription:', event.data);
+       },
+       'invoice.payment_succeeded': async (c, event) => {
+         console.log('Payment succeeded:', event.data);
+       }
+     },
+     onEvent: async (c, event) => {
+       // Called for all events
+       console.log('Webhook event:', event.type);
+     }
+   });
+
+   const app = new Hono();
+   app.route('/stripe', webhookRouter);
+
+   export default app;
+   ```
+
+2. **Configure in Stripe Dashboard**
+
+   Go to Developers → Webhooks → Add endpoint:
+
+   - URL: `https://yourdomain.com/webhooks/stripe`
+   - Events to listen for:
+     - `customer.subscription.created`
+     - `customer.subscription.updated`
+     - `customer.subscription.deleted`
+     - `invoice.payment_succeeded`
+     - `invoice.payment_failed`
+
+3. **Test locally with Stripe CLI**
+
+   ```bash
+   stripe listen --forward-to localhost:3000/webhooks/stripe
+   ```
+
+</Steps>
+
+### Custom Event Handlers
+
+```typescript
+// React to billing events
+billing.on('subscription.created', async (event) => {
+  const { customerId, planId } = event.data;
+
+  // Provision features
+  await provisionFeatures(customerId, planId);
+
+  // Send welcome email
+  await sendEmail(customerId, 'welcome_to_plan', { planId });
+});
+
+billing.on('subscription.canceled', async (event) => {
+  // Revoke features at period end
+  await scheduleFeatureRevocation(
+    event.data.customerId,
+    event.data.currentPeriodEnd
+  );
+
+  // Send feedback survey
+  await sendCancellationSurvey(event.data.customerId);
+});
+
+billing.on('payment.failed', async (event) => {
+  // Notify customer
+  await sendPaymentFailedEmail(event.data.customerId);
+
+  // Internal alert
+  await alertSlack(`Payment failed: ${event.data.id}`);
+});
+```
+
+## Managing Subscriptions
+
+### Changing Plans
+
+```typescript
+export async function changePlan(
+  subscriptionId: string,
+  newPriceId: string
+) {
+  return billing.subscriptions.update(subscriptionId, {
+    planId: newPriceId,
+    proration: 'create_prorations' // or 'none'
+  });
+}
+```
+
+### Cancellation
+
+```typescript
+export async function cancelSubscription(
+  subscriptionId: string,
+  feedback?: string
+) {
+  const subscription = await billing.subscriptions.cancel(subscriptionId, {
+    atPeriodEnd: true // User keeps access until period ends
+  });
+
+  // Store cancellation feedback
+  if (feedback) {
+    await storeFeedback(subscriptionId, feedback);
+  }
+
+  return subscription;
+}
+```
+
+## Customer Portal
+
+Enable Stripe's Customer Portal for self-service:
+
+```typescript
+export async function createPortalSession(customerId: string) {
+  const customer = await billing.customers.get(customerId);
+  const stripeCustomerId = customer.externalIds.stripe;
+
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+  const session = await stripe.billingPortal.sessions.create({
+    customer: stripeCustomerId,
+    return_url: `${APP_URL}/settings/billing`
+  });
+
+  return { url: session.url };
+}
+```
+
+<Aside type="tip">
+Configure your Customer Portal settings in the Stripe Dashboard under Settings → Billing → Customer portal.
+</Aside>
+
+## Testing
+
+Use Stripe test mode for development:
+
+```bash
+# Test API keys
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+```
+
+Test card numbers:
+| Card | Scenario |
+|------|----------|
+| `4242424242424242` | Success |
+| `4000000000000002` | Declined |
+| `4000002500003155` | Requires 3DS |
+| `4000000000009995` | Insufficient funds |

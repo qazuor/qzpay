@@ -1,0 +1,310 @@
+---
+title: Subscription Lifecycle
+description: Managing the complete subscription lifecycle with QZPay
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+# Subscription Lifecycle Guide
+
+This guide covers managing subscriptions from creation to cancellation.
+
+## Lifecycle Overview
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                     SUBSCRIPTION LIFECYCLE                    │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ┌─────────┐        ┌──────────┐        ┌────────┐         │
+│   │ Created │───────▶│ Trialing │───────▶│ Active │         │
+│   └─────────┘        └──────────┘        └────────┘         │
+│        │                   │                  │              │
+│        │                   │                  ▼              │
+│        │                   │            ┌──────────┐         │
+│        │                   │            │ Past Due │         │
+│        │                   │            └──────────┘         │
+│        │                   │                  │              │
+│        │                   ▼                  ▼              │
+│        │             ┌──────────┐        ┌────────┐          │
+│        └────────────▶│ Cancelled│◀───────│ Unpaid │          │
+│                      └──────────┘        └────────┘          │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## Creating Subscriptions
+
+### Basic Creation
+
+```typescript
+const subscription = await billing.subscriptions.create({
+  customerId: 'cus_123',
+  planId: 'price_pro_monthly',
+  paymentMethodId: 'pm_card_visa'
+});
+```
+
+### With Trial Period
+
+```typescript
+const subscription = await billing.subscriptions.create({
+  customerId: 'cus_123',
+  planId: 'price_pro_monthly',
+  trialDays: 14 // 14-day trial
+});
+
+// Subscription starts in 'trialing' status
+// No payment required until trial ends
+```
+
+### With Promo Code
+
+```typescript
+const subscription = await billing.subscriptions.create({
+  customerId: 'cus_123',
+  planId: 'price_pro_monthly',
+  promoCode: 'LAUNCH50' // 50% off first month
+});
+```
+
+## Trial Management
+
+### Checking Trial Status
+
+```typescript
+const subscription = await billing.subscriptions.get('sub_123');
+
+if (subscription.status === 'trialing') {
+  const daysLeft = Math.ceil(
+    (subscription.trialEnd - Date.now()) / (1000 * 60 * 60 * 24)
+  );
+  console.log(`Trial ends in ${daysLeft} days`);
+}
+```
+
+### Trial Ending Notification
+
+```typescript
+billing.on('subscription.trial_ending', async (event) => {
+  const { customerId, trialEnd } = event.data;
+
+  // Send reminder email 3 days before trial ends
+  await sendEmail(customerId, 'trial_ending', {
+    trialEndDate: trialEnd,
+    action: 'add_payment_method'
+  });
+});
+```
+
+### Converting Trial to Paid
+
+Trial converts automatically when:
+1. Trial period ends
+2. Customer has a valid payment method
+3. Payment succeeds
+
+## Plan Changes
+
+### Upgrading
+
+```typescript
+const subscription = await billing.subscriptions.update('sub_123', {
+  planId: 'price_enterprise_monthly',
+  proration: 'create_prorations'
+});
+
+// Customer is charged the prorated difference immediately
+// New features are available immediately
+```
+
+### Downgrading
+
+```typescript
+const subscription = await billing.subscriptions.update('sub_123', {
+  planId: 'price_basic_monthly'
+});
+```
+
+<Aside type="tip">
+For downgrades, consider using the `changePlan` method which handles proration automatically.
+</Aside>
+
+### Using changePlan for Plan Changes
+
+For more control over plan changes with proration:
+
+```typescript
+const result = await billing.subscriptions.changePlan('sub_123', {
+  newPlanId: 'price_enterprise_monthly',
+  proration: 'create_prorations'
+});
+
+console.log('Prorated amount:', result.proratedAmount);
+```
+
+## Pausing & Resuming
+
+### Pausing
+
+```typescript
+// Pause subscription
+await billing.subscriptions.pause('sub_123');
+```
+
+When paused:
+- Billing stops
+- Access continues (or stops, based on your implementation)
+- Status changes to 'paused'
+
+### Resuming
+
+```typescript
+await billing.subscriptions.resume('sub_123');
+
+// Status returns to 'active'
+// Billing resumes
+```
+
+## Cancellation
+
+### Immediate Cancellation
+
+```typescript
+await billing.subscriptions.cancel('sub_123', {
+  atPeriodEnd: false
+});
+
+// Access ends immediately
+// No refund by default
+```
+
+### Cancel at Period End
+
+```typescript
+await billing.subscriptions.cancel('sub_123', {
+  atPeriodEnd: true
+});
+
+// Access continues until currentPeriodEnd
+// No more charges
+// Status changes to 'canceled' at period end
+```
+
+### Reactivating Cancelled Subscription
+
+```typescript
+// Only works if atPeriodEnd was true and period hasn't ended
+await billing.subscriptions.update('sub_123', {
+  cancelAtPeriodEnd: false
+});
+```
+
+### Collecting Feedback
+
+```typescript
+billing.on('subscription.canceled', async (event) => {
+  // Store cancellation reason
+  await storeCancellationData({
+    subscriptionId: event.data.id,
+    customerId: event.data.customerId,
+    canceledAt: event.data.canceledAt,
+    reason: event.data.metadata?.cancellationReason
+  });
+
+  // Send feedback survey
+  await sendSurvey(event.data.customerId, 'cancellation');
+});
+```
+
+## Handling Failed Payments
+
+### Past Due Status
+
+When a payment fails, the subscription enters 'past_due' status:
+
+```typescript
+billing.on('payment.failed', async (event) => {
+  const { subscriptionId, customerId, failureReason } = event.data;
+
+  // Notify customer
+  await sendEmail(customerId, 'payment_failed', {
+    reason: failureReason,
+    updatePaymentUrl: `${APP_URL}/billing/payment-method`
+  });
+
+  // Internal tracking
+  await recordPaymentFailure(subscriptionId);
+});
+```
+
+### Retry Logic
+
+Configure automatic retries:
+
+```typescript
+const billing = createQZPayBilling({
+  paymentAdapter: stripeAdapter,
+  storage: drizzleStorage,
+  config: {
+    paymentRetry: {
+      attempts: 4,
+      schedule: [1, 3, 5, 7] // Days after initial failure
+    }
+  }
+});
+```
+
+### Dunning Management
+
+```typescript
+// After all retries fail
+billing.on('subscription.unpaid', async (event) => {
+  // Final warning
+  await sendEmail(event.data.customerId, 'subscription_suspended', {
+    reactivateUrl: `${APP_URL}/billing/reactivate`
+  });
+
+  // Optionally revoke access
+  await revokeAccess(event.data.customerId);
+});
+```
+
+## Feature Access Control
+
+### Based on Status
+
+```typescript
+function hasAccess(subscription: Subscription): boolean {
+  const activeStatuses = ['active', 'trialing', 'past_due'];
+
+  // Allow access during grace period
+  if (subscription.status === 'canceled') {
+    return subscription.currentPeriodEnd > new Date();
+  }
+
+  return activeStatuses.includes(subscription.status);
+}
+```
+
+### With Entitlements
+
+```typescript
+const hasFeature = await billing.entitlements.check(
+  customerId,
+  'advanced_analytics'
+);
+
+if (!hasFeature) {
+  throw new Error('Upgrade to access this feature');
+}
+```
+
+## Best Practices
+
+1. **Always use `atPeriodEnd: true`** for cancellations unless explicitly requested
+2. **Send proactive notifications** for trial ending, payment failing
+3. **Implement grace periods** to reduce involuntary churn
+4. **Track cancellation reasons** to improve your product
+5. **Allow reactivation** within a reasonable window
+6. **Preview changes** before applying plan updates

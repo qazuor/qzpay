@@ -1,0 +1,213 @@
+---
+title: Webhooks
+description: Manejo de webhooks de proveedores en QZPay
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+# Webhooks
+
+Los webhooks son callbacks HTTP que los proveedores de pago envían para notificar a tu aplicación sobre eventos como pagos exitosos, cambios de suscripción y disputas.
+
+## Por qué Importan los Webhooks
+
+Los webhooks son esenciales para:
+- **Cambios de estado de suscripción** - Saber cuándo se cancela una suscripción
+- **Confirmaciones de pago** - No confíes en confirmación del lado cliente
+- **Notificaciones de disputa** - Responder a contracargos rápidamente
+- **Actualizaciones de factura** - Rastrear estado de pago de facturas
+
+<Aside type="caution">
+Nunca confíes únicamente en confirmaciones de pago del lado cliente. Siempre verifica vía webhooks.
+</Aside>
+
+## Configuración de Webhooks
+
+<Steps>
+
+1. **Crea un endpoint de webhook**
+
+   ```typescript
+   import { Hono } from 'hono';
+   import { createWebhookRouter } from '@qazuor/qzpay-hono';
+   import { stripeAdapter } from './billing';
+
+   const app = new Hono();
+
+   const webhookRouter = createWebhookRouter({
+     billing,
+     paymentAdapter: stripeAdapter,
+     handlers: {
+       'customer.subscription.created': async (c, event) => {
+         console.log('Nueva suscripción:', event.data);
+       }
+     }
+   });
+
+   app.route('/webhooks/stripe', webhookRouter);
+   ```
+
+2. **Configura en el dashboard del proveedor**
+
+   Ve a Stripe Dashboard → Developers → Webhooks y agrega:
+   - URL: `https://tudominio.com/webhooks/stripe`
+   - Eventos: Selecciona todos los eventos relacionados con facturación
+
+3. **Guarda el secreto del webhook**
+
+   ```bash
+   STRIPE_WEBHOOK_SECRET=whsec_xxx
+   ```
+
+</Steps>
+
+## Seguridad de Webhooks
+
+QZPay automáticamente maneja:
+
+### Verificación de Firma
+
+```typescript
+// La firma se verifica antes de cualquier procesamiento
+// Firmas inválidas lanzan WebhookSignatureError
+```
+
+### Prevención de Ataques de Repetición
+
+```typescript
+// Los timestamps se validan dentro de ventana de tolerancia
+// Por defecto: 300 segundos (5 minutos)
+```
+
+### Idempotencia
+
+```typescript
+// Eventos duplicados son detectados e ignorados
+// Los eventos se procesan exactamente una vez
+```
+
+## Manejo de Eventos
+
+### Procesamiento Incorporado
+
+QZPay procesa eventos comunes de webhook automáticamente:
+
+| Evento del Proveedor | Evento QZPay | Acción |
+|---------------------|--------------|--------|
+| `customer.subscription.created` | `subscription.created` | Sincronizar suscripción |
+| `customer.subscription.updated` | `subscription.updated` | Actualizar estado |
+| `customer.subscription.deleted` | `subscription.canceled` | Marcar cancelada |
+| `invoice.payment_succeeded` | `payment.succeeded` | Registrar pago |
+| `invoice.payment_failed` | `payment.failed` | Actualizar estado |
+
+### Handlers de Eventos Personalizados
+
+```typescript
+billing.on('subscription.canceled', async (event) => {
+  // Tu lógica personalizada
+  await sendCancellationEmail(event.data.customerId);
+  await revokeAccess(event.data.customerId);
+});
+
+billing.on('payment.failed', async (event) => {
+  await notifyPaymentFailure(event.data);
+  await scheduleRetryReminder(event.data.customerId);
+});
+```
+
+## Configuración Específica del Proveedor
+
+### Stripe
+
+```typescript
+import { createWebhookRouter } from '@qazuor/qzpay-hono';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+
+const stripeAdapter = createQZPayStripeAdapter({
+  apiKey: process.env.STRIPE_SECRET_KEY!,
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!
+});
+
+const stripeWebhook = createWebhookRouter({
+  billing,
+  paymentAdapter: stripeAdapter
+});
+
+app.route('/webhooks/stripe', stripeWebhook);
+```
+
+### MercadoPago
+
+```typescript
+import { createWebhookRouter } from '@qazuor/qzpay-hono';
+import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+
+const mpAdapter = createQZPayMercadoPagoAdapter({
+  accessToken: process.env.MP_ACCESS_TOKEN!
+});
+
+const mpWebhook = createWebhookRouter({
+  billing,
+  paymentAdapter: mpAdapter
+});
+
+app.route('/webhooks/mercadopago', mpWebhook);
+```
+
+## Testing de Webhooks
+
+### Desarrollo Local
+
+Usa Stripe CLI para testing local:
+
+```bash
+stripe listen --forward-to localhost:3000/webhooks/stripe
+```
+
+### Eventos de Prueba
+
+```typescript
+// En tests, usa el creador de eventos webhook mock
+import { createMockWebhookEvent } from '@qazuor/qzpay-core/testing';
+
+const event = createMockWebhookEvent('subscription.created', {
+  customerId: 'cus_123',
+  planId: 'pro_monthly'
+});
+```
+
+## Manejo de Errores
+
+```typescript
+import {
+  WebhookSignatureError,
+  WebhookProcessingError
+} from '@qazuor/qzpay-core';
+
+app.post('/webhooks/stripe', async (c) => {
+  try {
+    await webhookHandler(c);
+    return c.json({ received: true });
+  } catch (error) {
+    if (error instanceof WebhookSignatureError) {
+      return c.json({ error: 'Firma inválida' }, 400);
+    }
+    // Loguea y retorna 500 para disparar reintento
+    console.error('Error de webhook:', error);
+    return c.json({ error: 'Procesamiento falló' }, 500);
+  }
+});
+```
+
+<Aside type="tip">
+Retorna 2xx para webhooks procesados exitosamente, incluso si tu lógica de negocio falla. Retorna 5xx solo para errores transitorios que deberían reintentarse.
+</Aside>
+
+## Mejores Prácticas
+
+1. **Siempre verifica firmas** antes de procesar
+2. **Procesa webhooks de forma idempotente** - el mismo evento puede llegar múltiples veces
+3. **Retorna rápidamente** - haz procesamiento pesado de forma asíncrona
+4. **Loguea todos los eventos de webhook** para debugging
+5. **Monitorea fallos de webhook** y configura alertas
+6. **Usa secretos de webhook** desde variables de entorno

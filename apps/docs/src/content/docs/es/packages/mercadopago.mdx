@@ -1,0 +1,352 @@
+---
+title: "@qazuor/qzpay-mercadopago"
+description: Adaptador de proveedor de pagos MercadoPago
+---
+
+import { Aside, Badge, LinkCard } from '@astrojs/starlight/components';
+
+# @qazuor/qzpay-mercadopago
+
+<Badge text="Proveedor" variant="note" />
+
+<LinkCard
+  title="Ver en npm"
+  href="https://www.npmjs.com/package/@qazuor/qzpay-mercadopago"
+  description="@qazuor/qzpay-mercadopago"
+/>
+
+Integración de MercadoPago para mercados latinoamericanos.
+
+## Instalación
+
+```bash
+pnpm add @qazuor/qzpay-mercadopago mercadopago
+```
+
+## Configuración
+
+```typescript
+import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+
+const mpAdapter = createQZPayMercadoPagoAdapter({
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!,
+  webhookSecret: process.env.MERCADOPAGO_WEBHOOK_SECRET
+});
+
+// O usa la clase directamente
+import { QZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+
+const mpAdapter = new QZPayMercadoPagoAdapter({
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!
+});
+```
+
+## Opciones de Configuración
+
+| Opción | Tipo | Requerido | Descripción |
+|--------|------|-----------|-------------|
+| `accessToken` | `string` | Sí | Token de acceso de MercadoPago |
+| `webhookSecret` | `string` | No | Secreto del webhook para verificación |
+
+## Uso con QZPay
+
+```typescript
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+const billing = createQZPayBilling({
+  storage: createQZPayDrizzleAdapter(db),
+  paymentAdapter: createQZPayMercadoPagoAdapter({
+    accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!
+  })
+});
+```
+
+## Sub-Adaptadores
+
+El adaptador de MercadoPago proporciona acceso a sub-adaptadores especializados:
+
+```typescript
+mpAdapter.customers      // QZPayMercadoPagoCustomerAdapter
+mpAdapter.subscriptions  // QZPayMercadoPagoSubscriptionAdapter
+mpAdapter.payments       // QZPayMercadoPagoPaymentAdapter
+mpAdapter.checkout       // QZPayMercadoPagoCheckoutAdapter
+mpAdapter.prices         // QZPayMercadoPagoPriceAdapter
+mpAdapter.webhooks       // QZPayMercadoPagoWebhookAdapter
+```
+
+### Adaptador de Clientes
+
+```typescript
+// Crear cliente
+const customerId = await mpAdapter.customers.create({
+  email: 'user@example.com',
+  name: 'John Doe'
+});
+
+// Actualizar cliente
+await mpAdapter.customers.update(customerId, {
+  name: 'Jane Doe'
+});
+
+// Eliminar cliente
+await mpAdapter.customers.delete(customerId);
+
+// Obtener detalles del cliente
+const customer = await mpAdapter.customers.retrieve(customerId);
+```
+
+### Adaptador de Pagos
+
+```typescript
+// Crear pago
+const payment = await mpAdapter.payments.create(customerId, {
+  amount: 9900, // en centavos
+  currency: 'ars',
+  paymentMethodId: 'visa'
+});
+
+// Capturar pago autorizado
+await mpAdapter.payments.capture(paymentId);
+
+// Cancelar pago
+await mpAdapter.payments.cancel(paymentId);
+
+// Reembolsar pago
+const refund = await mpAdapter.payments.refund({
+  amount: 5000,
+  reason: 'customer_request'
+}, paymentId);
+
+// Obtener pago
+const payment = await mpAdapter.payments.retrieve(paymentId);
+```
+
+### Adaptador de Suscripciones
+
+MercadoPago usa "Preapprovals" para suscripciones:
+
+```typescript
+// Crear suscripción
+const subscription = await mpAdapter.subscriptions.create(
+  customerId,
+  { trialPeriodDays: 7 },
+  'plan_xxx' // preapproval plan ID
+);
+
+// Actualizar suscripción
+await mpAdapter.subscriptions.update(subscriptionId, {
+  metadata: { tier: 'pro' }
+});
+
+// Cancelar suscripción
+await mpAdapter.subscriptions.cancel(subscriptionId, false); // inmediatamente
+
+// Pausar suscripción
+await mpAdapter.subscriptions.pause(subscriptionId);
+
+// Reanudar suscripción
+await mpAdapter.subscriptions.resume(subscriptionId);
+```
+
+### Adaptador de Checkout (Preferencias)
+
+```typescript
+// Crear preferencia de checkout
+const session = await mpAdapter.checkout.create({
+  mode: 'subscription',
+  successUrl: 'https://example.com/success',
+  cancelUrl: 'https://example.com/cancel'
+}, ['plan_xxx']);
+
+// session.init_point - URL para redirigir al usuario
+// session.sandbox_init_point - URL de Sandbox para pruebas
+
+// Obtener preferencia
+const preference = await mpAdapter.checkout.retrieve(preferenceId);
+
+// Expirar preferencia
+await mpAdapter.checkout.expire(preferenceId);
+```
+
+### Adaptador de Precios (Planes)
+
+```typescript
+// Crear un producto (retorna el nombre del plan como ID)
+const productId = await mpAdapter.prices.createProduct(
+  'Pro Plan',
+  'Monthly subscription'
+);
+
+// Crear un precio/plan
+const priceId = await mpAdapter.prices.create({
+  amount: 2900,
+  currency: 'ars',
+  interval: 'month',
+  intervalCount: 1
+}, productId);
+
+// Archivar un precio
+await mpAdapter.prices.archive(priceId);
+```
+
+## Manejo de Webhooks (IPN)
+
+```typescript
+import {
+  extractMPPaymentEventData,
+  extractMPSubscriptionEventData,
+  classifyMPEvent,
+  mpRequiresImmediateAction
+} from '@qazuor/qzpay-mercadopago';
+
+// Construir y verificar evento de webhook
+const event = mpAdapter.webhooks.constructEvent(
+  rawBody,
+  signature // cabecera x-signature
+);
+
+// Verificar solo la firma (HMAC-SHA256)
+const isValid = mpAdapter.webhooks.verifySignature(rawBody, signature);
+
+// Extraer datos del evento
+const paymentData = extractMPPaymentEventData(event);
+const subscriptionData = extractMPSubscriptionEventData(event);
+
+// Clasificar tipo de evento
+const category = classifyMPEvent(event.type);
+// Retorna: 'payment' | 'subscription' | 'chargeback' | 'other'
+
+// Verificar si requiere acción inmediata
+if (mpRequiresImmediateAction(event)) {
+  // Manejar eventos urgentes (contracargos, pagos fallidos)
+}
+```
+
+### Manejador IPN
+
+Para mayor control sobre el procesamiento de IPN:
+
+```typescript
+import { QZPayMercadoPagoIPNHandler } from '@qazuor/qzpay-mercadopago';
+
+const ipnHandler = new QZPayMercadoPagoIPNHandler(mpAdapter);
+
+// Registrar manejadores
+ipnHandler.on('payment', async (notification) => {
+  console.log('Payment notification:', notification.id);
+});
+
+ipnHandler.on('subscription_preapproval', async (notification) => {
+  console.log('Subscription notification:', notification.id);
+});
+
+// Procesar IPN entrante
+const result = await ipnHandler.process(notification);
+```
+
+## Soporte 3D Secure
+
+```typescript
+import {
+  isPaymentEventRequires3DS,
+  extractMP3DSFromPaymentEvent,
+  getMP3DSChallengeUrl
+} from '@qazuor/qzpay-mercadopago';
+
+// Verificar si el pago requiere 3DS
+if (isPaymentEventRequires3DS(event)) {
+  const threeDSInfo = extractMP3DSFromPaymentEvent(event);
+  const challengeUrl = getMP3DSChallengeUrl(event);
+
+  // Redirigir al usuario a la URL del desafío
+  return redirect(challengeUrl);
+}
+```
+
+## Mapeo de Estados
+
+### Estado de Pago
+
+| MercadoPago | QZPay |
+|-------------|-------|
+| `pending` | `pending` |
+| `approved` | `succeeded` |
+| `authorized` | `requires_capture` |
+| `in_process` | `processing` |
+| `in_mediation` | `disputed` |
+| `rejected` | `failed` |
+| `cancelled` | `canceled` |
+| `refunded` | `refunded` |
+| `charged_back` | `disputed` |
+
+### Estado de Suscripción
+
+| MercadoPago | QZPay |
+|-------------|-------|
+| `pending` | `pending` |
+| `authorized` | `active` |
+| `paused` | `paused` |
+| `cancelled` | `canceled` |
+
+## Constantes
+
+```typescript
+import {
+  MERCADOPAGO_SUBSCRIPTION_STATUS,
+  MERCADOPAGO_PAYMENT_STATUS,
+  MERCADOPAGO_WEBHOOK_EVENTS,
+  MERCADOPAGO_BILLING_INTERVAL,
+  MERCADOPAGO_STATUS_DETAIL
+} from '@qazuor/qzpay-mercadopago';
+```
+
+## Configuración Regional
+
+MercadoPago opera en múltiples países:
+
+| País | Moneda | Site ID |
+|------|--------|---------|
+| Argentina | ARS | MLA |
+| Brasil | BRL | MLB |
+| México | MXN | MLM |
+| Chile | CLP | MLC |
+| Colombia | COP | MCO |
+| Perú | PEN | MPE |
+| Uruguay | UYU | MLU |
+
+## Pruebas
+
+Usa credenciales de sandbox para desarrollo:
+
+```bash
+MERCADOPAGO_ACCESS_TOKEN=TEST-xxx
+MERCADOPAGO_WEBHOOK_SECRET=xxx
+```
+
+El adaptador detecta automáticamente el modo sandbox desde el token de acceso.
+
+### Tarjetas de Prueba
+
+| Número de Tarjeta | Resultado |
+|-------------------|-----------|
+| `5031 7557 3453 0604` | Aprobado (Mastercard) |
+| `4509 9535 6623 3704` | Aprobado (Visa) |
+| `3711 803032 57522` | Aprobado (Amex) |
+
+<Aside type="tip">
+MercadoPago proporciona cuentas de usuario de prueba para testing en sandbox. Créalas en el portal de desarrolladores en [developers.mercadopago.com](https://developers.mercadopago.com).
+</Aside>
+
+## Acceso al Cliente de MercadoPago
+
+Para casos de uso avanzados:
+
+```typescript
+const client = mpAdapter.getMercadoPagoClient();
+```
+
+<Aside type="note">
+Los pagos divididos (marketplace) están planeados para v2.0.0 y lanzarán un error si se intentan en v1.x.
+</Aside>

@@ -1,0 +1,369 @@
+---
+title: "@qazuor/qzpay-core"
+description: Tipos, servicios y utilidades centrales de facturación
+---
+
+import { Aside, Badge, LinkCard } from '@astrojs/starlight/components';
+
+# @qazuor/qzpay-core
+
+<Badge text="Requerido" variant="tip" />
+
+<LinkCard
+  title="Ver en npm"
+  href="https://www.npmjs.com/package/@qazuor/qzpay-core"
+  description="@qazuor/qzpay-core"
+/>
+
+El paquete core proporciona los tipos fundamentales, servicios y utilidades para QZPay.
+
+## Instalación
+
+```bash
+pnpm add @qazuor/qzpay-core
+```
+
+## Crear una Instancia de Facturación
+
+Usa la función factory `createQZPayBilling` para crear tu instancia de facturación:
+
+```typescript
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+const billing = createQZPayBilling({
+  storage: createQZPayDrizzleAdapter(db),
+  paymentAdapter: createQZPayStripeAdapter({
+    apiKey: process.env.STRIPE_SECRET_KEY!
+  }),
+  defaultCurrency: 'usd',
+  livemode: process.env.NODE_ENV === 'production'
+});
+
+// Access services through the billing instance
+billing.customers      // QZPayCustomerService
+billing.subscriptions  // QZPaySubscriptionService
+billing.payments       // QZPayPaymentService
+billing.invoices       // QZPayInvoiceService
+billing.plans          // QZPayPlanService
+billing.promoCodes     // QZPayPromoCodeService
+billing.entitlements   // QZPayEntitlementService
+billing.limits         // QZPayLimitService
+billing.metrics        // QZPayMetricsService
+billing.addons         // QZPayAddOnService
+```
+
+## Opciones de Configuración
+
+| Opción | Tipo | Requerido | Descripción |
+|--------|------|-----------|-------------|
+| `storage` | `QZPayStorageAdapter` | Sí | Adaptador de almacenamiento (ej., Drizzle) |
+| `paymentAdapter` | `QZPayPaymentAdapter` | No | Adaptador del proveedor de pagos |
+| `plans` | `QZPayPlan[]` | No | Planes preconfigurados |
+| `defaultCurrency` | `string` | No | Código de moneda predeterminado |
+| `livemode` | `boolean` | No | Flag de modo producción |
+| `gracePeriodDays` | `number` | No | Días antes de cancelación definitiva |
+| `retryConfig` | `object` | No | Configuración de reintentos de pago |
+| `logger` | `QZPayLogger` | No | Logger personalizado |
+
+## Servicios
+
+### Servicio de Cliente
+
+```typescript
+// Create a customer
+const customer = await billing.customers.create({
+  email: 'user@example.com',
+  name: 'John Doe',
+  metadata: { userId: 'usr_123' }
+});
+
+// Get customer by ID
+const customer = await billing.customers.get(id);
+
+// Get customer by external ID
+const customer = await billing.customers.getByExternalId(externalId);
+
+// Update customer
+const updated = await billing.customers.update(id, { name: 'Jane Doe' });
+
+// Delete customer
+await billing.customers.delete(id);
+
+// List customers with pagination
+const result = await billing.customers.list({ limit: 10, offset: 0 });
+```
+
+### Servicio de Suscripción
+
+```typescript
+// Create subscription
+const subscription = await billing.subscriptions.create({
+  customerId: customer.id,
+  planId: 'plan_pro'
+});
+
+// Get subscription (returns QZPaySubscriptionWithHelpers)
+const sub = await billing.subscriptions.get(id);
+
+// Subscription helper methods
+sub.isActive()        // Check if active
+sub.isTrial()         // Check if in trial
+sub.isPastDue()       // Check if past due
+sub.isCanceled()      // Check if canceled
+sub.isPaused()        // Check if paused
+sub.willCancel()      // Check if will cancel at period end
+sub.hasAccess()       // Check if grants access
+
+// Lifecycle operations
+await billing.subscriptions.pause(id);
+await billing.subscriptions.resume(id);
+await billing.subscriptions.cancel(id, { atPeriodEnd: true });
+
+// Change plan
+await billing.subscriptions.changePlan(id, {
+  newPlanId: 'plan_enterprise',
+  proration: 'create_prorations'
+});
+```
+
+### Servicio de Pago
+
+```typescript
+// Process a payment
+const payment = await billing.payments.process({
+  customerId: customer.id,
+  amount: 9900, // in cents
+  currency: 'usd',
+  paymentMethodId: 'pm_xxx'
+});
+
+// Get payment
+const payment = await billing.payments.get(paymentId);
+
+// Get payments by customer
+const payments = await billing.payments.getByCustomerId(customerId);
+
+// Refund payment
+const refunded = await billing.payments.refund({
+  paymentId,
+  amount: 5000, // partial refund
+  reason: 'customer_request'
+});
+```
+
+### Servicio de Factura
+
+```typescript
+// Create invoice
+const invoice = await billing.invoices.create({
+  customerId: customer.id,
+  lines: [
+    { description: 'Pro Plan', amount: 9900, currency: 'usd' }
+  ]
+});
+
+// Get invoice
+const invoice = await billing.invoices.get(invoiceId);
+
+// Mark invoice as paid
+await billing.invoices.markPaid(invoiceId, paymentId);
+
+// Void invoice
+await billing.invoices.void(invoiceId);
+```
+
+### Servicio de Derechos
+
+```typescript
+// Check if customer has entitlement
+const hasAccess = await billing.entitlements.check(customerId, 'advanced_analytics');
+
+// Get all customer entitlements
+const entitlements = await billing.entitlements.getByCustomerId(customerId);
+
+// Grant entitlement
+await billing.entitlements.grant(customerId, 'premium_support', 'manual', 'admin_123');
+
+// Revoke entitlement
+await billing.entitlements.revoke(customerId, 'premium_support');
+```
+
+### Servicio de Límites
+
+```typescript
+// Check usage limit
+const result = await billing.limits.check(customerId, 'api_calls');
+// Returns: { allowed: boolean, currentValue: number, maxValue: number, remaining: number }
+
+// Get all customer limits
+const limits = await billing.limits.getByCustomerId(customerId);
+
+// Increment usage
+await billing.limits.increment(customerId, 'api_calls', 1);
+
+// Set limit
+await billing.limits.set(customerId, 'api_calls', 10000);
+
+// Record usage
+await billing.limits.recordUsage(customerId, 'api_calls', 100, 'increment');
+```
+
+### Servicio de Métricas
+
+```typescript
+// Get MRR (Monthly Recurring Revenue)
+const mrr = await billing.metrics.getMrr();
+
+// Get subscription metrics
+const subMetrics = await billing.metrics.getSubscriptionMetrics();
+
+// Get revenue metrics
+const revenue = await billing.metrics.getRevenueMetrics({
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-12-31')
+});
+
+// Get churn metrics
+const churn = await billing.metrics.getChurnMetrics({
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-12-31')
+});
+
+// Get full dashboard
+const dashboard = await billing.metrics.getDashboard();
+```
+
+## Sistema de Eventos
+
+Suscríbete a eventos de facturación:
+
+```typescript
+// Subscribe to events
+billing.on('customer.created', async (event) => {
+  console.log('New customer:', event.data.id);
+});
+
+billing.on('subscription.created', async (event) => {
+  console.log('New subscription:', event.data.id);
+});
+
+billing.on('subscription.canceled', async (event) => {
+  // Handle cancellation
+});
+
+billing.on('payment.succeeded', async (event) => {
+  // Send receipt
+});
+
+billing.on('payment.failed', async (event) => {
+  // Notify customer
+});
+
+// One-time listener
+billing.once('invoice.paid', async (event) => {
+  // Handle first invoice
+});
+
+// Unsubscribe
+const unsubscribe = billing.on('customer.updated', handler);
+unsubscribe(); // Remove listener
+```
+
+### Eventos Disponibles
+
+| Evento | Descripción |
+|--------|-------------|
+| `customer.created` | Se creó un cliente |
+| `customer.updated` | Se actualizó un cliente |
+| `customer.deleted` | Se eliminó un cliente |
+| `subscription.created` | Se creó una suscripción |
+| `subscription.updated` | Se actualizó una suscripción |
+| `subscription.canceled` | Se canceló una suscripción |
+| `subscription.paused` | Se pausó una suscripción |
+| `subscription.resumed` | Se reanudó una suscripción |
+| `subscription.trial_ending` | El período de prueba está por terminar |
+| `subscription.trial_ended` | El período de prueba ha terminado |
+| `payment.succeeded` | El pago fue exitoso |
+| `payment.failed` | El pago falló |
+| `payment.refunded` | Se reembolsó el pago |
+| `payment.disputed` | Se disputó el pago |
+| `invoice.created` | Se creó una factura |
+| `invoice.paid` | Se pagó una factura |
+| `invoice.payment_failed` | Falló el pago de la factura |
+| `invoice.voided` | Se anuló una factura |
+| `addon.created` | Se creó un complemento |
+| `addon.updated` | Se actualizó un complemento |
+| `addon.deleted` | Se eliminó un complemento |
+
+## Tipos
+
+```typescript
+import type {
+  QZPayCustomer,
+  QZPaySubscription,
+  QZPaySubscriptionWithHelpers,
+  QZPayPayment,
+  QZPayInvoice,
+  QZPayPlan,
+  QZPayPrice,
+  QZPayEntitlement,
+  QZPayCustomerEntitlement,
+  QZPayLimit,
+  QZPayCustomerLimit,
+  QZPayAddOn,
+  QZPayPromoCode,
+  QZPayVendor,
+  QZPayMetrics
+} from '@qazuor/qzpay-core';
+```
+
+## Constantes
+
+```typescript
+import {
+  QZPaySubscriptionStatus,  // active, paused, canceled, past_due, trial, pending
+  QZPayPaymentStatus,       // pending, succeeded, failed, refunded, disputed, canceled
+  QZPayInvoiceStatus,       // draft, open, paid, void, uncollectible
+  QZPayBillingInterval,     // daily, weekly, monthly, quarterly, yearly, custom
+  QZPayCurrency,            // USD, EUR, GBP, MXN, etc.
+  QZPayPaymentProvider,     // stripe, mercadopago
+  QZPayBillingEvent         // All event type constants
+} from '@qazuor/qzpay-core';
+```
+
+## Utilidades
+
+```typescript
+import {
+  // Utilidades de fecha
+  qzpayFormatDate,
+  qzpayAddInterval,
+
+  // Utilidades de dinero
+  qzpayFormatMoney,
+
+  // Utilidades de hash
+  qzpayGenerateId,
+
+  // Utilidades de validación
+  qzpayIsValidEmail
+} from '@qazuor/qzpay-core';
+```
+
+## Interfaz de Adaptadores
+
+Si necesitas crear adaptadores personalizados:
+
+```typescript
+import type {
+  QZPayStorageAdapter,
+  QZPayPaymentAdapter,
+  QZPayEmailAdapter
+} from '@qazuor/qzpay-core';
+```
+
+<Aside type="tip">
+Consulta la guía [Crear Adaptadores](/es/guides/creating-adapters/) para construir adaptadores personalizados de pago o almacenamiento.
+</Aside>

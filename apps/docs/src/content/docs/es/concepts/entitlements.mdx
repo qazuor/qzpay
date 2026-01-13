@@ -1,0 +1,175 @@
+---
+title: Entitlements
+description: Control de acceso a funcionalidades con QZPay
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+# Entitlements
+
+Los entitlements controlan qué funcionalidades y recursos pueden acceder los clientes según su plan de suscripción.
+
+## Visión General
+
+```
+Plan: Pro Mensual
+├── Funcionalidad: api_access (boolean)
+├── Funcionalidad: export_csv (boolean)
+├── Funcionalidad: team_members (límite: 5)
+└── Funcionalidad: storage_gb (límite: 100)
+```
+
+## Definir Entitlements
+
+### En la Configuración del Plan
+
+```typescript
+const plan = {
+  id: 'pro_monthly',
+  name: 'Pro Mensual',
+  entitlements: [
+    { feature: 'api_access', type: 'boolean', value: true },
+    { feature: 'export_csv', type: 'boolean', value: true },
+    { feature: 'team_members', type: 'limit', value: 5 },
+    { feature: 'storage_gb', type: 'limit', value: 100 }
+  ]
+};
+```
+
+## Verificar Entitlements
+
+### Funcionalidades Boolean
+
+```typescript
+const hasApiAccess = await billing.entitlements.check(
+  'cus_123',
+  'api_access'
+);
+
+if (hasApiAccess) {
+  // Permitir acceso a API
+}
+```
+
+### Funcionalidades con Límite
+
+Los límites se gestionan a través del servicio `limits`, no `entitlements`:
+
+```typescript
+const teamLimit = await billing.limits.check(
+  'cus_123',
+  'team_members'
+);
+
+if (teamLimit.allowed) {
+  console.log(`Puede agregar ${teamLimit.remaining} miembros más`);
+} else {
+  console.log('Límite de miembros alcanzado');
+}
+```
+
+El método `check` retorna:
+```typescript
+{
+  allowed: boolean;      // Si puede usar más
+  currentValue: number;  // Uso actual
+  maxValue: number;      // Límite máximo
+  remaining: number;     // Restante disponible
+}
+```
+
+## Usando con React
+
+```tsx
+import { EntitlementGate } from '@qazuor/qzpay-react';
+
+function Dashboard() {
+  return (
+    <div>
+      <EntitlementGate feature="api_access">
+        <ApiSettings />
+      </EntitlementGate>
+
+      <EntitlementGate
+        feature="export_csv"
+        fallback={<UpgradePrompt feature="Exportar CSV" />}
+      >
+        <ExportButton />
+      </EntitlementGate>
+    </div>
+  );
+}
+```
+
+## Usando con NestJS
+
+```typescript
+import { RequireEntitlement } from '@qazuor/qzpay-nestjs';
+
+@Controller('api')
+export class ApiController {
+  @Get('data')
+  @RequireEntitlement('api_access')
+  async getData() {
+    return { data: '...' };
+  }
+}
+```
+
+## Objeto Entitlement
+
+```typescript
+interface Entitlement {
+  feature: string;
+  type: 'boolean' | 'limit';
+  value: boolean | number;
+  used?: number; // Para tipos límite
+  remaining?: number; // Para tipos límite
+}
+```
+
+## Seguimiento de Uso
+
+Rastrea uso contra límites usando el servicio `limits`:
+
+```typescript
+// Registrar uso (incrementar contador)
+await billing.limits.recordUsage('cus_123', 'api_calls', 1);
+
+// Verificar límite y restante
+const limit = await billing.limits.check('cus_123', 'api_calls');
+console.log(`Restante: ${limit.remaining}`);
+
+// Establecer límite máximo
+await billing.limits.set('cus_123', 'api_calls', 1000);
+
+// Incrementar uso manualmente
+await billing.limits.increment('cus_123', 'api_calls', 5);
+```
+
+<Aside type="tip">
+Usa el seguimiento de uso para facturación por consumo o para implementar límites suaves que no bloquean usuarios pero disparan notificaciones.
+</Aside>
+
+## Comparación de Planes
+
+```typescript
+const plans = await billing.plans.list();
+
+// Comparar entitlements entre planes
+const comparison = plans.map(plan => ({
+  name: plan.name,
+  features: plan.entitlements.reduce((acc, e) => {
+    acc[e.feature] = e.value;
+    return acc;
+  }, {})
+}));
+```
+
+## Mejores Prácticas
+
+1. **Define nombres de funcionalidad claros** que sean auto-documentados
+2. **Usa boolean para funcionalidades on/off**, límites para cuantitativas
+3. **Cachea verificaciones de entitlements** para funcionalidades frecuentemente accedidas
+4. **Proporciona prompts de upgrade** cuando las funcionalidades están bloqueadas
+5. **Rastrea uso de funcionalidades** para entender necesidades del cliente

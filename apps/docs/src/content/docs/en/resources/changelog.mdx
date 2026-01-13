@@ -1,0 +1,159 @@
+---
+title: Changelog
+description: Release history and version changes for QZPay
+---
+
+import { Aside, Badge } from '@astrojs/starlight/components';
+
+# Changelog
+
+All notable changes to QZPay are documented here.
+
+We follow [Semantic Versioning](https://semver.org/):
+- **MAJOR** version for incompatible API changes
+- **MINOR** version for backwards-compatible functionality
+- **PATCH** version for backwards-compatible bug fixes
+
+## [1.0.0] - 2025-01-09
+
+<Badge text="Latest" variant="success" />
+
+Initial stable release of QZPay.
+
+### Packages Released
+
+| Package | Version | Description |
+|---------|---------|-------------|
+| `@qazuor/qzpay-core` | 1.0.0 | Core billing engine |
+| `@qazuor/qzpay-stripe` | 1.0.0 | Stripe payment adapter |
+| `@qazuor/qzpay-mercadopago` | 1.0.0 | MercadoPago payment adapter |
+| `@qazuor/qzpay-drizzle` | 1.0.0 | Drizzle ORM storage adapter |
+| `@qazuor/qzpay-react` | 1.0.0 | React hooks and components |
+| `@qazuor/qzpay-hono` | 1.0.0 | Hono framework integration |
+| `@qazuor/qzpay-nestjs` | 1.0.0 | NestJS module integration |
+| `@qazuor/qzpay-cli` | 1.0.0 | Command-line interface |
+
+### Core Features
+
+#### Billing Engine
+- Unified billing API for multiple payment providers
+- Customer management with metadata support
+- Subscription lifecycle management (create, update, cancel, pause, resume)
+- One-time payments
+- Invoice generation and management
+- Webhook processing with signature verification
+
+#### Entitlements System
+- Feature-based entitlements
+- Usage-based limits with tracking
+- Real-time entitlement checking
+- Automatic sync with subscription changes
+
+#### Event System
+- Unified event format across providers
+- Event persistence and replay
+- Async event handlers
+- Event filtering and routing
+
+### Provider Support
+
+#### Stripe Adapter
+- Full Stripe API integration
+- Stripe Checkout support
+- Stripe Elements support
+- Customer portal integration
+- Webhook signature verification
+- Subscription schedules
+- Proration handling
+
+#### MercadoPago Adapter
+- Full MercadoPago API integration
+- Checkout Pro support
+- Subscription (preapproval) support
+- IPN webhook handling
+- Multi-currency support for LATAM markets
+
+### Storage Support
+
+#### Drizzle Adapter
+- PostgreSQL support
+- SQLite support
+- MySQL support
+- Transaction support
+- Automatic schema migration
+- Query optimization
+
+### Framework Integrations
+
+#### React Package
+- `QZPayProvider` context provider
+- Hooks: `useCustomer`, `useSubscription`, `usePayment`, `useEntitlements`, `useLimits`, `usePlans`, `useInvoices`
+- Components: `PricingTable`, `SubscriptionStatus`, `EntitlementGate`, `LimitGate`, `PaymentMethodManager`, `InvoiceList`
+- Theme customization
+- i18n support (English, Spanish, Portuguese)
+
+#### Hono Package
+- Pre-built billing routes
+- Webhook endpoint handlers
+- Middleware for entitlement checking
+- TypeScript-first API
+
+#### NestJS Package
+- `QZPayModule` with sync/async configuration
+- `QZPayService` injectable
+- Decorators: `@RequireEntitlement`, `@RequireSubscription`, `@RateLimit`
+- Guards: `EntitlementGuard`, `SubscriptionGuard`
+- Event emitter integration
+
+### CLI Tool
+
+- `qzpay init` - Initialize project configuration
+- `qzpay migrate` - Run database migrations
+- `qzpay sync` - Sync data with payment provider
+- `qzpay customers` - Customer management commands
+- `qzpay subscriptions` - Subscription management commands
+- `qzpay plans` - Plan management commands
+- `qzpay webhooks` - Webhook management
+- `qzpay metrics` - View billing metrics
+- `qzpay export` - Export billing data
+
+---
+
+## Version Support Policy
+
+| Version | Status | Support Until |
+|---------|--------|---------------|
+| 1.x | Active | Current |
+
+<Aside type="note">
+We maintain active support for the latest major version. Security patches for older major versions are provided for 12 months after a new major release.
+</Aside>
+
+## Upgrade Guides
+
+When upgrading between versions, see the [Migration Guide](/en/resources/migration/) for detailed instructions.
+
+## Reporting Issues
+
+Found a bug in a specific version? Please report it on [GitHub Issues](https://github.com/qazuor/qzpay/issues) with:
+
+1. QZPay version
+2. Node.js version
+3. Payment provider (if applicable)
+4. Minimal reproduction steps
+
+## Pre-release Versions
+
+Pre-release versions (alpha, beta, rc) may be available for testing upcoming features:
+
+```bash
+# Install beta version
+pnpm add @qazuor/qzpay-core@beta
+
+# Install specific pre-release
+pnpm add @qazuor/qzpay-core@2.0.0-beta.1
+```
+
+<Aside type="caution">
+Pre-release versions are not recommended for production use. APIs may change without notice.
+</Aside>

@@ -1,0 +1,487 @@
+---
+title: Promo Codes & Discounts
+description: Managing promotional codes, automatic discounts, and volume pricing
+---
+
+import { Aside, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Promo Codes & Discounts
+
+QZPay provides a comprehensive discount system supporting promo codes, automatic discounts, and volume-based pricing.
+
+## Discount Types
+
+QZPay supports three discount types:
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `percentage` | Percentage off the total | 20% off |
+| `fixed_amount` | Fixed amount off (in cents) | $10 off |
+| `free_trial` | 100% off (typically for trials) | Free for 14 days |
+
+## Creating Promo Codes
+
+### Basic Percentage Discount
+
+```typescript
+const promoCode = await billing.promoCodes.create({
+  code: 'SUMMER20',
+  discountType: 'percentage',
+  discountValue: 20, // 20% off
+  active: true
+});
+```
+
+### Fixed Amount Discount
+
+```typescript
+const promoCode = await billing.promoCodes.create({
+  code: 'FLAT10',
+  discountType: 'fixed_amount',
+  discountValue: 1000, // $10.00 off (in cents)
+  currency: 'usd', // Required for fixed amount
+  active: true
+});
+```
+
+<Aside type="caution">
+Fixed amount discounts require a currency. They can only be applied to purchases in the same currency.
+</Aside>
+
+### Time-Limited Codes
+
+```typescript
+const promoCode = await billing.promoCodes.create({
+  code: 'BLACKFRIDAY',
+  discountType: 'percentage',
+  discountValue: 50,
+  validFrom: new Date('2024-11-29'),
+  validUntil: new Date('2024-12-02'),
+  active: true
+});
+```
+
+### Limited Redemptions
+
+```typescript
+const promoCode = await billing.promoCodes.create({
+  code: 'EXCLUSIVE100',
+  discountType: 'percentage',
+  discountValue: 30,
+  maxRedemptions: 100, // Only 100 uses total
+  maxRedemptionsPerCustomer: 1, // One per customer
+  active: true
+});
+```
+
+### Plan-Specific Discounts
+
+```typescript
+const promoCode = await billing.promoCodes.create({
+  code: 'PROONLY',
+  discountType: 'percentage',
+  discountValue: 25,
+  applicablePlanIds: ['plan_pro', 'plan_enterprise'],
+  active: true
+});
+```
+
+## Promo Code Conditions
+
+Add conditions to control when codes can be used:
+
+### First Purchase Only
+
+```typescript
+const promoCode = await billing.promoCodes.create({
+  code: 'WELCOME20',
+  discountType: 'percentage',
+  discountValue: 20,
+  conditions: [
+    { type: 'first_purchase', value: true }
+  ],
+  active: true
+});
+```
+
+### Minimum Purchase Amount
+
+```typescript
+const promoCode = await billing.promoCodes.create({
+  code: 'SAVE15',
+  discountType: 'percentage',
+  discountValue: 15,
+  conditions: [
+    { type: 'min_amount', value: 5000 } // Minimum $50.00
+  ],
+  active: true
+});
+```
+
+### Minimum Quantity
+
+```typescript
+const promoCode = await billing.promoCodes.create({
+  code: 'BULK10',
+  discountType: 'percentage',
+  discountValue: 10,
+  conditions: [
+    { type: 'min_quantity', value: 5 } // Minimum 5 items
+  ],
+  active: true
+});
+```
+
+### Customer Tags
+
+```typescript
+const promoCode = await billing.promoCodes.create({
+  code: 'VIP30',
+  discountType: 'percentage',
+  discountValue: 30,
+  conditions: [
+    { type: 'customer_tag', value: 'vip' }
+  ],
+  active: true
+});
+```
+
+### Multiple Conditions
+
+```typescript
+// All conditions must be met
+const promoCode = await billing.promoCodes.create({
+  code: 'NEWVIP',
+  discountType: 'percentage',
+  discountValue: 40,
+  conditions: [
+    { type: 'first_purchase', value: true },
+    { type: 'min_amount', value: 10000 } // $100 minimum
+  ],
+  active: true
+});
+```
+
+## Validating Promo Codes
+
+### Basic Validation
+
+```typescript
+import { qzpayValidatePromoCode } from '@qazuor/qzpay-core';
+
+const promoCode = await billing.promoCodes.getByCode('SUMMER20');
+const context = {
+  customerId: 'cus_123',
+  subtotal: 9900,
+  currency: 'usd',
+  isNewCustomer: false
+};
+
+const result = qzpayValidatePromoCode(promoCode, context);
+
+if (result.valid) {
+  // Apply the discount
+} else {
+  console.log('Invalid:', result.error);
+  // Possible errors:
+  // - 'Promo code is not active'
+  // - 'Promo code has expired'
+  // - 'Promo code has reached maximum redemptions'
+  // - 'Promo code is only valid for USD currency'
+  // - 'Promo code is not valid for this plan'
+  // - 'Promo code is only valid for first-time customers'
+  // - 'Minimum purchase amount of 5000 required'
+}
+```
+
+### Check Expiration
+
+```typescript
+import { qzpayPromoCodeIsExpired } from '@qazuor/qzpay-core';
+
+if (qzpayPromoCodeIsExpired(promoCode)) {
+  return { error: 'This promo code has expired' };
+}
+```
+
+### Check Remaining Redemptions
+
+```typescript
+import { qzpayGetRemainingRedemptions } from '@qazuor/qzpay-core';
+
+const remaining = qzpayGetRemainingRedemptions(promoCode);
+
+if (remaining !== null && remaining === 0) {
+  return { error: 'This promo code is no longer available' };
+}
+
+// Show remaining to user
+if (remaining !== null && remaining < 10) {
+  console.log(`Only ${remaining} uses left!`);
+}
+```
+
+## Calculating Discounts
+
+### Single Promo Code
+
+```typescript
+import { qzpayApplyPromoCode } from '@qazuor/qzpay-core';
+
+const discount = qzpayApplyPromoCode(promoCode, 9900); // $99.00
+
+console.log(discount);
+// {
+//   promoCodeId: 'promo_123',
+//   code: 'SUMMER20',
+//   discountType: 'percentage',
+//   discountValue: 20,
+//   discountAmount: 1980  // $19.80 off
+// }
+```
+
+### Multiple Promo Codes with Stacking
+
+```typescript
+import { qzpayCalculateDiscounts } from '@qazuor/qzpay-core';
+
+const promoCodes = [promo1, promo2];
+const context = {
+  customerId: 'cus_123',
+  subtotal: 9900,
+  currency: 'usd'
+};
+
+// Stacking modes: 'none' | 'best' | 'additive' | 'multiplicative'
+const result = qzpayCalculateDiscounts(9900, promoCodes, context, 'best');
+
+console.log(result);
+// {
+//   originalAmount: 9900,
+//   discountAmount: 1980,
+//   finalAmount: 7920,
+//   appliedDiscounts: [...],
+//   skippedDiscounts: [...]
+// }
+```
+
+## Discount Stacking Modes
+
+| Mode | Behavior |
+|------|----------|
+| `none` | Only the first valid code applies |
+| `best` | Only the code with the highest discount applies |
+| `additive` | All discounts are summed (capped at original amount) |
+| `multiplicative` | Discounts apply sequentially to remaining amount |
+
+### Example: Additive vs Multiplicative
+
+```typescript
+// Original: $100
+// Code 1: 20% off
+// Code 2: $10 off
+
+// Additive: $100 - $20 - $10 = $70
+// Multiplicative: $100 - $20 = $80, then $80 - $10 = $70
+
+// With two 20% codes on $100:
+// Additive: $100 - $20 - $20 = $60
+// Multiplicative: $100 - $20 = $80, then $80 - $16 = $64
+```
+
+## Automatic Discounts
+
+Create discounts that apply automatically without codes:
+
+```typescript
+import {
+  qzpayEvaluateAutomaticDiscounts,
+  qzpayApplyAutomaticDiscounts
+} from '@qazuor/qzpay-core';
+
+const automaticDiscounts = [
+  {
+    id: 'auto_bulk',
+    name: 'Bulk Purchase Discount',
+    discountType: 'percentage',
+    discountValue: 10,
+    conditions: [
+      { type: 'min_quantity', value: 10 }
+    ],
+    priority: 1,
+    stackingMode: 'best',
+    active: true
+  },
+  {
+    id: 'auto_vip',
+    name: 'VIP Discount',
+    discountType: 'percentage',
+    discountValue: 15,
+    conditions: [
+      { type: 'customer_tag', value: 'vip' }
+    ],
+    priority: 2, // Higher priority
+    stackingMode: 'best',
+    active: true
+  }
+];
+
+const context = {
+  customerId: 'cus_123',
+  subtotal: 9900,
+  currency: 'usd',
+  quantity: 15,
+  customerTags: ['vip']
+};
+
+// Get applicable automatic discounts
+const applicable = qzpayEvaluateAutomaticDiscounts(automaticDiscounts, context);
+// Returns discounts sorted by priority
+
+// Apply automatic discounts
+const result = qzpayApplyAutomaticDiscounts(automaticDiscounts, 9900, context);
+```
+
+## Volume Pricing
+
+### Define Volume Tiers
+
+```typescript
+import {
+  qzpayFindVolumeTier,
+  qzpayCalculateVolumeDiscount
+} from '@qazuor/qzpay-core';
+
+const volumePricing = {
+  tiers: [
+    { minQuantity: 1, maxQuantity: 9, discountType: 'percentage', discountValue: 0 },
+    { minQuantity: 10, maxQuantity: 49, discountType: 'percentage', discountValue: 10 },
+    { minQuantity: 50, maxQuantity: 99, discountType: 'percentage', discountValue: 20 },
+    { minQuantity: 100, discountType: 'percentage', discountValue: 30 }
+  ],
+  stackable: false
+};
+```
+
+### Calculate Volume Discount
+
+```typescript
+const unitPrice = 1000; // $10 per unit
+const quantity = 25;
+
+const { discountAmount, tier } = qzpayCalculateVolumeDiscount(
+  volumePricing,
+  quantity,
+  unitPrice
+);
+
+// quantity: 25, tier: 10% off
+// Total: $250, Discount: $25, Final: $225
+```
+
+### Get Pricing Breakdown
+
+```typescript
+import { qzpayGetVolumePricingBreakdown } from '@qazuor/qzpay-core';
+
+const breakdown = qzpayGetVolumePricingBreakdown(volumePricing, 75, 1000);
+
+// Returns breakdown by tier:
+// [
+//   { tier: {...}, quantity: 9, unitPrice: 1000, totalPrice: 9000 },
+//   { tier: {...}, quantity: 40, unitPrice: 900, totalPrice: 36000 },
+//   { tier: {...}, quantity: 26, unitPrice: 800, totalPrice: 20800 }
+// ]
+```
+
+## Combining Discounts
+
+Combine promo codes with automatic discounts:
+
+```typescript
+import { qzpayCombineDiscounts } from '@qazuor/qzpay-core';
+
+const result = qzpayCombineDiscounts(
+  9900,              // amount
+  [promoCode],       // promo codes
+  automaticDiscounts,// automatic discounts
+  context,
+  'best'             // combine mode: 'promo_first' | 'auto_first' | 'best'
+);
+```
+
+### Combine Modes
+
+| Mode | Behavior |
+|------|----------|
+| `promo_first` | Apply promo codes, then automatic discounts on remaining |
+| `auto_first` | Apply automatic discounts, then promo codes on remaining |
+| `best` | Use whichever gives the customer the best discount |
+
+## Displaying Discounts
+
+### Format Discount for Display
+
+```typescript
+import { qzpayFormatDiscount } from '@qazuor/qzpay-core';
+
+qzpayFormatDiscount('percentage', 20);
+// "20% off"
+
+qzpayFormatDiscount('fixed_amount', 1000, 'usd');
+// "USD 10.00 off"
+
+qzpayFormatDiscount('free_trial', 0);
+// "Free trial"
+```
+
+### Get Discount Description
+
+```typescript
+import { qzpayGetDiscountDescription } from '@qazuor/qzpay-core';
+
+const description = qzpayGetDiscountDescription(promoCode);
+// "20% off on select plans until 12/31/2024"
+```
+
+## Error Handling
+
+```typescript
+const promoCode = await billing.promoCodes.getByCode(code);
+
+if (!promoCode) {
+  return { error: 'Invalid promo code' };
+}
+
+const validation = qzpayValidatePromoCode(promoCode, context);
+
+if (!validation.valid) {
+  // User-friendly error messages
+  const errorMessages = {
+    'Promo code is not active': 'This promo code is no longer available',
+    'Promo code has expired': 'This promo code has expired',
+    'Promo code has reached maximum redemptions': 'This promo code is sold out',
+    'Promo code is only valid for first-time customers': 'This offer is for new customers only',
+    'Minimum purchase amount of': 'Your order doesn\'t meet the minimum requirement'
+  };
+
+  const message = Object.entries(errorMessages).find(
+    ([key]) => validation.error?.includes(key)
+  )?.[1] ?? 'This promo code cannot be applied';
+
+  return { error: message };
+}
+```
+
+## Best Practices
+
+1. **Always validate server-side** - Never trust client-side validation alone
+2. **Set expiration dates** - Avoid codes that last forever
+3. **Limit redemptions** - Control costs with max redemption limits
+4. **Use descriptive codes** - `SUMMER20` is better than `ABC123`
+5. **Track redemptions** - Monitor code usage for fraud detection
+6. **Test conditions** - Verify complex conditions work as expected
+
+<Aside type="tip">
+Store promo code usage in customer metadata to prevent abuse of first-purchase-only codes.
+</Aside>

@@ -1,0 +1,352 @@
+---
+title: "@qazuor/qzpay-mercadopago"
+description: MercadoPago payment provider adapter
+---
+
+import { Aside, Badge, LinkCard } from '@astrojs/starlight/components';
+
+# @qazuor/qzpay-mercadopago
+
+<Badge text="Provider" variant="note" />
+
+<LinkCard
+  title="View on npm"
+  href="https://www.npmjs.com/package/@qazuor/qzpay-mercadopago"
+  description="@qazuor/qzpay-mercadopago"
+/>
+
+MercadoPago integration for Latin American markets.
+
+## Installation
+
+```bash
+pnpm add @qazuor/qzpay-mercadopago mercadopago
+```
+
+## Setup
+
+```typescript
+import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+
+const mpAdapter = createQZPayMercadoPagoAdapter({
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!,
+  webhookSecret: process.env.MERCADOPAGO_WEBHOOK_SECRET
+});
+
+// Or use the class directly
+import { QZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+
+const mpAdapter = new QZPayMercadoPagoAdapter({
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!
+});
+```
+
+## Configuration Options
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `accessToken` | `string` | Yes | MercadoPago access token |
+| `webhookSecret` | `string` | No | Webhook secret for verification |
+
+## Using with QZPay
+
+```typescript
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+const billing = createQZPayBilling({
+  storage: createQZPayDrizzleAdapter(db),
+  paymentAdapter: createQZPayMercadoPagoAdapter({
+    accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!
+  })
+});
+```
+
+## Sub-Adapters
+
+The MercadoPago adapter provides access to specialized sub-adapters:
+
+```typescript
+mpAdapter.customers      // QZPayMercadoPagoCustomerAdapter
+mpAdapter.subscriptions  // QZPayMercadoPagoSubscriptionAdapter
+mpAdapter.payments       // QZPayMercadoPagoPaymentAdapter
+mpAdapter.checkout       // QZPayMercadoPagoCheckoutAdapter
+mpAdapter.prices         // QZPayMercadoPagoPriceAdapter
+mpAdapter.webhooks       // QZPayMercadoPagoWebhookAdapter
+```
+
+### Customer Adapter
+
+```typescript
+// Create customer
+const customerId = await mpAdapter.customers.create({
+  email: 'user@example.com',
+  name: 'John Doe'
+});
+
+// Update customer
+await mpAdapter.customers.update(customerId, {
+  name: 'Jane Doe'
+});
+
+// Delete customer
+await mpAdapter.customers.delete(customerId);
+
+// Retrieve customer details
+const customer = await mpAdapter.customers.retrieve(customerId);
+```
+
+### Payment Adapter
+
+```typescript
+// Create payment
+const payment = await mpAdapter.payments.create(customerId, {
+  amount: 9900, // in cents
+  currency: 'ars',
+  paymentMethodId: 'visa'
+});
+
+// Capture authorized payment
+await mpAdapter.payments.capture(paymentId);
+
+// Cancel payment
+await mpAdapter.payments.cancel(paymentId);
+
+// Refund payment
+const refund = await mpAdapter.payments.refund({
+  amount: 5000,
+  reason: 'customer_request'
+}, paymentId);
+
+// Retrieve payment
+const payment = await mpAdapter.payments.retrieve(paymentId);
+```
+
+### Subscription Adapter
+
+MercadoPago uses "Preapprovals" for subscriptions:
+
+```typescript
+// Create subscription
+const subscription = await mpAdapter.subscriptions.create(
+  customerId,
+  { trialPeriodDays: 7 },
+  'plan_xxx' // preapproval plan ID
+);
+
+// Update subscription
+await mpAdapter.subscriptions.update(subscriptionId, {
+  metadata: { tier: 'pro' }
+});
+
+// Cancel subscription
+await mpAdapter.subscriptions.cancel(subscriptionId, false); // immediately
+
+// Pause subscription
+await mpAdapter.subscriptions.pause(subscriptionId);
+
+// Resume subscription
+await mpAdapter.subscriptions.resume(subscriptionId);
+```
+
+### Checkout Adapter (Preferences)
+
+```typescript
+// Create checkout preference
+const session = await mpAdapter.checkout.create({
+  mode: 'subscription',
+  successUrl: 'https://example.com/success',
+  cancelUrl: 'https://example.com/cancel'
+}, ['plan_xxx']);
+
+// session.init_point - URL to redirect user
+// session.sandbox_init_point - Sandbox URL for testing
+
+// Retrieve preference
+const preference = await mpAdapter.checkout.retrieve(preferenceId);
+
+// Expire preference
+await mpAdapter.checkout.expire(preferenceId);
+```
+
+### Price Adapter (Plans)
+
+```typescript
+// Create a product (returns plan name as ID)
+const productId = await mpAdapter.prices.createProduct(
+  'Pro Plan',
+  'Monthly subscription'
+);
+
+// Create a price/plan
+const priceId = await mpAdapter.prices.create({
+  amount: 2900,
+  currency: 'ars',
+  interval: 'month',
+  intervalCount: 1
+}, productId);
+
+// Archive a price
+await mpAdapter.prices.archive(priceId);
+```
+
+## Webhook Handling (IPN)
+
+```typescript
+import {
+  extractMPPaymentEventData,
+  extractMPSubscriptionEventData,
+  classifyMPEvent,
+  mpRequiresImmediateAction
+} from '@qazuor/qzpay-mercadopago';
+
+// Construct and verify webhook event
+const event = mpAdapter.webhooks.constructEvent(
+  rawBody,
+  signature // x-signature header
+);
+
+// Verify signature only (HMAC-SHA256)
+const isValid = mpAdapter.webhooks.verifySignature(rawBody, signature);
+
+// Extract event data
+const paymentData = extractMPPaymentEventData(event);
+const subscriptionData = extractMPSubscriptionEventData(event);
+
+// Classify event type
+const category = classifyMPEvent(event.type);
+// Returns: 'payment' | 'subscription' | 'chargeback' | 'other'
+
+// Check if requires immediate action
+if (mpRequiresImmediateAction(event)) {
+  // Handle urgent events (chargebacks, failed payments)
+}
+```
+
+### IPN Handler
+
+For more control over IPN processing:
+
+```typescript
+import { QZPayMercadoPagoIPNHandler } from '@qazuor/qzpay-mercadopago';
+
+const ipnHandler = new QZPayMercadoPagoIPNHandler(mpAdapter);
+
+// Register handlers
+ipnHandler.on('payment', async (notification) => {
+  console.log('Payment notification:', notification.id);
+});
+
+ipnHandler.on('subscription_preapproval', async (notification) => {
+  console.log('Subscription notification:', notification.id);
+});
+
+// Process incoming IPN
+const result = await ipnHandler.process(notification);
+```
+
+## 3D Secure Support
+
+```typescript
+import {
+  isPaymentEventRequires3DS,
+  extractMP3DSFromPaymentEvent,
+  getMP3DSChallengeUrl
+} from '@qazuor/qzpay-mercadopago';
+
+// Check if payment requires 3DS
+if (isPaymentEventRequires3DS(event)) {
+  const threeDSInfo = extractMP3DSFromPaymentEvent(event);
+  const challengeUrl = getMP3DSChallengeUrl(event);
+
+  // Redirect user to challenge URL
+  return redirect(challengeUrl);
+}
+```
+
+## Status Mapping
+
+### Payment Status
+
+| MercadoPago | QZPay |
+|-------------|-------|
+| `pending` | `pending` |
+| `approved` | `succeeded` |
+| `authorized` | `requires_capture` |
+| `in_process` | `processing` |
+| `in_mediation` | `disputed` |
+| `rejected` | `failed` |
+| `cancelled` | `canceled` |
+| `refunded` | `refunded` |
+| `charged_back` | `disputed` |
+
+### Subscription Status
+
+| MercadoPago | QZPay |
+|-------------|-------|
+| `pending` | `pending` |
+| `authorized` | `active` |
+| `paused` | `paused` |
+| `cancelled` | `canceled` |
+
+## Constants
+
+```typescript
+import {
+  MERCADOPAGO_SUBSCRIPTION_STATUS,
+  MERCADOPAGO_PAYMENT_STATUS,
+  MERCADOPAGO_WEBHOOK_EVENTS,
+  MERCADOPAGO_BILLING_INTERVAL,
+  MERCADOPAGO_STATUS_DETAIL
+} from '@qazuor/qzpay-mercadopago';
+```
+
+## Regional Configuration
+
+MercadoPago operates in multiple countries:
+
+| Country | Currency | Site ID |
+|---------|----------|---------|
+| Argentina | ARS | MLA |
+| Brazil | BRL | MLB |
+| Mexico | MXN | MLM |
+| Chile | CLP | MLC |
+| Colombia | COP | MCO |
+| Peru | PEN | MPE |
+| Uruguay | UYU | MLU |
+
+## Testing
+
+Use sandbox credentials for development:
+
+```bash
+MERCADOPAGO_ACCESS_TOKEN=TEST-xxx
+MERCADOPAGO_WEBHOOK_SECRET=xxx
+```
+
+The adapter automatically detects sandbox mode from the access token.
+
+### Test Cards
+
+| Card Number | Result |
+|-------------|--------|
+| `5031 7557 3453 0604` | Approved (Mastercard) |
+| `4509 9535 6623 3704` | Approved (Visa) |
+| `3711 803032 57522` | Approved (Amex) |
+
+<Aside type="tip">
+MercadoPago provides test user accounts for sandbox testing. Create them in the developer portal at [developers.mercadopago.com](https://developers.mercadopago.com).
+</Aside>
+
+## Accessing MercadoPago Client
+
+For advanced use cases:
+
+```typescript
+const client = mpAdapter.getMercadoPagoClient();
+```
+
+<Aside type="note">
+Split payments (marketplace) are planned for v2.0.0 and will throw an error if attempted in v1.x.
+</Aside>

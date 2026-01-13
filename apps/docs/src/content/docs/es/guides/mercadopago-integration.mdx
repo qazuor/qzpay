@@ -1,0 +1,255 @@
+---
+title: Integración con MercadoPago
+description: Guía completa para integrar MercadoPago con QZPay
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+# Guía de Integración con MercadoPago
+
+Esta guía cubre la integración de MercadoPago para mercados latinoamericanos.
+
+## Prerrequisitos
+
+- Cuenta de MercadoPago con credenciales
+- Node.js 22+
+- Base de datos PostgreSQL
+
+## Configuración
+
+<Steps>
+
+1. **Instala los paquetes**
+
+   ```bash
+   pnpm add @qazuor/qzpay-core @qazuor/qzpay-mercadopago @qazuor/qzpay-drizzle mercadopago drizzle-orm postgres
+   ```
+
+2. **Configura variables de entorno**
+
+   ```bash
+   # .env
+   DATABASE_URL=postgresql://user:pass@localhost:5432/billing
+   MP_ACCESS_TOKEN=TEST-xxx
+   MP_PUBLIC_KEY=TEST-xxx
+   MP_WEBHOOK_SECRET=xxx
+   ```
+
+3. **Inicializa el servicio de facturación**
+
+   ```typescript
+   // src/billing.ts
+   import { createQZPayBilling } from '@qazuor/qzpay-core';
+   import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+   import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+   export const billing = createQZPayBilling({
+     paymentAdapter: createQZPayMercadoPagoAdapter({
+       accessToken: process.env.MP_ACCESS_TOKEN!
+     }),
+     storage: createQZPayDrizzleAdapter(db)
+   });
+   ```
+
+</Steps>
+
+## Flujo de Pago
+
+### Checkout Pro (Redirección)
+
+La integración más simple, redirige a MercadoPago:
+
+```typescript
+import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+
+const mpAdapter = createQZPayMercadoPagoAdapter({
+  accessToken: process.env.MP_ACCESS_TOKEN!
+});
+
+export async function createCheckoutPreference(
+  customerId: string,
+  items: Item[]
+) {
+  // Obtener ID del proveedor del cliente
+  const customer = await billing.customers.get(customerId);
+  const providerCustomerId = customer?.externalIds?.mercadopago;
+
+  const preference = await mpAdapter.checkout.create({
+    customerId: providerCustomerId,
+    mode: 'payment',
+    lineItems: items.map(item => ({
+      title: item.name,
+      quantity: item.quantity,
+      unitPrice: item.price,
+      currencyId: 'ARS' // o BRL, MXN, etc.
+    })),
+    backUrls: {
+      success: `${APP_URL}/pago/exito`,
+      failure: `${APP_URL}/pago/fallo`,
+      pending: `${APP_URL}/pago/pendiente`
+    },
+    autoReturn: 'approved'
+  }, []); // IDs de precios del proveedor (vacío para items personalizados)
+
+  return { checkoutUrl: preference.url };
+}
+```
+
+### Tokenización de Tarjeta
+
+Para experiencias de checkout personalizadas:
+
+```typescript
+// Frontend: Tokeniza tarjeta con MercadoPago.js
+const mp = new MercadoPago(MP_PUBLIC_KEY);
+const cardToken = await mp.createCardToken({
+  cardNumber: '5031755734530604',
+  cardExpirationMonth: '12',
+  cardExpirationYear: '2025',
+  securityCode: '123',
+  cardholderName: 'APRO'
+});
+
+// Backend: Procesa pago
+export async function processPayment(
+  customerId: string,
+  amount: number,
+  cardToken: string
+) {
+  const payment = await billing.payments.create({
+    customerId,
+    amount,
+    currency: 'ARS',
+    paymentMethodId: 'visa',
+    token: cardToken,
+    description: 'Compra',
+    installments: 1
+  });
+
+  return payment;
+}
+```
+
+## Soporte 3D Secure
+
+```typescript
+export async function createPaymentWith3DS(
+  customerId: string,
+  amount: number,
+  cardToken: string
+) {
+  const payment = await billing.payments.create({
+    customerId,
+    amount,
+    currency: 'ARS',
+    token: cardToken,
+    threeDSecureMode: 'optional',
+    callbackUrl: `${APP_URL}/pago/3ds-callback`
+  });
+
+  if (payment.status === 'pending' && payment.threeDSInfo) {
+    return {
+      requiresAuth: true,
+      redirectUrl: payment.threeDSInfo.redirectUrl
+    };
+  }
+
+  return { requiresAuth: false, payment };
+}
+```
+
+## Suscripciones (Preapprovals)
+
+MercadoPago usa "Preapprovals" para facturación recurrente:
+
+### Crear Plan de Suscripción
+
+```typescript
+export async function createSubscriptionPlan() {
+  const plan = await billing.plans.create({
+    name: 'Pro Mensual',
+    frequency: 1,
+    frequencyType: 'months',
+    transactionAmount: 999.00,
+    currencyId: 'ARS',
+    repetitions: null // Ilimitado
+  });
+
+  return plan;
+}
+```
+
+### Suscribir un Cliente
+
+```typescript
+export async function subscribeCustomer(
+  customerId: string,
+  planId: string,
+  cardToken: string
+) {
+  const subscription = await billing.subscriptions.create({
+    customerId,
+    planId,
+    paymentMethodToken: cardToken
+  });
+
+  return subscription;
+}
+```
+
+## Manejo de Webhooks (IPN)
+
+MercadoPago usa IPN (Notificación de Pago Instantáneo):
+
+```typescript
+// src/routes/webhooks.ts
+import { Hono } from 'hono';
+import { createWebhookRouter } from '@qazuor/qzpay-hono';
+import { billing, mpAdapter } from '../billing';
+
+// Crear router de webhook con integración Hono
+const mpWebhook = createWebhookRouter({
+  billing,
+  paymentAdapter: mpAdapter,
+  handlers: {
+    'payment': async (c, event) => {
+      console.log('Evento de pago:', event.data);
+    },
+    'subscription_preapproval': async (c, event) => {
+      console.log('Evento de suscripción:', event.data);
+    },
+    'subscription_authorized_payment': async (c, event) => {
+      console.log('Pago recurrente:', event.data);
+    }
+  }
+});
+
+const app = new Hono();
+app.route('/mercadopago', mpWebhook);
+
+export default app;
+```
+
+## Configuración Regional
+
+| País | Moneda | Site ID |
+|------|--------|---------|
+| Argentina | ARS | MLA |
+| Brasil | BRL | MLB |
+| México | MXN | MLM |
+| Chile | CLP | MLC |
+| Colombia | COP | MCO |
+| Perú | PEN | MPE |
+
+## Testing
+
+Usa credenciales sandbox para desarrollo:
+
+```bash
+MP_ACCESS_TOKEN=TEST-xxx
+```
+
+Tarjetas de prueba:
+- `5031 7557 3453 0604` - Aprobado
+- `5031 7557 3453 0620` - Pendiente
+- `5031 7557 3453 0612` - Rechazado

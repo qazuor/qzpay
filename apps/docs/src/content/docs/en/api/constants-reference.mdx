@@ -1,0 +1,714 @@
+---
+title: Constants Reference
+description: Complete reference for all constants and enums available in QZPay
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Constants Reference
+
+Complete reference for all constants and enums exported from `@qazuor/qzpay-core`.
+
+## Import
+
+```typescript
+import {
+  QZPAY_SUBSCRIPTION_STATUS,
+  QZPAY_PAYMENT_STATUS,
+  QZPAY_INVOICE_STATUS,
+  QZPAY_BILLING_INTERVAL,
+  QZPAY_CURRENCY,
+  QZPAY_BILLING_EVENT,
+  QZPAY_PAYMENT_PROVIDER,
+  QZPAY_VENDOR_STATUS,
+  QZPAY_DISCOUNT_TYPE,
+  QZPAY_DISCOUNT_STACKING_MODE,
+  QZPAY_DISCOUNT_CONDITION,
+  QZPAY_PRORATION_BEHAVIOR,
+  QZPAY_CHECKOUT_MODE,
+  QZPAY_DAY_OF_WEEK,
+  QZPAY_CANCEL_AT
+} from '@qazuor/qzpay-core';
+```
+
+## Subscription Status
+
+Status values for subscription lifecycle.
+
+```typescript
+const QZPAY_SUBSCRIPTION_STATUS = {
+  ACTIVE: 'active',
+  TRIALING: 'trialing',
+  PAST_DUE: 'past_due',
+  PAUSED: 'paused',
+  CANCELED: 'canceled',
+  UNPAID: 'unpaid',
+  INCOMPLETE: 'incomplete',
+  INCOMPLETE_EXPIRED: 'incomplete_expired'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `ACTIVE` | `'active'` | Subscription is active and billing normally |
+| `TRIALING` | `'trialing'` | In free trial period |
+| `PAST_DUE` | `'past_due'` | Payment failed, in retry period |
+| `PAUSED` | `'paused'` | Temporarily paused by customer or admin |
+| `CANCELED` | `'canceled'` | Subscription has been canceled |
+| `UNPAID` | `'unpaid'` | All payment retries exhausted |
+| `INCOMPLETE` | `'incomplete'` | Initial payment pending (3DS, etc.) |
+| `INCOMPLETE_EXPIRED` | `'incomplete_expired'` | Initial payment expired |
+
+### Usage
+
+```typescript
+import { QZPAY_SUBSCRIPTION_STATUS, type QZPaySubscriptionStatus } from '@qazuor/qzpay-core';
+
+function isSubscriptionActive(status: QZPaySubscriptionStatus): boolean {
+  return status === QZPAY_SUBSCRIPTION_STATUS.ACTIVE ||
+         status === QZPAY_SUBSCRIPTION_STATUS.TRIALING;
+}
+
+// Check if subscription needs attention
+if (subscription.status === QZPAY_SUBSCRIPTION_STATUS.PAST_DUE) {
+  notifyCustomer('Payment failed, please update your payment method');
+}
+```
+
+## Payment Status
+
+Status values for payment transactions.
+
+```typescript
+const QZPAY_PAYMENT_STATUS = {
+  PENDING: 'pending',
+  PROCESSING: 'processing',
+  SUCCEEDED: 'succeeded',
+  FAILED: 'failed',
+  CANCELED: 'canceled',
+  REFUNDED: 'refunded',
+  PARTIALLY_REFUNDED: 'partially_refunded',
+  DISPUTED: 'disputed'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `PENDING` | `'pending'` | Payment initiated, awaiting processing |
+| `PROCESSING` | `'processing'` | Payment being processed |
+| `SUCCEEDED` | `'succeeded'` | Payment completed successfully |
+| `FAILED` | `'failed'` | Payment failed |
+| `CANCELED` | `'canceled'` | Payment was canceled |
+| `REFUNDED` | `'refunded'` | Full refund issued |
+| `PARTIALLY_REFUNDED` | `'partially_refunded'` | Partial refund issued |
+| `DISPUTED` | `'disputed'` | Customer disputed the charge |
+
+### Usage
+
+```typescript
+import { QZPAY_PAYMENT_STATUS, type QZPayPaymentStatus } from '@qazuor/qzpay-core';
+
+function canRefund(status: QZPayPaymentStatus): boolean {
+  return status === QZPAY_PAYMENT_STATUS.SUCCEEDED;
+}
+
+if (payment.status === QZPAY_PAYMENT_STATUS.DISPUTED) {
+  await handleDispute(payment);
+}
+```
+
+## Invoice Status
+
+Status values for invoices.
+
+```typescript
+const QZPAY_INVOICE_STATUS = {
+  DRAFT: 'draft',
+  OPEN: 'open',
+  PAID: 'paid',
+  VOID: 'void',
+  UNCOLLECTIBLE: 'uncollectible'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `DRAFT` | `'draft'` | Invoice not yet finalized |
+| `OPEN` | `'open'` | Invoice finalized, awaiting payment |
+| `PAID` | `'paid'` | Invoice has been paid |
+| `VOID` | `'void'` | Invoice was voided |
+| `UNCOLLECTIBLE` | `'uncollectible'` | Marked as uncollectible |
+
+### Usage
+
+```typescript
+import { QZPAY_INVOICE_STATUS, type QZPayInvoiceStatus } from '@qazuor/qzpay-core';
+
+// Only finalized invoices can be paid
+if (invoice.status === QZPAY_INVOICE_STATUS.DRAFT) {
+  await billing.invoices.finalize(invoice.id);
+}
+
+// Void unpaid invoices
+if (invoice.status === QZPAY_INVOICE_STATUS.OPEN) {
+  await billing.invoices.void(invoice.id);
+}
+```
+
+## Billing Interval
+
+Supported billing frequency intervals.
+
+```typescript
+const QZPAY_BILLING_INTERVAL = {
+  DAY: 'day',
+  WEEK: 'week',
+  MONTH: 'month',
+  YEAR: 'year'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `DAY` | `'day'` | Daily billing |
+| `WEEK` | `'week'` | Weekly billing |
+| `MONTH` | `'month'` | Monthly billing |
+| `YEAR` | `'year'` | Annual billing |
+
+### Usage
+
+```typescript
+import { QZPAY_BILLING_INTERVAL, type QZPayBillingInterval } from '@qazuor/qzpay-core';
+
+// Create a monthly plan
+const plan = await billing.plans.create({
+  name: 'Pro Monthly',
+  interval: QZPAY_BILLING_INTERVAL.MONTH,
+  intervalCount: 1,
+  price: 2900
+});
+
+// Create a quarterly plan (3 months)
+const quarterlyPlan = await billing.plans.create({
+  name: 'Pro Quarterly',
+  interval: QZPAY_BILLING_INTERVAL.MONTH,
+  intervalCount: 3,
+  price: 7900
+});
+```
+
+## Currency
+
+Supported currencies (ISO 4217).
+
+```typescript
+const QZPAY_CURRENCY = {
+  USD: 'USD',
+  EUR: 'EUR',
+  GBP: 'GBP',
+  ARS: 'ARS',
+  BRL: 'BRL',
+  MXN: 'MXN',
+  CLP: 'CLP',
+  COP: 'COP',
+  PEN: 'PEN',
+  UYU: 'UYU'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `USD` | `'USD'` | US Dollar |
+| `EUR` | `'EUR'` | Euro |
+| `GBP` | `'GBP'` | British Pound |
+| `ARS` | `'ARS'` | Argentine Peso |
+| `BRL` | `'BRL'` | Brazilian Real |
+| `MXN` | `'MXN'` | Mexican Peso |
+| `CLP` | `'CLP'` | Chilean Peso |
+| `COP` | `'COP'` | Colombian Peso |
+| `PEN` | `'PEN'` | Peruvian Sol |
+| `UYU` | `'UYU'` | Uruguayan Peso |
+
+<Aside type="note">
+MercadoPago supports Latin American currencies (ARS, BRL, MXN, CLP, COP, PEN, UYU). Stripe supports all listed currencies plus many more.
+</Aside>
+
+### Usage
+
+```typescript
+import { QZPAY_CURRENCY, type QZPayCurrency } from '@qazuor/qzpay-core';
+
+// Process payment in USD
+await billing.payments.process({
+  customerId,
+  amount: 9900, // $99.00
+  currency: QZPAY_CURRENCY.USD
+});
+
+// Process payment in Argentine Pesos
+await billing.payments.process({
+  customerId,
+  amount: 9900, // $99.00 ARS
+  currency: QZPAY_CURRENCY.ARS
+});
+```
+
+## Billing Event
+
+Events emitted by the billing system.
+
+```typescript
+const QZPAY_BILLING_EVENT = {
+  // Customer events
+  CUSTOMER_CREATED: 'customer.created',
+  CUSTOMER_UPDATED: 'customer.updated',
+  CUSTOMER_DELETED: 'customer.deleted',
+
+  // Subscription events
+  SUBSCRIPTION_CREATED: 'subscription.created',
+  SUBSCRIPTION_UPDATED: 'subscription.updated',
+  SUBSCRIPTION_CANCELED: 'subscription.canceled',
+  SUBSCRIPTION_PAUSED: 'subscription.paused',
+  SUBSCRIPTION_RESUMED: 'subscription.resumed',
+  SUBSCRIPTION_TRIAL_ENDING: 'subscription.trial_ending',
+  SUBSCRIPTION_TRIAL_ENDED: 'subscription.trial_ended',
+
+  // Payment events
+  PAYMENT_SUCCEEDED: 'payment.succeeded',
+  PAYMENT_FAILED: 'payment.failed',
+  PAYMENT_REFUNDED: 'payment.refunded',
+  PAYMENT_DISPUTED: 'payment.disputed',
+
+  // Invoice events
+  INVOICE_CREATED: 'invoice.created',
+  INVOICE_PAID: 'invoice.paid',
+  INVOICE_PAYMENT_FAILED: 'invoice.payment_failed',
+  INVOICE_VOIDED: 'invoice.voided',
+
+  // Checkout events
+  CHECKOUT_COMPLETED: 'checkout.completed',
+  CHECKOUT_EXPIRED: 'checkout.expired',
+
+  // Vendor events (marketplace)
+  VENDOR_CREATED: 'vendor.created',
+  VENDOR_UPDATED: 'vendor.updated',
+  VENDOR_PAYOUT: 'vendor.payout',
+
+  // Add-on events
+  ADDON_CREATED: 'addon.created',
+  ADDON_UPDATED: 'addon.updated',
+  ADDON_DELETED: 'addon.deleted',
+  SUBSCRIPTION_ADDON_ADDED: 'subscription.addon_added',
+  SUBSCRIPTION_ADDON_REMOVED: 'subscription.addon_removed',
+  SUBSCRIPTION_ADDON_UPDATED: 'subscription.addon_updated'
+} as const;
+```
+
+### Event Categories
+
+<Tabs>
+  <TabItem label="Customer">
+| Constant | Value | When Emitted |
+|----------|-------|--------------|
+| `CUSTOMER_CREATED` | `'customer.created'` | New customer created |
+| `CUSTOMER_UPDATED` | `'customer.updated'` | Customer data updated |
+| `CUSTOMER_DELETED` | `'customer.deleted'` | Customer deleted |
+  </TabItem>
+  <TabItem label="Subscription">
+| Constant | Value | When Emitted |
+|----------|-------|--------------|
+| `SUBSCRIPTION_CREATED` | `'subscription.created'` | New subscription started |
+| `SUBSCRIPTION_UPDATED` | `'subscription.updated'` | Subscription modified |
+| `SUBSCRIPTION_CANCELED` | `'subscription.canceled'` | Subscription canceled |
+| `SUBSCRIPTION_PAUSED` | `'subscription.paused'` | Subscription paused |
+| `SUBSCRIPTION_RESUMED` | `'subscription.resumed'` | Subscription resumed |
+| `SUBSCRIPTION_TRIAL_ENDING` | `'subscription.trial_ending'` | Trial ending soon (3 days) |
+| `SUBSCRIPTION_TRIAL_ENDED` | `'subscription.trial_ended'` | Trial period ended |
+  </TabItem>
+  <TabItem label="Payment">
+| Constant | Value | When Emitted |
+|----------|-------|--------------|
+| `PAYMENT_SUCCEEDED` | `'payment.succeeded'` | Payment completed |
+| `PAYMENT_FAILED` | `'payment.failed'` | Payment failed |
+| `PAYMENT_REFUNDED` | `'payment.refunded'` | Refund processed |
+| `PAYMENT_DISPUTED` | `'payment.disputed'` | Dispute opened |
+  </TabItem>
+  <TabItem label="Invoice">
+| Constant | Value | When Emitted |
+|----------|-------|--------------|
+| `INVOICE_CREATED` | `'invoice.created'` | Invoice generated |
+| `INVOICE_PAID` | `'invoice.paid'` | Invoice paid |
+| `INVOICE_PAYMENT_FAILED` | `'invoice.payment_failed'` | Invoice payment failed |
+| `INVOICE_VOIDED` | `'invoice.voided'` | Invoice voided |
+  </TabItem>
+</Tabs>
+
+### Usage
+
+```typescript
+import { QZPAY_BILLING_EVENT, type QZPayBillingEvent } from '@qazuor/qzpay-core';
+
+// Listen to specific events
+billing.on(QZPAY_BILLING_EVENT.PAYMENT_SUCCEEDED, async (event) => {
+  await sendReceipt(event.data.customerId, event.data.paymentId);
+});
+
+billing.on(QZPAY_BILLING_EVENT.SUBSCRIPTION_TRIAL_ENDING, async (event) => {
+  await sendTrialEndingReminder(event.data.customerId);
+});
+
+billing.on(QZPAY_BILLING_EVENT.PAYMENT_FAILED, async (event) => {
+  await sendPaymentFailedNotification(event.data.customerId);
+});
+```
+
+## Payment Provider
+
+Supported payment providers.
+
+```typescript
+const QZPAY_PAYMENT_PROVIDER = {
+  STRIPE: 'stripe',
+  MERCADOPAGO: 'mercadopago'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `STRIPE` | `'stripe'` | Stripe payment provider |
+| `MERCADOPAGO` | `'mercadopago'` | MercadoPago payment provider |
+
+## Vendor Status
+
+Status values for marketplace vendors.
+
+```typescript
+const QZPAY_VENDOR_STATUS = {
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  SUSPENDED: 'suspended',
+  REJECTED: 'rejected'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `PENDING` | `'pending'` | Vendor application under review |
+| `ACTIVE` | `'active'` | Vendor approved and active |
+| `SUSPENDED` | `'suspended'` | Vendor temporarily suspended |
+| `REJECTED` | `'rejected'` | Vendor application rejected |
+
+## Discount Type
+
+Types of discounts available.
+
+```typescript
+const QZPAY_DISCOUNT_TYPE = {
+  PERCENTAGE: 'percentage',
+  FIXED_AMOUNT: 'fixed_amount',
+  FREE_TRIAL: 'free_trial'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `PERCENTAGE` | `'percentage'` | Percentage off (e.g., 20% off) |
+| `FIXED_AMOUNT` | `'fixed_amount'` | Fixed amount off (e.g., $10 off) |
+| `FREE_TRIAL` | `'free_trial'` | 100% off for trial period |
+
+### Usage
+
+```typescript
+import { QZPAY_DISCOUNT_TYPE, type QZPayDiscountType } from '@qazuor/qzpay-core';
+
+// Create percentage discount
+const promoCode = await billing.promoCodes.create({
+  code: 'SUMMER20',
+  discountType: QZPAY_DISCOUNT_TYPE.PERCENTAGE,
+  discountValue: 20, // 20% off
+  active: true
+});
+
+// Create fixed amount discount
+const fixedDiscount = await billing.promoCodes.create({
+  code: 'FLAT10',
+  discountType: QZPAY_DISCOUNT_TYPE.FIXED_AMOUNT,
+  discountValue: 1000, // $10.00 off
+  currency: 'usd',
+  active: true
+});
+```
+
+## Discount Stacking Mode
+
+How multiple discounts are combined.
+
+```typescript
+const QZPAY_DISCOUNT_STACKING_MODE = {
+  NONE: 'none',
+  ADDITIVE: 'additive',
+  MULTIPLICATIVE: 'multiplicative',
+  BEST: 'best'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `NONE` | `'none'` | Only first valid discount applies |
+| `ADDITIVE` | `'additive'` | Discounts are summed together |
+| `MULTIPLICATIVE` | `'multiplicative'` | Discounts apply sequentially |
+| `BEST` | `'best'` | Best discount for customer applies |
+
+### Example
+
+```typescript
+// Original: $100
+// Code 1: 20% off
+// Code 2: $10 off
+
+// ADDITIVE: $100 - $20 - $10 = $70
+// MULTIPLICATIVE: $100 - $20 = $80, then $80 - $10 = $70
+// With two 20% codes on $100:
+// ADDITIVE: $100 - $20 - $20 = $60
+// MULTIPLICATIVE: $100 - $20 = $80, then $80 - $16 = $64
+```
+
+## Discount Condition
+
+Conditions that must be met to apply a discount.
+
+```typescript
+const QZPAY_DISCOUNT_CONDITION = {
+  FIRST_PURCHASE: 'first_purchase',
+  MIN_AMOUNT: 'min_amount',
+  MIN_QUANTITY: 'min_quantity',
+  SPECIFIC_PLANS: 'specific_plans',
+  SPECIFIC_PRODUCTS: 'specific_products',
+  DATE_RANGE: 'date_range',
+  CUSTOMER_TAG: 'customer_tag'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `FIRST_PURCHASE` | `'first_purchase'` | Only for first-time customers |
+| `MIN_AMOUNT` | `'min_amount'` | Minimum purchase amount required |
+| `MIN_QUANTITY` | `'min_quantity'` | Minimum item quantity required |
+| `SPECIFIC_PLANS` | `'specific_plans'` | Only for specific subscription plans |
+| `SPECIFIC_PRODUCTS` | `'specific_products'` | Only for specific products |
+| `DATE_RANGE` | `'date_range'` | Valid within date range |
+| `CUSTOMER_TAG` | `'customer_tag'` | Customer must have specific tag |
+
+### Usage
+
+```typescript
+import { QZPAY_DISCOUNT_CONDITION } from '@qazuor/qzpay-core';
+
+const promoCode = await billing.promoCodes.create({
+  code: 'NEWCUSTOMER',
+  discountType: 'percentage',
+  discountValue: 25,
+  conditions: [
+    { type: QZPAY_DISCOUNT_CONDITION.FIRST_PURCHASE, value: true },
+    { type: QZPAY_DISCOUNT_CONDITION.MIN_AMOUNT, value: 5000 } // $50 minimum
+  ],
+  active: true
+});
+```
+
+## Proration Behavior
+
+How plan changes are prorated.
+
+```typescript
+const QZPAY_PRORATION_BEHAVIOR = {
+  CREATE_PRORATIONS: 'create_prorations',
+  NONE: 'none',
+  ALWAYS_INVOICE: 'always_invoice'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `CREATE_PRORATIONS` | `'create_prorations'` | Create prorated line items |
+| `NONE` | `'none'` | No proration, change at next billing |
+| `ALWAYS_INVOICE` | `'always_invoice'` | Always generate invoice immediately |
+
+### Usage
+
+```typescript
+import { QZPAY_PRORATION_BEHAVIOR } from '@qazuor/qzpay-core';
+
+// Upgrade with immediate proration
+await billing.subscriptions.update(subscriptionId, {
+  planId: 'plan_enterprise',
+  prorationBehavior: QZPAY_PRORATION_BEHAVIOR.CREATE_PRORATIONS
+});
+
+// Change plan at next billing cycle (no proration)
+await billing.subscriptions.update(subscriptionId, {
+  planId: 'plan_basic',
+  prorationBehavior: QZPAY_PRORATION_BEHAVIOR.NONE
+});
+```
+
+## Checkout Mode
+
+Modes for checkout sessions.
+
+```typescript
+const QZPAY_CHECKOUT_MODE = {
+  PAYMENT: 'payment',
+  SUBSCRIPTION: 'subscription',
+  SETUP: 'setup'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `PAYMENT` | `'payment'` | One-time payment |
+| `SUBSCRIPTION` | `'subscription'` | Recurring subscription |
+| `SETUP` | `'setup'` | Save payment method only |
+
+### Usage
+
+```typescript
+import { QZPAY_CHECKOUT_MODE } from '@qazuor/qzpay-core';
+
+// One-time purchase
+const checkoutSession = await billing.checkout.create({
+  mode: QZPAY_CHECKOUT_MODE.PAYMENT,
+  lineItems: [{ price: 'price_xxx', quantity: 1 }],
+  successUrl: 'https://example.com/success',
+  cancelUrl: 'https://example.com/cancel'
+});
+
+// Subscription checkout
+const subCheckout = await billing.checkout.create({
+  mode: QZPAY_CHECKOUT_MODE.SUBSCRIPTION,
+  lineItems: [{ price: 'price_monthly', quantity: 1 }],
+  successUrl: 'https://example.com/success',
+  cancelUrl: 'https://example.com/cancel'
+});
+```
+
+## Day of Week
+
+Numeric values for days of the week.
+
+```typescript
+const QZPAY_DAY_OF_WEEK = {
+  SUNDAY: 0,
+  MONDAY: 1,
+  TUESDAY: 2,
+  WEDNESDAY: 3,
+  THURSDAY: 4,
+  FRIDAY: 5,
+  SATURDAY: 6
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `SUNDAY` | `0` | Sunday |
+| `MONDAY` | `1` | Monday |
+| `TUESDAY` | `2` | Tuesday |
+| `WEDNESDAY` | `3` | Wednesday |
+| `THURSDAY` | `4` | Thursday |
+| `FRIDAY` | `5` | Friday |
+| `SATURDAY` | `6` | Saturday |
+
+## Cancel At
+
+Options for when subscription cancellation takes effect.
+
+```typescript
+const QZPAY_CANCEL_AT = {
+  IMMEDIATELY: 'immediately',
+  PERIOD_END: 'period_end'
+} as const;
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `IMMEDIATELY` | `'immediately'` | Cancel immediately, end access now |
+| `PERIOD_END` | `'period_end'` | Cancel at end of current billing period |
+
+### Usage
+
+```typescript
+import { QZPAY_CANCEL_AT } from '@qazuor/qzpay-core';
+
+// Cancel at period end (recommended for most cases)
+await billing.subscriptions.cancel(subscriptionId, {
+  cancelAt: QZPAY_CANCEL_AT.PERIOD_END
+});
+
+// Cancel immediately (for refund scenarios)
+await billing.subscriptions.cancel(subscriptionId, {
+  cancelAt: QZPAY_CANCEL_AT.IMMEDIATELY
+});
+```
+
+## Type Helpers
+
+Each constant object has an associated type:
+
+```typescript
+import type {
+  QZPaySubscriptionStatus,
+  QZPayPaymentStatus,
+  QZPayInvoiceStatus,
+  QZPayBillingInterval,
+  QZPayCurrency,
+  QZPayBillingEvent,
+  QZPayPaymentProvider,
+  QZPayVendorStatus,
+  QZPayDiscountType,
+  QZPayDiscountStackingMode,
+  QZPayDiscountCondition,
+  QZPayProrationBehavior,
+  QZPayCheckoutMode,
+  QZPayDayOfWeek,
+  QZPayCancelAt
+} from '@qazuor/qzpay-core';
+```
+
+### Value Arrays
+
+Each constant also exports an array of all values:
+
+```typescript
+import {
+  QZPAY_SUBSCRIPTION_STATUS_VALUES,
+  QZPAY_PAYMENT_STATUS_VALUES,
+  QZPAY_INVOICE_STATUS_VALUES,
+  QZPAY_BILLING_INTERVAL_VALUES,
+  QZPAY_CURRENCY_VALUES,
+  QZPAY_BILLING_EVENT_VALUES,
+  QZPAY_PAYMENT_PROVIDER_VALUES,
+  QZPAY_VENDOR_STATUS_VALUES,
+  QZPAY_DISCOUNT_TYPE_VALUES,
+  QZPAY_DISCOUNT_STACKING_MODE_VALUES,
+  QZPAY_DISCOUNT_CONDITION_VALUES,
+  QZPAY_PRORATION_BEHAVIOR_VALUES,
+  QZPAY_CHECKOUT_MODE_VALUES,
+  QZPAY_DAY_OF_WEEK_VALUES,
+  QZPAY_CANCEL_AT_VALUES
+} from '@qazuor/qzpay-core';
+
+// Use for validation
+function isValidStatus(status: string): status is QZPaySubscriptionStatus {
+  return QZPAY_SUBSCRIPTION_STATUS_VALUES.includes(status as QZPaySubscriptionStatus);
+}
+
+// Use for dropdowns
+const statusOptions = QZPAY_SUBSCRIPTION_STATUS_VALUES.map(status => ({
+  value: status,
+  label: status.replace('_', ' ').toUpperCase()
+}));
+```
+
+<Aside type="tip">
+Use the `_VALUES` arrays for runtime validation and the types for compile-time type checking.
+</Aside>

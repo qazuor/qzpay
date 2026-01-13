@@ -1,0 +1,265 @@
+---
+title: Estilizando Componentes
+description: Personalizando la apariencia de los componentes React de QZPay
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Estilizando Componentes
+
+Los componentes React de QZPay están diseñados para ser personalizables mientras proporcionan valores predeterminados sensatos.
+
+## Sistema de Temas
+
+### Configuración Básica del Tema
+
+```tsx
+import { QZPayProvider, createTheme } from '@qazuor/qzpay-react';
+
+const theme = createTheme({
+  colors: {
+    primary: '#3b82f6',
+    primaryHover: '#2563eb',
+    success: '#22c55e',
+    warning: '#f59e0b',
+    error: '#ef4444',
+    background: '#ffffff',
+    surface: '#f8fafc',
+    text: '#1e293b',
+    textMuted: '#64748b',
+    border: '#e2e8f0'
+  },
+  borderRadius: '8px',
+  fontFamily: 'Inter, system-ui, sans-serif'
+});
+
+function App() {
+  return (
+    <QZPayProvider theme={theme}>
+      <YourApp />
+    </QZPayProvider>
+  );
+}
+```
+
+### Modo Oscuro
+
+```tsx
+const darkTheme = createTheme({
+  colors: {
+    primary: '#60a5fa',
+    background: '#0f172a',
+    surface: '#1e293b',
+    text: '#f1f5f9',
+    textMuted: '#94a3b8',
+    border: '#334155'
+  }
+});
+
+// Toggle based on user preference
+const theme = isDarkMode ? darkTheme : lightTheme;
+
+<QZPayProvider theme={theme}>
+```
+
+### Usando Variables CSS
+
+```tsx
+const theme = createTheme({
+  colors: {
+    primary: 'var(--brand-primary)',
+    background: 'var(--bg-color)',
+    // ...
+  }
+});
+```
+
+## Estilos a Nivel de Componente
+
+### Props de Nombre de Clase
+
+Todos los componentes aceptan `className` para estilos personalizados:
+
+```tsx
+import { PricingTable } from '@qazuor/qzpay-react';
+
+<PricingTable
+  className="my-pricing-table"
+  cardClassName="my-plan-card"
+  buttonClassName="my-select-button"
+/>
+```
+
+### Props de Estilo
+
+```tsx
+<SubscriptionStatus
+  style={{ maxWidth: '400px', margin: '0 auto' }}
+  cardStyle={{ boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+/>
+```
+
+## Referencia de Clases CSS
+
+### PricingTable
+
+| Clase | Elemento |
+|-------|----------|
+| `.qzpay-pricing-table` | Contenedor |
+| `.qzpay-pricing-card` | Tarjeta de plan |
+| `.qzpay-pricing-card--highlighted` | Plan destacado |
+| `.qzpay-pricing-card--current` | Plan actual |
+| `.qzpay-pricing-header` | Encabezado de tarjeta |
+| `.qzpay-pricing-price` | Visualización de precio |
+| `.qzpay-pricing-features` | Lista de características |
+| `.qzpay-pricing-button` | Botón de selección |
+
+### SubscriptionStatus
+
+| Clase | Elemento |
+|-------|----------|
+| `.qzpay-subscription-status` | Contenedor |
+| `.qzpay-subscription-badge` | Insignia de estado |
+| `.qzpay-subscription-badge--active` | Estado activo |
+| `.qzpay-subscription-badge--trialing` | Estado de prueba |
+| `.qzpay-subscription-badge--past-due` | Estado vencido |
+| `.qzpay-subscription-details` | Sección de detalles |
+| `.qzpay-subscription-actions` | Botones de acción |
+
+### PaymentForm
+
+| Clase | Elemento |
+|-------|----------|
+| `.qzpay-payment-form` | Contenedor del formulario |
+| `.qzpay-payment-input` | Campos de entrada |
+| `.qzpay-payment-error` | Mensaje de error |
+| `.qzpay-payment-button` | Botón de envío |
+
+### InvoiceList
+
+| Clase | Elemento |
+|-------|----------|
+| `.qzpay-invoice-list` | Contenedor |
+| `.qzpay-invoice-item` | Fila de factura |
+| `.qzpay-invoice-status` | Indicador de estado |
+| `.qzpay-invoice-amount` | Visualización de monto |
+| `.qzpay-invoice-actions` | Botones de descarga/ver |
+
+## Ejemplo de CSS Personalizado
+
+```css
+/* Override default styles */
+.qzpay-pricing-table {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.qzpay-pricing-card {
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  padding: 2rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.qzpay-pricing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.qzpay-pricing-card--highlighted {
+  border-color: var(--primary-color);
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+
+.qzpay-pricing-button {
+  width: 100%;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+```
+
+## Integración con Tailwind CSS
+
+```tsx
+import { PricingTable } from '@qazuor/qzpay-react';
+
+<PricingTable
+  className="grid grid-cols-1 md:grid-cols-3 gap-6"
+  cardClassName="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6"
+  buttonClassName="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition"
+/>
+```
+
+## Styled Components / Emotion
+
+```tsx
+import styled from '@emotion/styled';
+import { PricingCard as BasePricingCard } from '@qazuor/qzpay-react';
+
+const StyledPricingCard = styled(BasePricingCard)`
+  background: ${props => props.highlighted ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white'};
+  color: ${props => props.highlighted ? 'white' : 'inherit'};
+  border-radius: 20px;
+  padding: 2rem;
+
+  &:hover {
+    transform: scale(1.02);
+  }
+`;
+```
+
+## Componentes Headless
+
+Para control completo, usa componentes headless:
+
+```tsx
+import { usePricingTable } from '@qazuor/qzpay-react';
+
+function CustomPricingTable() {
+  const { plans, currentPlanId, selectPlan, isLoading } = usePricingTable();
+
+  if (isLoading) return <YourSpinner />;
+
+  return (
+    <div className="your-custom-grid">
+      {plans.map(plan => (
+        <YourPlanCard
+          key={plan.id}
+          plan={plan}
+          isCurrent={plan.id === currentPlanId}
+          onSelect={() => selectPlan(plan.id)}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+<Aside type="tip">
+Los componentes headless te proporcionan la lógica y la gestión de estado mientras tú provees el 100% de la interfaz de usuario.
+</Aside>
+
+## Tokens de Diseño
+
+Exporta valores del tema para usar en otros lugares:
+
+```tsx
+import { useTheme } from '@qazuor/qzpay-react';
+
+function CustomComponent() {
+  const theme = useTheme();
+
+  return (
+    <div style={{
+      background: theme.colors.surface,
+      borderColor: theme.colors.border,
+      borderRadius: theme.borderRadius
+    }}>
+      Custom styled content
+    </div>
+  );
+}
+```

@@ -1,0 +1,223 @@
+---
+title: Roadmap
+description: Future plans and upcoming features for QZPay
+---
+
+import { Aside, Badge, Card, CardGrid } from '@astrojs/starlight/components';
+
+# Roadmap
+
+This roadmap outlines our planned features and improvements for QZPay. Priorities may shift based on community feedback and real-world usage patterns.
+
+<Aside type="note">
+This roadmap is indicative, not a commitment. Features may be added, modified, or postponed based on community needs and technical considerations.
+</Aside>
+
+## Current Focus
+
+### v1.1 - Quality & Polish
+
+<Badge text="In Progress" variant="caution" />
+
+Improvements to the current stable release:
+
+- [ ] Enhanced error messages with actionable guidance
+- [ ] Performance optimizations for large datasets
+- [ ] Additional React component variants
+- [ ] Improved TypeScript inference
+- [ ] Extended test coverage
+
+### v1.2 - Developer Experience
+
+<Badge text="Planned" variant="note" />
+
+- [ ] Better debugging tools
+- [ ] Development mode with detailed logging
+- [ ] Schema visualization tools
+- [ ] Provider emulators for local development
+
+## Upcoming Features
+
+### New Payment Providers
+
+#### PayPal Adapter
+<Badge text="Planned" variant="note" />
+
+Full PayPal integration including:
+- PayPal Checkout
+- PayPal Subscriptions
+- Webhook handling
+- Multi-currency support
+
+#### Braintree Adapter
+<Badge text="Planned" variant="note" />
+
+Braintree integration for:
+- Credit card processing
+- PayPal through Braintree
+- Venmo payments
+- Apple Pay / Google Pay
+
+#### Other Providers (Under Consideration)
+- Square
+- Paddle
+- LemonSqueezy
+- Razorpay (India)
+- Adyen
+
+### New Storage Adapters
+
+#### Prisma Adapter
+<Badge text="Planned" variant="note" />
+
+Official Prisma support:
+- Schema generation
+- Migration integration
+- Transaction support
+- Type-safe queries
+
+#### TypeORM Adapter
+<Badge text="Under Consideration" variant="tip" />
+
+For projects using TypeORM.
+
+### Framework Integrations
+
+#### Express Integration
+<Badge text="Planned" variant="note" />
+
+Dedicated Express.js package:
+- Pre-built middleware
+- Route handlers
+- Error handling integration
+
+#### Fastify Integration
+<Badge text="Planned" variant="note" />
+
+Fastify plugin with:
+- Route registration
+- Schema validation
+- Hooks integration
+
+#### Vue.js Package
+<Badge text="Under Consideration" variant="tip" />
+
+Vue composition API hooks and components similar to the React package.
+
+#### Svelte Package
+<Badge text="Under Consideration" variant="tip" />
+
+Svelte stores and components for billing UI.
+
+## Feature Requests
+
+### Analytics & Reporting
+<Badge text="Under Consideration" variant="tip" />
+
+- Revenue analytics dashboard
+- Churn analysis
+- MRR/ARR tracking
+- Cohort analysis
+- Export to analytics platforms
+
+### Advanced Billing Features
+<Badge text="Under Consideration" variant="tip" />
+
+- Metered billing with complex pricing models
+- Volume discounts
+- Tiered pricing
+- Hybrid pricing (base + usage)
+- Custom billing cycles
+
+### Multi-Tenancy
+<Badge text="Under Consideration" variant="tip" />
+
+Support for multi-tenant SaaS applications:
+- Organization/team billing
+- Per-seat pricing
+- Usage allocation per tenant
+
+### Dunning Management
+<Badge text="Planned" variant="note" />
+
+Improved handling of failed payments:
+- Configurable retry schedules
+- Customer notification emails
+- Graceful degradation of features
+- Recovery analytics
+
+### Self-Service Portal
+<Badge text="Under Consideration" variant="tip" />
+
+Embeddable customer portal:
+- Subscription management
+- Payment method updates
+- Invoice history
+- Usage dashboard
+
+## Infrastructure
+
+### Admin Dashboard
+<Badge text="Planned" variant="note" />
+
+Web-based admin interface for:
+- Customer management
+- Subscription overview
+- Revenue metrics
+- Event logs
+- Configuration
+
+### API Versioning
+<Badge text="Planned" variant="note" />
+
+Stable API versioning strategy:
+- Versioned endpoints
+- Deprecation notices
+- Migration helpers
+
+## Community Contributions
+
+We welcome community contributions! Areas where you can help:
+
+<CardGrid>
+  <Card title="Payment Adapters" icon="credit-card">
+    Create adapters for payment providers in your region
+  </Card>
+  <Card title="Storage Adapters" icon="seti:db">
+    Add support for your preferred ORM or database
+  </Card>
+  <Card title="Framework Integrations" icon="puzzle">
+    Build integrations for other frameworks
+  </Card>
+  <Card title="Documentation" icon="open-book">
+    Improve docs, add examples, translate content
+  </Card>
+</CardGrid>
+
+See the [Contributing Guide](/en/community/contributing/) to get started.
+
+## Request a Feature
+
+Have an idea for QZPay? We'd love to hear it!
+
+1. **Check existing requests** - Search [GitHub Issues](https://github.com/qazuor/qzpay/issues) for similar requests
+2. **Open a discussion** - Start a [GitHub Discussion](https://github.com/qazuor/qzpay/discussions) to gather feedback
+3. **Submit an issue** - Create a feature request issue with details
+
+When requesting a feature, include:
+- **Use case** - What problem does this solve?
+- **Proposed solution** - How should it work?
+- **Alternatives considered** - What other approaches did you consider?
+- **Priority** - How important is this for your project?
+
+## Release Schedule
+
+We aim to release updates regularly:
+
+- **Patch releases** (1.0.x) - As needed for bug fixes
+- **Minor releases** (1.x.0) - Every 4-8 weeks with new features
+- **Major releases** (x.0.0) - As needed for breaking changes (we try to minimize these)
+
+<Aside type="tip">
+Subscribe to [GitHub Releases](https://github.com/qazuor/qzpay/releases) to be notified of new versions.
+</Aside>

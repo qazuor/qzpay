@@ -1,0 +1,226 @@
+---
+title: API Reference
+description: Complete API reference for QZPay packages
+---
+
+# API Reference
+
+Complete reference documentation for all QZPay packages.
+
+## Core Types
+
+### Customer
+
+```typescript
+interface Customer {
+  id: string;
+  email: string;
+  name?: string;
+  phone?: string;
+  address?: Address;
+  metadata: Record<string, string>;
+  externalIds: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt?: Date;
+}
+```
+
+### Subscription
+
+```typescript
+interface Subscription {
+  id: string;
+  customerId: string;
+  planId: string;
+  status: SubscriptionStatus;
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  trialStart?: Date;
+  trialEnd?: Date;
+  cancelAt?: Date;           // Scheduled cancellation date
+  canceledAt?: Date;         // When cancellation occurred
+  cancelAtPeriodEnd: boolean;
+  metadata: Record<string, string>;
+  externalIds: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type SubscriptionStatus =
+  | 'trialing'
+  | 'active'
+  | 'past_due'
+  | 'unpaid'
+  | 'paused'
+  | 'canceled'
+  | 'incomplete'
+  | 'incomplete_expired';
+```
+
+### Payment
+
+```typescript
+interface Payment {
+  id: string;
+  customerId: string;
+  subscriptionId?: string;
+  invoiceId?: string;
+  amount: number;
+  currency: string;
+  status: PaymentStatus;
+  paymentMethodId?: string;
+  description?: string;
+  metadata: Record<string, string>;
+  refundedAmount: number;
+  externalIds: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type PaymentStatus =
+  | 'pending'
+  | 'processing'
+  | 'succeeded'
+  | 'failed'
+  | 'canceled'
+  | 'refunded'
+  | 'partially_refunded'
+  | 'disputed';
+```
+
+### Invoice
+
+```typescript
+interface Invoice {
+  id: string;
+  customerId: string;
+  subscriptionId?: string;
+  number: string;
+  status: InvoiceStatus;
+  amount: number;
+  currency: string;
+  dueDate?: Date;
+  paidAt?: Date;
+  items: InvoiceItem[];
+  metadata: Record<string, string>;
+  externalIds: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+type InvoiceStatus =
+  | 'draft'
+  | 'open'
+  | 'paid'
+  | 'void'
+  | 'uncollectible';
+```
+
+### Plan & Price
+
+```typescript
+interface Plan {
+  id: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  prices: Price[];
+  entitlements: Entitlement[];
+  metadata: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface Price {
+  id: string;
+  planId: string;
+  amount: number;
+  currency: string;
+  interval: BillingInterval;
+  intervalCount: number;
+  trialDays?: number;
+  active: boolean;
+  externalIds: Record<string, string>;
+}
+
+type BillingInterval = 'day' | 'week' | 'month' | 'year';
+```
+
+### Entitlement
+
+```typescript
+interface Entitlement {
+  feature: string;
+  type: 'boolean' | 'limit';
+  value: boolean | number;
+  used?: number;
+  remaining?: number;
+}
+```
+
+## Events
+
+### Event Types
+
+#### Customer Events
+| Event | Payload |
+|-------|---------|
+| `customer.created` | `Customer` |
+| `customer.updated` | `Customer` |
+| `customer.deleted` | `Customer` |
+
+#### Subscription Events
+| Event | Payload |
+|-------|---------|
+| `subscription.created` | `Subscription` |
+| `subscription.updated` | `Subscription` |
+| `subscription.canceled` | `Subscription` |
+| `subscription.paused` | `Subscription` |
+| `subscription.resumed` | `Subscription` |
+| `subscription.trial_ending` | `Subscription` (via job scheduler) |
+| `subscription.trial_ended` | `Subscription` (via job scheduler) |
+| `subscription.addon_added` | `{ subscription, subscriptionAddOn, addon }` |
+| `subscription.addon_removed` | `{ subscription, subscriptionAddOn, addon }` |
+| `subscription.addon_updated` | `{ subscription, subscriptionAddOn, addon }` |
+
+#### Payment Events
+| Event | Payload |
+|-------|---------|
+| `payment.succeeded` | `Payment` |
+| `payment.failed` | `Payment` |
+| `payment.refunded` | `Payment` |
+
+#### Invoice Events
+| Event | Payload |
+|-------|---------|
+| `invoice.created` | `Invoice` |
+| `invoice.paid` | `Invoice` |
+| `invoice.voided` | `Invoice` |
+
+#### Add-on Events
+| Event | Payload |
+|-------|---------|
+| `addon.created` | `AddOn` |
+| `addon.updated` | `AddOn` |
+| `addon.deleted` | `AddOn` |
+
+## Errors
+
+### Error Classes
+
+| Error | Description |
+|-------|-------------|
+| `QZPayError` | Base error class |
+| `CustomerNotFoundError` | Customer does not exist |
+| `SubscriptionNotFoundError` | Subscription does not exist |
+| `PaymentFailedError` | Payment could not be processed |
+| `CardDeclinedError` | Card was declined |
+| `WebhookSignatureError` | Invalid webhook signature |
+| `WebhookProcessingError` | Error processing webhook |
+| `EntitlementDeniedError` | Customer lacks entitlement |
+| `UsageLimitExceededError` | Usage limit exceeded |
+
+---
+
+*Full auto-generated API documentation coming soon with TypeDoc.*

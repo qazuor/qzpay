@@ -1,0 +1,142 @@
+---
+title: Clientes
+description: Gestión de clientes en QZPay
+---
+
+import { Aside, Code } from '@astrojs/starlight/components';
+
+# Clientes
+
+Los clientes son la base de tu sistema de facturación. Cada suscripción, pago y factura está asociada a un cliente.
+
+## Crear Clientes
+
+```typescript
+const customer = await billing.customers.create({
+  email: 'usuario@ejemplo.com',
+  name: 'Juan Pérez',
+  metadata: {
+    userId: 'usr_123',
+    plan: 'enterprise'
+  }
+});
+```
+
+### Campos Requeridos
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `email` | `string` | Dirección de email del cliente |
+
+### Campos Opcionales
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `name` | `string` | Nombre completo del cliente |
+| `phone` | `string` | Número de teléfono |
+| `metadata` | `Record<string, string>` | Pares clave-valor personalizados |
+| `address` | `Address` | Dirección de facturación |
+
+## Recuperar Clientes
+
+### Por ID
+
+```typescript
+const customer = await billing.customers.get('cus_123');
+```
+
+### Por ID Externo
+
+Busca un cliente por su ID del proveedor (almacenado en `externalIds`):
+
+```typescript
+// El externalId está almacenado en customer.externalIds.stripe
+const customer = await billing.customers.getByExternalId('cus_xyz');
+```
+
+### Listar Clientes
+
+```typescript
+const customers = await billing.customers.list({
+  limit: 10,
+  offset: 0,
+  email: 'usuario@ejemplo.com' // Filtro opcional
+});
+```
+
+## Actualizar Clientes
+
+```typescript
+const updated = await billing.customers.update('cus_123', {
+  name: 'María García',
+  metadata: {
+    plan: 'pro'
+  }
+});
+```
+
+<Aside type="note">
+Las actualizaciones se combinan con los datos existentes. Para eliminar un campo, configúralo como `null`.
+</Aside>
+
+## Eliminar Clientes
+
+```typescript
+await billing.customers.delete('cus_123');
+```
+
+<Aside type="caution">
+Eliminar un cliente cancelará todas las suscripciones activas y eliminará sus métodos de pago. Esta acción no se puede deshacer.
+</Aside>
+
+## Objeto Customer
+
+```typescript
+interface Customer {
+  id: string;
+  email: string;
+  name?: string;
+  phone?: string;
+  address?: Address;
+  metadata: Record<string, string>;
+  externalIds: Record<string, string>; // IDs del proveedor
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt?: Date;
+}
+```
+
+## Sincronización con Proveedor
+
+QZPay mantiene los clientes sincronizados con tu proveedor de pagos:
+
+```typescript
+// Crear un cliente también lo crea en Stripe
+const customer = await billing.customers.create({
+  email: 'usuario@ejemplo.com'
+});
+
+// customer.externalIds.stripe = 'cus_xyz'
+```
+
+## Eventos
+
+| Evento | Descripción |
+|-------|-------------|
+| `customer.created` | Cliente fue creado |
+| `customer.updated` | Cliente fue actualizado |
+| `customer.deleted` | Cliente fue eliminado |
+
+```typescript
+billing.on('customer.created', async (event) => {
+  console.log('Nuevo cliente:', event.data.email);
+  await sendWelcomeEmail(event.data.email);
+});
+```
+
+## Mejores Prácticas
+
+1. **Siempre almacena tu ID de usuario en metadata** para búsqueda fácil
+2. **Usa el ID de cliente** de QZPay como fuente de verdad
+3. **Maneja la eliminación de clientes** graciosamente en tu aplicación
+4. **Suscríbete a eventos** para actualizaciones en tiempo real

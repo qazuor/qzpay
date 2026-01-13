@@ -1,0 +1,159 @@
+---
+title: Registro de Cambios
+description: Historial de versiones y cambios para QZPay
+---
+
+import { Aside, Badge } from '@astrojs/starlight/components';
+
+# Registro de Cambios
+
+Todos los cambios notables en QZPay se documentan aquí.
+
+Seguimos [Versionado Semántico](https://semver.org/lang/es/):
+- Versión **MAYOR** para cambios de API incompatibles
+- Versión **MENOR** para funcionalidad compatible con versiones anteriores
+- Versión **PARCHE** para correcciones de errores compatibles con versiones anteriores
+
+## [1.0.0] - 2025-01-09
+
+<Badge text="Última" variant="success" />
+
+Lanzamiento estable inicial de QZPay.
+
+### Paquetes Lanzados
+
+| Paquete | Versión | Descripción |
+|---------|---------|-------------|
+| `@qazuor/qzpay-core` | 1.0.0 | Motor de facturación principal |
+| `@qazuor/qzpay-stripe` | 1.0.0 | Adaptador de pago Stripe |
+| `@qazuor/qzpay-mercadopago` | 1.0.0 | Adaptador de pago MercadoPago |
+| `@qazuor/qzpay-drizzle` | 1.0.0 | Adaptador de almacenamiento Drizzle ORM |
+| `@qazuor/qzpay-react` | 1.0.0 | Hooks y componentes React |
+| `@qazuor/qzpay-hono` | 1.0.0 | Integración con framework Hono |
+| `@qazuor/qzpay-nestjs` | 1.0.0 | Integración con módulo NestJS |
+| `@qazuor/qzpay-cli` | 1.0.0 | Interfaz de línea de comandos |
+
+### Características Principales
+
+#### Motor de Facturación
+- API de facturación unificada para múltiples proveedores de pago
+- Gestión de clientes con soporte de metadatos
+- Gestión del ciclo de vida de suscripciones (crear, actualizar, cancelar, pausar, reanudar)
+- Pagos únicos
+- Generación y gestión de facturas
+- Procesamiento de webhooks con verificación de firma
+
+#### Sistema de Derechos
+- Derechos basados en características
+- Límites basados en uso con seguimiento
+- Verificación de derechos en tiempo real
+- Sincronización automática con cambios de suscripción
+
+#### Sistema de Eventos
+- Formato de eventos unificado entre proveedores
+- Persistencia y reproducción de eventos
+- Manejadores de eventos asíncronos
+- Filtrado y enrutamiento de eventos
+
+### Soporte de Proveedores
+
+#### Adaptador de Stripe
+- Integración completa con API de Stripe
+- Soporte de Stripe Checkout
+- Soporte de Stripe Elements
+- Integración con portal de clientes
+- Verificación de firma de webhooks
+- Programación de suscripciones
+- Manejo de prorrateo
+
+#### Adaptador de MercadoPago
+- Integración completa con API de MercadoPago
+- Soporte de Checkout Pro
+- Soporte de suscripciones (preapproval)
+- Manejo de webhooks IPN
+- Soporte multi-moneda para mercados LATAM
+
+### Soporte de Almacenamiento
+
+#### Adaptador de Drizzle
+- Soporte de PostgreSQL
+- Soporte de SQLite
+- Soporte de MySQL
+- Soporte de transacciones
+- Migración automática de esquema
+- Optimización de consultas
+
+### Integraciones de Framework
+
+#### Paquete React
+- Proveedor de contexto `QZPayProvider`
+- Hooks: `useCustomer`, `useSubscription`, `usePayment`, `useEntitlements`, `useLimits`, `usePlans`, `useInvoices`
+- Componentes: `PricingTable`, `SubscriptionStatus`, `EntitlementGate`, `LimitGate`, `PaymentMethodManager`, `InvoiceList`
+- Personalización de tema
+- Soporte i18n (Inglés, Español, Portugués)
+
+#### Paquete Hono
+- Rutas de facturación preconstruidas
+- Manejadores de endpoints de webhooks
+- Middleware para verificación de derechos
+- API TypeScript-first
+
+#### Paquete NestJS
+- `QZPayModule` con configuración síncrona/asíncrona
+- `QZPayService` inyectable
+- Decoradores: `@RequireEntitlement`, `@RequireSubscription`, `@RateLimit`
+- Guards: `EntitlementGuard`, `SubscriptionGuard`
+- Integración con emisor de eventos
+
+### Herramienta CLI
+
+- `qzpay init` - Inicializar configuración del proyecto
+- `qzpay migrate` - Ejecutar migraciones de base de datos
+- `qzpay sync` - Sincronizar datos con proveedor de pago
+- `qzpay customers` - Comandos de gestión de clientes
+- `qzpay subscriptions` - Comandos de gestión de suscripciones
+- `qzpay plans` - Comandos de gestión de planes
+- `qzpay webhooks` - Gestión de webhooks
+- `qzpay metrics` - Ver métricas de facturación
+- `qzpay export` - Exportar datos de facturación
+
+---
+
+## Política de Soporte de Versiones
+
+| Versión | Estado | Soporte Hasta |
+|---------|--------|---------------|
+| 1.x | Activo | Actual |
+
+<Aside type="note">
+Mantenemos soporte activo para la última versión mayor. Los parches de seguridad para versiones mayores anteriores se proporcionan durante 12 meses después de un nuevo lanzamiento mayor.
+</Aside>
+
+## Guías de Actualización
+
+Al actualizar entre versiones, consulta la [Guía de Migración](/es/resources/migration/) para instrucciones detalladas.
+
+## Reportar Problemas
+
+¿Encontraste un bug en una versión específica? Por favor repórtalo en [GitHub Issues](https://github.com/qazuor/qzpay/issues) con:
+
+1. Versión de QZPay
+2. Versión de Node.js
+3. Proveedor de pago (si aplica)
+4. Pasos mínimos de reproducción
+
+## Versiones Pre-lanzamiento
+
+Las versiones pre-lanzamiento (alpha, beta, rc) pueden estar disponibles para probar características próximas:
+
+```bash
+# Instalar versión beta
+pnpm add @qazuor/qzpay-core@beta
+
+# Instalar pre-lanzamiento específico
+pnpm add @qazuor/qzpay-core@2.0.0-beta.1
+```
+
+<Aside type="caution">
+Las versiones pre-lanzamiento no se recomiendan para uso en producción. Las APIs pueden cambiar sin previo aviso.
+</Aside>

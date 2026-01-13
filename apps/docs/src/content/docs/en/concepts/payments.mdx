@@ -1,0 +1,138 @@
+---
+title: Payments
+description: Processing payments with QZPay
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+# Payments
+
+QZPay supports one-time payments, subscription charges, and refunds.
+
+## One-Time Payments
+
+### Basic Payment
+
+```typescript
+const payment = await billing.payments.process({
+  customerId: 'cus_123',
+  amount: 9900, // Amount in cents
+  currency: 'USD',
+  paymentMethodId: 'pm_card_visa'
+});
+```
+
+### With Metadata
+
+```typescript
+const payment = await billing.payments.process({
+  customerId: 'cus_123',
+  amount: 4900,
+  currency: 'USD',
+  paymentMethodId: 'pm_card_visa',
+  metadata: {
+    orderId: 'ord_123',
+    productId: 'prod_456'
+  }
+});
+```
+
+## Payment Status
+
+| Status | Description |
+|--------|-------------|
+| `pending` | Payment initiated, awaiting processing |
+| `processing` | Being processed by provider |
+| `succeeded` | Payment completed successfully |
+| `failed` | Payment failed |
+| `cancelled` | Payment was cancelled |
+| `refunded` | Fully refunded |
+| `partially_refunded` | Partially refunded |
+
+## Refunds
+
+### Full Refund
+
+```typescript
+const refund = await billing.payments.refund({
+  paymentId: 'pay_123'
+});
+```
+
+### Partial Refund
+
+```typescript
+const refund = await billing.payments.refund({
+  paymentId: 'pay_123',
+  amount: 2500, // Refund $25.00
+  reason: 'customer_request'
+});
+```
+
+<Aside type="caution">
+Refunds may take 5-10 business days to appear on the customer's statement, depending on their bank.
+</Aside>
+
+## Payment Object
+
+```typescript
+interface Payment {
+  id: string;
+  customerId: string;
+  subscriptionId?: string;
+  invoiceId?: string;
+  amount: number;
+  currency: string;
+  status: PaymentStatus;
+  paymentMethodId?: string;
+  description?: string;
+  metadata: Record<string, string>;
+  refundedAmount: number;
+  externalIds: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+## Events
+
+| Event | Description |
+|-------|-------------|
+| `payment.succeeded` | Payment completed successfully |
+| `payment.failed` | Payment failed |
+| `payment.refunded` | Payment was refunded |
+
+```typescript
+billing.on('payment.succeeded', async (event) => {
+  const { customerId, amount } = event.data;
+  await sendReceipt(customerId, amount);
+});
+
+billing.on('payment.failed', async (event) => {
+  await notifyPaymentFailure(event.data.customerId);
+});
+```
+
+## Error Handling
+
+```typescript
+import { PaymentFailedError, CardDeclinedError } from '@qazuor/qzpay-core';
+
+try {
+  await billing.payments.process({ ... });
+} catch (error) {
+  if (error instanceof CardDeclinedError) {
+    // Ask customer to use different card
+  } else if (error instanceof PaymentFailedError) {
+    // Generic payment failure
+  }
+}
+```
+
+## Best Practices
+
+1. **Always use idempotency keys** for payment creation
+2. **Store payment references** in your order/transaction records
+3. **Handle webhooks** for payment status updates
+4. **Implement retry logic** for failed payments
+5. **Log all payment events** for audit purposes

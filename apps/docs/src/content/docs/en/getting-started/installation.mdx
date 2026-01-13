@@ -1,0 +1,164 @@
+---
+title: Installation
+description: How to install QZPay packages
+---
+
+import { Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+# Installation
+
+QZPay is distributed as multiple packages. Install only what you need.
+
+## Core Package
+
+The core package is always required:
+
+<Tabs>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add @qazuor/qzpay-core
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```bash
+    npm install @qazuor/qzpay-core
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```bash
+    yarn add @qazuor/qzpay-core
+    ```
+  </TabItem>
+  <TabItem label="bun">
+    ```bash
+    bun add @qazuor/qzpay-core
+    ```
+  </TabItem>
+</Tabs>
+
+## Payment Provider
+
+Choose your payment provider:
+
+### Stripe
+
+<Tabs>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add @qazuor/qzpay-stripe stripe
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```bash
+    npm install @qazuor/qzpay-stripe stripe
+    ```
+  </TabItem>
+</Tabs>
+
+### MercadoPago
+
+<Tabs>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add @qazuor/qzpay-mercadopago mercadopago
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```bash
+    npm install @qazuor/qzpay-mercadopago mercadopago
+    ```
+  </TabItem>
+</Tabs>
+
+## Storage Adapter
+
+For persisting billing data:
+
+<Tabs>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add @qazuor/qzpay-drizzle drizzle-orm postgres
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```bash
+    npm install @qazuor/qzpay-drizzle drizzle-orm postgres
+    ```
+  </TabItem>
+</Tabs>
+
+## Framework Integrations
+
+### Hono
+
+<Tabs>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add @qazuor/qzpay-hono hono
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```bash
+    npm install @qazuor/qzpay-hono hono
+    ```
+  </TabItem>
+</Tabs>
+
+### NestJS
+
+<Tabs>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add @qazuor/qzpay-nestjs
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```bash
+    npm install @qazuor/qzpay-nestjs
+    ```
+  </TabItem>
+</Tabs>
+
+### React
+
+<Tabs>
+  <TabItem label="pnpm">
+    ```bash
+    pnpm add @qazuor/qzpay-react
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```bash
+    npm install @qazuor/qzpay-react
+    ```
+  </TabItem>
+</Tabs>
+
+## Typical Setup
+
+For a complete Stripe + Hono setup:
+
+```bash
+pnpm add @qazuor/qzpay-core @qazuor/qzpay-stripe @qazuor/qzpay-drizzle @qazuor/qzpay-hono stripe drizzle-orm postgres hono
+```
+
+<Aside type="note">
+All QZPay packages are ESM-only and require Node.js 22+.
+</Aside>
+
+## Peer Dependencies
+
+Some packages have peer dependencies you need to install:
+
+| Package | Peer Dependencies |
+|---------|-------------------|
+| `@qazuor/qzpay-stripe` | `stripe` |
+| `@qazuor/qzpay-mercadopago` | `mercadopago` |
+| `@qazuor/qzpay-drizzle` | `drizzle-orm`, `postgres` |
+| `@qazuor/qzpay-hono` | `hono`, `zod` |
+| `@qazuor/qzpay-nestjs` | `@nestjs/common`, `@nestjs/core` |
+| `@qazuor/qzpay-react` | `react`, `react-dom` |
+
+## Next Steps
+
+Continue to [Quick Start](/en/getting-started/quick-start/) to set up your first billing integration.

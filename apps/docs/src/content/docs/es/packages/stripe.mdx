@@ -1,0 +1,420 @@
+---
+title: "@qazuor/qzpay-stripe"
+description: Adaptador de proveedor de pagos Stripe
+---
+
+import { Aside, Badge, LinkCard } from '@astrojs/starlight/components';
+
+# @qazuor/qzpay-stripe
+
+<Badge text="Proveedor" variant="note" />
+
+<LinkCard
+  title="Ver en npm"
+  href="https://www.npmjs.com/package/@qazuor/qzpay-stripe"
+  description="@qazuor/qzpay-stripe"
+/>
+
+Integración completa de Stripe para QZPay.
+
+## Instalación
+
+```bash
+pnpm add @qazuor/qzpay-stripe stripe
+```
+
+## Configuración
+
+```typescript
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+
+const stripeAdapter = createQZPayStripeAdapter({
+  apiKey: process.env.STRIPE_SECRET_KEY!,
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET
+});
+
+// O usa la clase directamente
+import { QZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+
+const stripeAdapter = new QZPayStripeAdapter({
+  apiKey: process.env.STRIPE_SECRET_KEY!
+});
+```
+
+## Opciones de Configuración
+
+| Opción | Tipo | Requerido | Descripción |
+|--------|------|-----------|-------------|
+| `apiKey` | `string` | Sí | Clave secreta de Stripe |
+| `webhookSecret` | `string` | No | Secreto de firma de webhooks |
+
+## Uso con QZPay
+
+```typescript
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+const billing = createQZPayBilling({
+  storage: createQZPayDrizzleAdapter(db),
+  paymentAdapter: createQZPayStripeAdapter({
+    apiKey: process.env.STRIPE_SECRET_KEY!
+  })
+});
+```
+
+## Sub-Adaptadores
+
+El adaptador de Stripe proporciona acceso a sub-adaptadores especializados:
+
+```typescript
+stripeAdapter.customers       // QZPayStripeCustomerAdapter
+stripeAdapter.subscriptions   // QZPayStripeSubscriptionAdapter
+stripeAdapter.payments        // QZPayStripePaymentAdapter
+stripeAdapter.checkout        // QZPayStripeCheckoutAdapter
+stripeAdapter.prices          // QZPayStripePriceAdapter
+stripeAdapter.webhooks        // QZPayStripeWebhookAdapter
+stripeAdapter.setupIntents    // QZPayStripeSetupIntentAdapter
+stripeAdapter.vendors         // QZPayStripeVendorAdapter (si Connect está configurado)
+```
+
+### Adaptador de Clientes
+
+```typescript
+// Crear cliente en Stripe
+const stripeCustomerId = await stripeAdapter.customers.create({
+  email: 'user@example.com',
+  name: 'John Doe',
+  metadata: { userId: '123' }
+});
+
+// Actualizar cliente
+await stripeAdapter.customers.update(stripeCustomerId, {
+  name: 'Jane Doe'
+});
+
+// Eliminar cliente
+await stripeAdapter.customers.delete(stripeCustomerId);
+
+// Obtener detalles del cliente
+const customer = await stripeAdapter.customers.retrieve(stripeCustomerId);
+```
+
+### Adaptador de Suscripciones
+
+```typescript
+// Crear suscripción
+const subscription = await stripeAdapter.subscriptions.create(
+  stripeCustomerId,
+  { trialPeriodDays: 14 },
+  'price_xxx'
+);
+
+// Actualizar suscripción
+await stripeAdapter.subscriptions.update(stripeSubscriptionId, {
+  metadata: { tier: 'pro' }
+});
+
+// Cancelar suscripción
+await stripeAdapter.subscriptions.cancel(stripeSubscriptionId, true); // atPeriodEnd
+
+// Pausar suscripción (usa pause_collection)
+await stripeAdapter.subscriptions.pause(stripeSubscriptionId);
+
+// Reanudar suscripción
+await stripeAdapter.subscriptions.resume(stripeSubscriptionId);
+```
+
+### Adaptador de Pagos
+
+```typescript
+// Crear intención de pago
+const payment = await stripeAdapter.payments.create(stripeCustomerId, {
+  amount: 9900,
+  currency: 'usd',
+  paymentMethodId: 'pm_xxx'
+});
+
+// Capturar pago autorizado
+await stripeAdapter.payments.capture(paymentIntentId);
+
+// Cancelar pago
+await stripeAdapter.payments.cancel(paymentIntentId);
+
+// Reembolsar pago
+const refund = await stripeAdapter.payments.refund({
+  amount: 5000,
+  reason: 'requested_by_customer'
+}, paymentIntentId);
+```
+
+### Adaptador de Checkout
+
+```typescript
+// Crear sesión de checkout
+const session = await stripeAdapter.checkout.create({
+  mode: 'subscription',
+  customerId: stripeCustomerId,
+  successUrl: 'https://example.com/success',
+  cancelUrl: 'https://example.com/cancel'
+}, ['price_xxx']);
+
+// Obtener sesión
+const session = await stripeAdapter.checkout.retrieve(sessionId);
+
+// Expirar sesión
+await stripeAdapter.checkout.expire(sessionId);
+```
+
+### Adaptador de Setup Intent
+
+```typescript
+// Crear setup intent para guardar métodos de pago
+const setupIntent = await stripeAdapter.setupIntents.create({
+  customerId: stripeCustomerId,
+  usage: 'off_session'
+});
+
+// Confirmar setup intent
+await stripeAdapter.setupIntents.confirm({
+  setupIntentId: setupIntent.id,
+  paymentMethodId: 'pm_xxx'
+});
+
+// Cancelar setup intent
+await stripeAdapter.setupIntents.cancel(setupIntentId);
+```
+
+### Adaptador de Precios
+
+```typescript
+// Crear un producto
+const productId = await stripeAdapter.prices.createProduct(
+  'Pro Plan',
+  'Monthly subscription to Pro features'
+);
+
+// Crear un precio
+const priceId = await stripeAdapter.prices.create({
+  amount: 2900,
+  currency: 'usd',
+  interval: 'month',
+  intervalCount: 1
+}, productId);
+
+// Archivar un precio
+await stripeAdapter.prices.archive(priceId);
+```
+
+## Manejo de Webhooks
+
+```typescript
+import {
+  mapStripeEventToQZPayEvent,
+  extractStripeEventData
+} from '@qazuor/qzpay-stripe';
+
+// Construir y verificar evento de webhook
+const event = stripeAdapter.webhooks.constructEvent(
+  rawBody,
+  signature
+);
+
+// Verificar solo la firma
+const isValid = stripeAdapter.webhooks.verifySignature(rawBody, signature);
+
+// Mapear evento de Stripe a tipo de evento QZPay
+const qzpayEventType = mapStripeEventToQZPayEvent(event.type);
+
+// Extraer datos relevantes del evento
+const data = extractStripeEventData(event);
+// Retorna: { entityType, entityId, customerId?, subscriptionId?, invoiceId? }
+```
+
+### Soporte para 3D Secure / SCA
+
+```typescript
+import {
+  isPaymentRequires3DS,
+  extract3DSDetails
+} from '@qazuor/qzpay-stripe';
+
+// Verificar si el pago requiere 3DS
+if (isPaymentRequires3DS(event)) {
+  const details = extract3DSDetails(event);
+  // details.status: 'required' | 'succeeded' | 'failed' | etc.
+  // details.nextActionUrl: URL para el desafío 3DS
+  // details.clientSecret: Para confirmación del lado del cliente
+}
+```
+
+### Manejo de Disputas
+
+```typescript
+import {
+  isDisputeEvent,
+  extractDisputeDetails
+} from '@qazuor/qzpay-stripe';
+
+if (isDisputeEvent(event)) {
+  const dispute = extractDisputeDetails(event);
+  // Manejar disputa
+}
+```
+
+### Manejo de Actualizaciones Pendientes
+
+```typescript
+import {
+  isPendingUpdateEvent,
+  extractPendingUpdateDetails
+} from '@qazuor/qzpay-stripe';
+
+if (isPendingUpdateEvent(event)) {
+  const pendingUpdate = extractPendingUpdateDetails(event);
+  // Manejar actualización de suscripción pendiente
+}
+```
+
+### Manejo de Alertas de Fraude
+
+```typescript
+import {
+  isFraudWarningEvent,
+  extractFraudWarningDetails
+} from '@qazuor/qzpay-stripe';
+
+if (isFraudWarningEvent(event)) {
+  const fraudWarning = extractFraudWarningDetails(event);
+  // Manejar alerta de fraude
+}
+```
+
+### Clasificación de Eventos
+
+```typescript
+import {
+  classifyStripeEvent,
+  requiresImmediateAction
+} from '@qazuor/qzpay-stripe';
+
+// Clasificar evento por categoría
+const category = classifyStripeEvent(event);
+// Retorna: 'customer' | 'subscription' | 'payment' | 'invoice' | 'dispute' | etc.
+
+// Verificar si el evento requiere acción inmediata
+if (requiresImmediateAction(event)) {
+  // Manejar evento de alta prioridad inmediatamente
+}
+```
+
+## Stripe Connect (Marketplace)
+
+<Aside type="note">
+Configura las credenciales de Connect para la funcionalidad de marketplace.
+</Aside>
+
+```typescript
+import { QZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+
+const stripeAdapter = new QZPayStripeAdapter(
+  { apiKey: process.env.STRIPE_SECRET_KEY! },
+  { // Configuración de Connect
+    platformAccountId: 'acct_xxx'
+  }
+);
+
+// Crear cuenta conectada
+const accountId = await stripeAdapter.vendors.createAccount({
+  email: 'vendor@example.com',
+  name: 'Vendor Store'
+});
+
+// Crear enlace de onboarding
+const onboardingUrl = await stripeAdapter.vendors.createAccountLink(
+  accountId,
+  'https://example.com/refresh',
+  'https://example.com/return',
+  'account_onboarding'
+);
+
+// Crear pago a cuenta conectada
+const payoutId = await stripeAdapter.vendors.createPayout(
+  accountId,
+  10000, // monto en centavos
+  'usd'
+);
+
+// Crear transferencia a cuenta conectada
+const transferId = await stripeAdapter.vendors.createTransfer(
+  accountId,
+  5000,
+  'usd',
+  paymentIntentId
+);
+```
+
+## Mapeo de Eventos
+
+| Evento de Stripe | Evento de QZPay |
+|------------------|-----------------|
+| `customer.created` | `customer.created` |
+| `customer.updated` | `customer.updated` |
+| `customer.deleted` | `customer.deleted` |
+| `customer.subscription.created` | `subscription.created` |
+| `customer.subscription.updated` | `subscription.updated` |
+| `customer.subscription.deleted` | `subscription.canceled` |
+| `customer.subscription.paused` | `subscription.paused` |
+| `customer.subscription.resumed` | `subscription.resumed` |
+| `customer.subscription.trial_will_end` | `subscription.trial_ending` |
+| `invoice.created` | `invoice.created` |
+| `invoice.paid` | `invoice.paid` |
+| `invoice.payment_failed` | `invoice.payment_failed` |
+| `invoice.voided` | `invoice.voided` |
+| `payment_intent.succeeded` | `payment.succeeded` |
+| `payment_intent.payment_failed` | `payment.failed` |
+| `charge.refunded` | `payment.refunded` |
+| `charge.dispute.created` | `payment.disputed` |
+| `checkout.session.completed` | `checkout.completed` |
+| `checkout.session.expired` | `checkout.expired` |
+
+## Pruebas
+
+Usa las claves de modo de prueba de Stripe para desarrollo:
+
+```bash
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+```
+
+### Números de Tarjeta de Prueba
+
+| Tarjeta | Comportamiento |
+|---------|----------------|
+| `4242424242424242` | Pago exitoso |
+| `4000000000000002` | Tarjeta rechazada |
+| `4000002500003155` | Requiere 3D Secure |
+| `4000000000009995` | Fondos insuficientes |
+| `4000000000000069` | Tarjeta expirada |
+
+### Probando Webhooks
+
+```bash
+# Instalar Stripe CLI
+stripe listen --forward-to localhost:3000/webhooks/stripe
+
+# Disparar eventos de prueba
+stripe trigger payment_intent.succeeded
+stripe trigger customer.subscription.created
+```
+
+## Acceso al Cliente de Stripe
+
+Para casos de uso avanzados, accede al cliente subyacente de Stripe:
+
+```typescript
+const stripe = stripeAdapter.getStripeClient();
+
+// Usar métodos nativos del SDK de Stripe
+const products = await stripe.products.list({ limit: 10 });
+```

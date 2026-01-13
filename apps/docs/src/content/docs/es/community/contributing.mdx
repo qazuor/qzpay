@@ -1,0 +1,322 @@
+---
+title: Guía de Contribución
+description: Cómo contribuir a QZPay
+---
+
+import { Aside, Steps, Card, CardGrid } from '@astrojs/starlight/components';
+
+# Contribuir a QZPay
+
+¡Gracias por tu interés en contribuir a QZPay! Esta guía te ayudará a comenzar.
+
+## Formas de Contribuir
+
+<CardGrid>
+  <Card title="Reportar Errores" icon="warning">
+    ¿Encontraste un error? Abre un issue con los pasos para reproducirlo.
+  </Card>
+  <Card title="Sugerir Funcionalidades" icon="rocket">
+    ¿Tienes una idea? Inicia una discusión o abre una solicitud de funcionalidad.
+  </Card>
+  <Card title="Mejorar la Documentación" icon="open-book">
+    Corrige errores tipográficos, agrega ejemplos o mejora las explicaciones.
+  </Card>
+  <Card title="Escribir Código" icon="seti:typescript">
+    Corrige errores, agrega funcionalidades o crea nuevos adaptadores.
+  </Card>
+</CardGrid>
+
+## Primeros Pasos
+
+<Steps>
+
+1. **Haz un fork del repositorio**
+
+   Haz clic en el botón "Fork" en [GitHub](https://github.com/qazuor/qzpay).
+
+2. **Clona tu fork**
+
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/qzpay.git
+   cd qzpay
+   ```
+
+3. **Instala las dependencias**
+
+   ```bash
+   pnpm install
+   ```
+
+4. **Crea una rama**
+
+   ```bash
+   git checkout -b feature/your-feature-name
+   # o
+   git checkout -b fix/your-bug-fix
+   ```
+
+5. **Realiza tus cambios**
+
+   Escribe tu código siguiendo las directrices a continuación.
+
+6. **Ejecuta las pruebas**
+
+   ```bash
+   pnpm test
+   ```
+
+7. **Envía un pull request**
+
+   Sube tu rama y abre un PR contra `main`.
+
+</Steps>
+
+## Configuración del Entorno de Desarrollo
+
+### Prerrequisitos
+
+- Node.js 18+
+- pnpm 8+
+- Git
+
+### Estructura del Proyecto
+
+```
+qzpay/
+├── packages/
+│   ├── core/          # Motor de facturación principal
+│   ├── stripe/        # Adaptador de Stripe
+│   ├── mercadopago/   # Adaptador de MercadoPago
+│   ├── drizzle/       # Adaptador de almacenamiento Drizzle
+│   ├── react/         # Componentes React
+│   ├── hono/          # Integración con Hono
+│   ├── nestjs/        # Módulo NestJS
+│   └── cli/           # Herramienta CLI
+├── apps/
+│   └── docs/          # Sitio de documentación
+├── examples/          # Implementaciones de ejemplo
+└── .claude/           # Configuración del asistente de IA
+```
+
+### Comandos Útiles
+
+```bash
+# Desarrollo
+pnpm dev              # Inicia todos los paquetes en modo desarrollo
+pnpm dev --filter @qazuor/qzpay-core  # Desarrolla un paquete específico
+
+# Pruebas
+pnpm test             # Ejecuta todas las pruebas
+pnpm test --filter @qazuor/qzpay-core  # Prueba un paquete específico
+pnpm test:coverage    # Ejecuta con cobertura
+
+# Construcción
+pnpm build            # Construye todos los paquetes
+pnpm typecheck        # Verifica tipos en todos los paquetes
+
+# Linting
+pnpm lint             # Lint en todos los paquetes
+pnpm lint:fix         # Corrige automáticamente problemas de lint
+
+# Documentación
+pnpm docs             # Inicia el servidor de desarrollo de docs
+```
+
+## Directrices de Código
+
+### TypeScript
+
+- Usa TypeScript para todo el código
+- Habilita el modo estricto
+- Exporta todos los tipos públicos
+- Documenta las APIs públicas con JSDoc
+
+```typescript
+/**
+ * Creates a new customer in the billing system.
+ *
+ * @param input - Customer creation parameters
+ * @returns The created customer
+ * @throws {ValidationError} If input is invalid
+ *
+ * @example
+ * ```typescript
+ * const customer = await billing.customers.create({
+ *   email: 'user@example.com',
+ *   name: 'John Doe'
+ * });
+ * ```
+ */
+async create(input: CreateCustomerInput): Promise<Customer> {
+  // ...
+}
+```
+
+### Estilo de Código
+
+- Usa Prettier para formateo (configurado en el repositorio)
+- Usa las reglas de ESLint (configuradas en el repositorio)
+- Prefiere `const` sobre `let`
+- Usa nombres de variables descriptivos
+- Mantén las funciones pequeñas y enfocadas
+
+### Pruebas
+
+- Escribe pruebas para toda nueva funcionalidad
+- Apunta a una cobertura alta (90%+)
+- Usa nombres de prueba descriptivos
+- Sigue el patrón AAA (Arrange, Act, Assert)
+
+```typescript
+describe('customers.create', () => {
+  it('creates a customer with email and name', async () => {
+    // Arrange
+    const input = {
+      email: 'test@example.com',
+      name: 'Test User'
+    };
+
+    // Act
+    const customer = await billing.customers.create(input);
+
+    // Assert
+    expect(customer.email).toBe(input.email);
+    expect(customer.name).toBe(input.name);
+    expect(customer.id).toMatch(/^cus_/);
+  });
+
+  it('throws ValidationError for invalid email', async () => {
+    await expect(
+      billing.customers.create({ email: 'invalid' })
+    ).rejects.toThrow(ValidationError);
+  });
+});
+```
+
+### Commits
+
+Sigue [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+type(scope): description
+
+[optional body]
+
+[optional footer]
+```
+
+Tipos:
+- `feat`: Nueva funcionalidad
+- `fix`: Corrección de error
+- `docs`: Cambios en documentación
+- `style`: Cambios de estilo de código (formateo)
+- `refactor`: Refactorización de código
+- `test`: Agregar o actualizar pruebas
+- `chore`: Tareas de mantenimiento
+
+Ejemplos:
+```
+feat(core): add subscription pause functionality
+fix(stripe): handle webhook signature with raw body
+docs(react): add PricingTable customization examples
+```
+
+## Proceso de Pull Request
+
+### Antes de Enviar
+
+- [ ] Las pruebas pasan (`pnpm test`)
+- [ ] El código está linted (`pnpm lint`)
+- [ ] Los tipos verifican (`pnpm typecheck`)
+- [ ] La documentación está actualizada (si aplica)
+- [ ] Los commits siguen el formato convencional
+
+### Título del PR
+
+Usa el mismo formato que los commits:
+```
+feat(core): add subscription pause functionality
+```
+
+### Descripción del PR
+
+Incluye:
+- **Qué** - Qué cambios se están realizando
+- **Por qué** - Por qué se necesitan estos cambios
+- **Cómo** - Cómo se implementaron estos cambios
+- **Pruebas** - Cómo se probó esto
+
+### Proceso de Revisión
+
+1. Un mantenedor revisará tu PR
+2. Atiende cualquier retroalimentación
+3. Una vez aprobado, un mantenedor hará el merge
+
+## Crear Adaptadores
+
+### Adaptadores de Proveedores de Pago
+
+Consulta la [guía de Creación de Adaptadores](/es/guides/creating-adapters/) para instrucciones detalladas.
+
+Puntos clave:
+- Implementa la interfaz `PaymentProvider`
+- Incluye pruebas exhaustivas
+- Soporta todas las operaciones requeridas
+- Documenta el comportamiento específico del proveedor
+
+### Adaptadores de Almacenamiento
+
+Implementa la interfaz `BillingStorage`:
+- Todos los métodos de repositorio
+- Soporte de transacciones
+- Manejo de errores
+
+## Documentación
+
+### Escribir Documentación
+
+- Usa lenguaje claro y conciso
+- Incluye ejemplos de código
+- Prueba todos los ejemplos de código
+- Usa formateo Markdown/MDX adecuado
+
+### Estructura de la Documentación
+
+```
+docs/
+├── en/                    # Inglés (principal)
+│   ├── getting-started/
+│   ├── concepts/
+│   ├── guides/
+│   ├── packages/
+│   ├── api/
+│   ├── resources/
+│   └── community/
+└── es/                    # Español (traducción)
+```
+
+### Agregar Traducciones
+
+1. Copia el archivo en inglés al directorio del idioma
+2. Traduce todo el contenido
+3. Mantén los ejemplos de código en inglés
+4. Actualiza el sidebar del idioma en `astro.config.mjs`
+
+## Obtener Ayuda
+
+- **Preguntas** - Abre una [Discusión en GitHub](https://github.com/qazuor/qzpay/discussions)
+- **Errores** - Abre un [Issue en GitHub](https://github.com/qazuor/qzpay/issues)
+- **Chat** - Únete a nuestros canales de comunidad
+
+<Aside type="tip">
+¿Es tu primera vez contribuyendo a código abierto? Consulta [Cómo Contribuir a Código Abierto](https://opensource.guide/how-to-contribute/) para obtener consejos útiles.
+</Aside>
+
+## Reconocimiento
+
+Los contribuidores son reconocidos en:
+- Lista de contribuidores de GitHub
+- Notas de lanzamiento para contribuciones significativas
+- Agradecimientos en el README
+
+¡Gracias por ayudar a mejorar QZPay!

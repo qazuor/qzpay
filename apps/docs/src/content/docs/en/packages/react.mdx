@@ -1,0 +1,536 @@
+---
+title: "@qazuor/qzpay-react"
+description: React hooks and components for QZPay
+---
+
+import { Aside, Badge, LinkCard } from '@astrojs/starlight/components';
+
+# @qazuor/qzpay-react
+
+<Badge text="Frontend" variant="success" />
+
+<LinkCard
+  title="View on npm"
+  href="https://www.npmjs.com/package/@qazuor/qzpay-react"
+  description="@qazuor/qzpay-react"
+/>
+
+React hooks and components for building billing UIs.
+
+## Installation
+
+```bash
+pnpm add @qazuor/qzpay-react
+```
+
+## Provider Setup
+
+```tsx
+import { QZPayProvider } from '@qazuor/qzpay-react';
+import { billing } from './billing'; // Your QZPay billing instance
+
+function App() {
+  return (
+    <QZPayProvider
+      billing={billing}
+      initialCustomer={currentUser?.billingCustomer}
+    >
+      <YourApp />
+    </QZPayProvider>
+  );
+}
+```
+
+### Provider Props
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `billing` | `QZPayBilling` | Yes | Your QZPay billing instance |
+| `initialCustomer` | `QZPayCustomer` | No | Pre-loaded customer data |
+| `children` | `ReactNode` | Yes | Child components |
+
+## Context Hooks
+
+### useQZPayContext
+
+Access the billing instance directly:
+
+```tsx
+import { useQZPayContext, useQZPayLivemode, useCurrentCustomer } from '@qazuor/qzpay-react';
+
+function BillingInfo() {
+  const billing = useQZPayContext();
+  const livemode = useQZPayLivemode();
+  const [customer, setCustomer] = useCurrentCustomer();
+
+  return (
+    <div>
+      <p>Mode: {livemode ? 'Live' : 'Test'}</p>
+      {customer && <p>Customer: {customer.email}</p>}
+    </div>
+  );
+}
+```
+
+## Hooks
+
+### useCustomer
+
+```tsx
+import { useCustomer } from '@qazuor/qzpay-react';
+
+function Profile() {
+  const { data: customer, isLoading, error, update, refetch } = useCustomer();
+
+  if (isLoading) return <Spinner />;
+  if (error) return <Error message={error.message} />;
+
+  return (
+    <div>
+      <h1>{customer?.name}</h1>
+      <button onClick={() => update({ name: 'New Name' })}>
+        Update
+      </button>
+    </div>
+  );
+}
+```
+
+### useSubscription
+
+```tsx
+import { useSubscription } from '@qazuor/qzpay-react';
+
+function SubscriptionManager() {
+  const {
+    data: subscription,
+    isLoading,
+    create,
+    cancel,
+    pause,
+    resume
+  } = useSubscription({ customerId: 'cus_xxx' });
+
+  return (
+    <div>
+      <p>Status: {subscription?.status}</p>
+      <p>Plan: {subscription?.planId}</p>
+
+      <button onClick={() => create({
+        customerId: 'cus_xxx',
+        planId: 'plan_pro'
+      })}>
+        Subscribe
+      </button>
+
+      <button onClick={() => cancel(subscription.id, { cancelAtPeriodEnd: true })}>
+        Cancel
+      </button>
+
+      <button onClick={() => pause(subscription.id)}>
+        Pause
+      </button>
+    </div>
+  );
+}
+```
+
+### usePayment
+
+```tsx
+import { usePayment } from '@qazuor/qzpay-react';
+
+function Checkout() {
+  const { data: payments, isLoading, process, refund } = usePayment({
+    customerId: 'cus_xxx'
+  });
+
+  const handlePurchase = async () => {
+    await process({
+      customerId: 'cus_xxx',
+      amount: 9900,
+      currency: 'usd'
+    });
+  };
+
+  return (
+    <button onClick={handlePurchase} disabled={isLoading}>
+      {isLoading ? 'Processing...' : 'Buy Now - $99'}
+    </button>
+  );
+}
+```
+
+### useEntitlements
+
+```tsx
+import { useEntitlements } from '@qazuor/qzpay-react';
+
+function FeatureButton() {
+  const { data, isLoading, hasEntitlement, checkEntitlement } = useEntitlements({
+    customerId: 'cus_xxx'
+  });
+
+  if (isLoading) return <Spinner />;
+
+  if (!hasEntitlement('advanced_export')) {
+    return <UpgradePrompt feature="Advanced Export" />;
+  }
+
+  return <button>Export Data</button>;
+}
+```
+
+### useLimits
+
+```tsx
+import { useLimits } from '@qazuor/qzpay-react';
+
+function UsageDisplay() {
+  const { data: limits, checkLimit, increment, recordUsage } = useLimits({
+    customerId: 'cus_xxx'
+  });
+
+  const handleApiCall = async () => {
+    const result = await checkLimit('api_calls');
+    if (result.allowed) {
+      await increment('api_calls', 1);
+      // Make the API call
+    } else {
+      alert('Limit reached!');
+    }
+  };
+
+  return (
+    <div>
+      <p>API Calls: {limits?.[0]?.currentValue} / {limits?.[0]?.maxValue}</p>
+      <button onClick={handleApiCall}>Make API Call</button>
+    </div>
+  );
+}
+```
+
+### usePlans
+
+```tsx
+import { usePlans } from '@qazuor/qzpay-react';
+
+function PlanSelector() {
+  const { data: plans, isLoading, getPlan, getPrices } = usePlans();
+
+  if (isLoading) return <Spinner />;
+
+  return (
+    <div>
+      {plans?.map(plan => (
+        <PlanCard key={plan.id} plan={plan} />
+      ))}
+    </div>
+  );
+}
+```
+
+### useInvoices
+
+```tsx
+import { useInvoices } from '@qazuor/qzpay-react';
+
+function InvoiceHistory() {
+  const { data: invoices, isLoading, getInvoice } = useInvoices({
+    customerId: 'cus_xxx'
+  });
+
+  if (isLoading) return <Spinner />;
+
+  return (
+    <ul>
+      {invoices?.map(invoice => (
+        <li key={invoice.id}>
+          {invoice.number} - ${invoice.total / 100}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Components
+
+### PricingTable
+
+```tsx
+import { PricingTable } from '@qazuor/qzpay-react';
+
+function Pricing() {
+  return (
+    <PricingTable
+      onSelectPlan={(plan, price) => handlePlanSelect(plan, price)}
+      selectedPlanId={currentSubscription?.planId}
+      currency="usd"
+      interval="month"
+    />
+  );
+}
+```
+
+### SubscriptionStatus
+
+```tsx
+import { SubscriptionStatus } from '@qazuor/qzpay-react';
+
+function Dashboard() {
+  return (
+    <SubscriptionStatus
+      subscription={currentSubscription}
+      showCancelButton={true}
+      onCancel={() => handleCancel()}
+    />
+  );
+}
+```
+
+### EntitlementGate
+
+```tsx
+import { EntitlementGate } from '@qazuor/qzpay-react';
+
+function App() {
+  return (
+    <EntitlementGate
+      entitlementKey="advanced_analytics"
+      customerId="cus_xxx"
+      fallback={<UpgradePrompt />}
+      loading={<Spinner />}
+    >
+      <AdvancedAnalytics />
+    </EntitlementGate>
+  );
+}
+```
+
+### LimitGate
+
+```tsx
+import { LimitGate } from '@qazuor/qzpay-react';
+
+function CreateProject() {
+  return (
+    <LimitGate
+      limitKey="projects"
+      customerId="cus_xxx"
+      fallback={<p>Project limit reached. Upgrade to create more.</p>}
+      loading={<Spinner />}
+    >
+      <CreateProjectForm />
+    </LimitGate>
+  );
+}
+```
+
+### PaymentForm
+
+```tsx
+import { PaymentForm } from '@qazuor/qzpay-react';
+
+function PaymentPage() {
+  return (
+    <PaymentForm
+      customerId="cus_xxx"
+      amount={9900}
+      currency="usd"
+      paymentMethods={customerPaymentMethods}
+      onSuccess={(payment) => console.log('Paid!', payment)}
+      onError={(error) => console.error(error)}
+      submitText="Pay $99.00"
+    />
+  );
+}
+```
+
+### CheckoutButton
+
+```tsx
+import { CheckoutButton } from '@qazuor/qzpay-react';
+
+function BuyButton() {
+  return (
+    <CheckoutButton
+      mode="subscription"
+      priceId="price_xxx"
+      successUrl="https://example.com/success"
+      cancelUrl="https://example.com/cancel"
+      customerId="cus_xxx"
+      onCheckout={async (params) => {
+        // Call your backend to create checkout session
+        const { url } = await createCheckoutSession(params);
+        return { url };
+      }}
+      onError={(error) => console.error(error)}
+    >
+      Subscribe Now
+    </CheckoutButton>
+  );
+}
+```
+
+### InvoiceList
+
+```tsx
+import { InvoiceList } from '@qazuor/qzpay-react';
+
+function BillingHistory() {
+  return (
+    <InvoiceList
+      customerId="cus_xxx"
+      limit={10}
+      showOnlyUnpaid={false}
+      onPayInvoice={(invoice) => handlePayInvoice(invoice)}
+      onDownloadInvoice={(invoice) => downloadPdf(invoice)}
+    />
+  );
+}
+```
+
+### PaymentMethodManager
+
+```tsx
+import { PaymentMethodManager } from '@qazuor/qzpay-react';
+
+function Settings() {
+  return (
+    <PaymentMethodManager
+      customerId="cus_xxx"
+      paymentMethods={customerPaymentMethods}
+      showAddButton={true}
+      allowRemove={true}
+      allowSetDefault={true}
+      onAddPaymentMethod={() => openAddCardModal()}
+      onRemovePaymentMethod={(id) => removeCard(id)}
+      onSetDefaultPaymentMethod={(id) => setDefault(id)}
+    />
+  );
+}
+```
+
+## Theming
+
+### Using Built-in Themes
+
+```tsx
+import {
+  QZPayThemeProvider,
+  qzpayDefaultTheme,
+  qzpayDarkTheme
+} from '@qazuor/qzpay-react';
+
+function App() {
+  const [isDark, setIsDark] = useState(false);
+
+  return (
+    <QZPayThemeProvider theme={isDark ? qzpayDarkTheme : qzpayDefaultTheme}>
+      <YourApp />
+    </QZPayThemeProvider>
+  );
+}
+```
+
+### Custom Theme
+
+```tsx
+import { QZPayThemeProvider, qzpayMergeTheme, qzpayDefaultTheme } from '@qazuor/qzpay-react';
+
+const customTheme = qzpayMergeTheme(qzpayDefaultTheme, {
+  colors: {
+    primary: '#3b82f6',
+    success: '#22c55e',
+    warning: '#f59e0b',
+    error: '#ef4444',
+    background: '#ffffff',
+    surface: '#f8fafc',
+    text: '#1e293b',
+    textSecondary: '#64748b'
+  },
+  borderRadius: {
+    sm: '4px',
+    md: '8px',
+    lg: '12px'
+  }
+});
+
+function App() {
+  return (
+    <QZPayThemeProvider theme={customTheme}>
+      <YourApp />
+    </QZPayThemeProvider>
+  );
+}
+```
+
+### Using Theme in Components
+
+```tsx
+import { useQZPayTheme, useThemedStyles } from '@qazuor/qzpay-react';
+
+function CustomButton() {
+  const theme = useQZPayTheme();
+  const buttonStyles = useThemedStyles(qzpayButtonStyles);
+
+  return (
+    <button style={{
+      backgroundColor: theme.colors.primary,
+      borderRadius: theme.borderRadius.md,
+      ...buttonStyles
+    }}>
+      Click Me
+    </button>
+  );
+}
+```
+
+### Available Style Creators
+
+```tsx
+import {
+  qzpayButtonStyles,
+  qzpayInputStyles,
+  qzpayCardStyles,
+  qzpayBadgeStyles,
+  qzpayTableStyles
+} from '@qazuor/qzpay-react';
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  // Context types
+  QZPayContextValue,
+  QZPayProviderProps,
+  // Hook return types
+  UseCustomerReturn,
+  UseSubscriptionReturn,
+  UsePlansReturn,
+  UsePaymentReturn,
+  UseEntitlementsReturn,
+  UseLimitsReturn,
+  UseInvoicesReturn,
+  QZPayLimitCheckResult,
+  // Component props
+  PricingTableProps,
+  SubscriptionStatusProps,
+  EntitlementGateProps,
+  LimitGateProps,
+  PaymentFormProps,
+  CheckoutButtonProps,
+  InvoiceListProps,
+  PaymentMethodManagerProps,
+  // Theme types
+  QZPayTheme,
+  QZPayThemeColors,
+  QZPayPartialTheme
+} from '@qazuor/qzpay-react';
+```
+
+<Aside type="tip">
+All hooks return a consistent shape with `data`, `isLoading`, `error`, and `refetch`. This makes it easy to handle loading and error states consistently across your application.
+</Aside>

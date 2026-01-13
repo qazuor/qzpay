@@ -1,0 +1,311 @@
+---
+title: MercadoPago Integration
+description: Complete guide to integrating MercadoPago with QZPay
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# MercadoPago Integration Guide
+
+This guide covers integrating MercadoPago for Latin American markets.
+
+## Prerequisites
+
+- MercadoPago account with credentials
+- Node.js 22+
+- PostgreSQL database
+
+## Setup
+
+<Steps>
+
+1. **Install packages**
+
+   ```bash
+   pnpm add @qazuor/qzpay-core @qazuor/qzpay-mercadopago @qazuor/qzpay-drizzle mercadopago drizzle-orm postgres
+   ```
+
+2. **Configure environment variables**
+
+   ```bash
+   # .env
+   DATABASE_URL=postgresql://user:pass@localhost:5432/billing
+   MP_ACCESS_TOKEN=TEST-xxx
+   MP_PUBLIC_KEY=TEST-xxx
+   MP_WEBHOOK_SECRET=xxx
+   ```
+
+3. **Initialize billing service**
+
+   ```typescript
+   // src/billing.ts
+   import { createQZPayBilling } from '@qazuor/qzpay-core';
+   import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+   import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+   export const billing = createQZPayBilling({
+     paymentAdapter: createQZPayMercadoPagoAdapter({
+       accessToken: process.env.MP_ACCESS_TOKEN!
+     }),
+     storage: createQZPayDrizzleAdapter(db)
+   });
+   ```
+
+</Steps>
+
+## Payment Flow
+
+MercadoPago offers several payment methods depending on the country.
+
+### Checkout Pro (Redirect)
+
+The simplest integration, redirects to MercadoPago:
+
+```typescript
+import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+
+const mpAdapter = createQZPayMercadoPagoAdapter({
+  accessToken: process.env.MP_ACCESS_TOKEN!
+});
+
+export async function createCheckoutPreference(
+  customerId: string,
+  items: Item[]
+) {
+  // Get customer's provider ID
+  const customer = await billing.customers.get(customerId);
+  const providerCustomerId = customer?.externalIds?.mercadopago;
+
+  const preference = await mpAdapter.checkout.create({
+    customerId: providerCustomerId,
+    mode: 'payment',
+    lineItems: items.map(item => ({
+      title: item.name,
+      quantity: item.quantity,
+      unitPrice: item.price,
+      currencyId: 'ARS' // or BRL, MXN, etc.
+    })),
+    backUrls: {
+      success: `${APP_URL}/payment/success`,
+      failure: `${APP_URL}/payment/failure`,
+      pending: `${APP_URL}/payment/pending`
+    },
+    autoReturn: 'approved'
+  }, []); // Provider price IDs (empty for custom items)
+
+  return { checkoutUrl: preference.url };
+}
+```
+
+### Card Tokenization
+
+For custom checkout experiences:
+
+```typescript
+// Frontend: Tokenize card with MercadoPago.js
+const mp = new MercadoPago(MP_PUBLIC_KEY);
+const cardToken = await mp.createCardToken({
+  cardNumber: '5031755734530604',
+  cardExpirationMonth: '12',
+  cardExpirationYear: '2025',
+  securityCode: '123',
+  cardholderName: 'APRO'
+});
+
+// Backend: Process payment
+export async function processPayment(
+  customerId: string,
+  amount: number,
+  cardToken: string
+) {
+  const payment = await billing.payments.create({
+    customerId,
+    amount,
+    currency: 'ARS',
+    paymentMethodId: 'visa',
+    token: cardToken,
+    description: 'Purchase',
+    installments: 1
+  });
+
+  return payment;
+}
+```
+
+## 3D Secure Authentication
+
+MercadoPago supports 3D Secure for additional security:
+
+```typescript
+export async function createPaymentWith3DS(
+  customerId: string,
+  amount: number,
+  cardToken: string
+) {
+  const payment = await billing.payments.create({
+    customerId,
+    amount,
+    currency: 'ARS',
+    token: cardToken,
+    threeDSecureMode: 'optional', // or 'mandatory'
+    callbackUrl: `${APP_URL}/payment/3ds-callback`
+  });
+
+  if (payment.status === 'pending' && payment.threeDSInfo) {
+    // Redirect user to 3DS authentication
+    return {
+      requiresAuth: true,
+      redirectUrl: payment.threeDSInfo.redirectUrl
+    };
+  }
+
+  return { requiresAuth: false, payment };
+}
+
+// Handle 3DS callback
+export async function handle3DSCallback(paymentId: string) {
+  const payment = await billing.payments.get(paymentId);
+
+  if (payment.status === 'approved') {
+    return { success: true, payment };
+  }
+
+  return { success: false, status: payment.status };
+}
+```
+
+## Subscriptions (Preapprovals)
+
+MercadoPago uses "Preapprovals" for recurring billing:
+
+### Create a Subscription Plan
+
+```typescript
+export async function createSubscriptionPlan() {
+  const plan = await billing.plans.create({
+    name: 'Pro Monthly',
+    frequency: 1,
+    frequencyType: 'months',
+    transactionAmount: 999.00,
+    currencyId: 'ARS',
+    repetitions: null // Unlimited
+  });
+
+  return plan;
+}
+```
+
+### Subscribe a Customer
+
+```typescript
+export async function subscribeCustomer(
+  customerId: string,
+  planId: string,
+  cardToken: string
+) {
+  const subscription = await billing.subscriptions.create({
+    customerId,
+    planId,
+    paymentMethodToken: cardToken
+  });
+
+  return subscription;
+}
+```
+
+## Webhook Handling (IPN)
+
+MercadoPago uses IPN (Instant Payment Notification):
+
+```typescript
+// src/routes/webhooks.ts
+import { Hono } from 'hono';
+import { createWebhookRouter } from '@qazuor/qzpay-hono';
+import { billing, mpAdapter } from '../billing';
+
+// Create webhook router with Hono integration
+const mpWebhook = createWebhookRouter({
+  billing,
+  paymentAdapter: mpAdapter,
+  handlers: {
+    'payment': async (c, event) => {
+      console.log('Payment event:', event.data);
+    },
+    'subscription_preapproval': async (c, event) => {
+      console.log('Subscription event:', event.data);
+    },
+    'subscription_authorized_payment': async (c, event) => {
+      console.log('Recurring payment:', event.data);
+    }
+  }
+});
+
+const app = new Hono();
+app.route('/mercadopago', mpWebhook);
+
+export default app;
+```
+
+### IPN Topics
+
+| Topic | Description |
+|-------|-------------|
+| `payment` | Payment created/updated |
+| `subscription_preapproval` | Subscription created/updated |
+| `subscription_authorized_payment` | Recurring payment charged |
+
+<Aside type="note">
+Configure your IPN URL in the MercadoPago developer portal under Webhooks.
+</Aside>
+
+## Regional Configuration
+
+MercadoPago operates differently by country:
+
+```typescript
+// Argentina
+const mpAdapter = createQZPayMercadoPagoAdapter({
+  accessToken: process.env.MP_ACCESS_TOKEN!,
+  options: { locale: 'es-AR' }
+});
+
+// Brazil
+const mpAdapter = createQZPayMercadoPagoAdapter({
+  accessToken: process.env.MP_ACCESS_TOKEN_BR!,
+  options: { locale: 'pt-BR' }
+});
+```
+
+### Payment Methods by Country
+
+| Country | Cards | Cash | Bank |
+|---------|-------|------|------|
+| Argentina | Visa, Mastercard, Amex | Rapipago, PagoFacil | CBU |
+| Brazil | All major | Boleto | PIX |
+| Mexico | Visa, Mastercard | OXXO | SPEI |
+| Chile | All major | - | Webpay |
+| Colombia | All major | Efecty, Baloto | PSE |
+
+## Testing
+
+Use sandbox credentials for development:
+
+```bash
+MP_ACCESS_TOKEN=TEST-xxx
+MP_PUBLIC_KEY=TEST-xxx
+```
+
+### Test Cards
+
+| Card | Result |
+|------|--------|
+| `5031 7557 3453 0604` | Approved |
+| `5031 7557 3453 0620` | Pending |
+| `5031 7557 3453 0612` | Rejected |
+
+### Test Users
+
+Create test users in the MercadoPago developer portal:
+1. Go to Testing → Test Users
+2. Create buyer and seller accounts
+3. Use buyer credentials for testing payments

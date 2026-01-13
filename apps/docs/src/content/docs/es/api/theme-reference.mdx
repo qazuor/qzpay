@@ -1,0 +1,369 @@
+---
+title: Referencia de Temas
+description: Referencia completa de todas las propiedades de tema personalizables
+---
+
+import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Referencia de Temas
+
+Referencia completa de todas las propiedades de tema personalizables en `@qazuor/qzpay-react`.
+
+## Estructura del Tema
+
+```typescript
+interface QZPayTheme {
+  colors: QZPayThemeColors;
+  typography: QZPayThemeTypography;
+  spacing: QZPayThemeSpacing;
+  borderRadius: QZPayThemeBorderRadius;
+  shadows: QZPayThemeShadows;
+  transitions: QZPayThemeTransitions;
+}
+```
+
+## Colores (21 propiedades)
+
+### Colores Primarios
+
+| Propiedad | Descripcion | Predeterminado (Claro) | Predeterminado (Oscuro) |
+|----------|-------------|-----------------|----------------|
+| `primary` | Color de marca primario | `#2563eb` | `#3b82f6` |
+| `primaryHover` | Estado hover primario | `#1d4ed8` | `#2563eb` |
+| `primaryText` | Texto sobre fondo primario | `#ffffff` | `#ffffff` |
+
+### Colores Secundarios
+
+| Propiedad | Descripcion | Predeterminado (Claro) | Predeterminado (Oscuro) |
+|----------|-------------|-----------------|----------------|
+| `secondary` | Acciones secundarias | `#6b7280` | `#9ca3af` |
+| `secondaryHover` | Estado hover secundario | `#4b5563` | `#6b7280` |
+| `secondaryText` | Texto sobre fondo secundario | `#ffffff` | `#ffffff` |
+
+### Colores de Estado - Exito
+
+| Propiedad | Descripcion | Predeterminado (Claro) | Predeterminado (Oscuro) |
+|----------|-------------|-----------------|----------------|
+| `success` | Exito/confirmacion | `#16a34a` | `#22c55e` |
+| `successBackground` | Fondo de exito | `#dcfce7` | `#166534` |
+| `successText` | Texto de exito | `#166534` | `#dcfce7` |
+
+### Colores de Estado - Advertencia
+
+| Propiedad | Descripcion | Predeterminado (Claro) | Predeterminado (Oscuro) |
+|----------|-------------|-----------------|----------------|
+| `warning` | Advertencia/precaucion | `#d97706` | `#f59e0b` |
+| `warningBackground` | Fondo de advertencia | `#fef3c7` | `#92400e` |
+| `warningText` | Texto de advertencia | `#92400e` | `#fef3c7` |
+
+### Colores de Estado - Error
+
+| Propiedad | Descripcion | Predeterminado (Claro) | Predeterminado (Oscuro) |
+|----------|-------------|-----------------|----------------|
+| `error` | Error/peligro | `#dc2626` | `#ef4444` |
+| `errorBackground` | Fondo de error | `#fee2e2` | `#991b1b` |
+| `errorText` | Texto de error | `#dc2626` | `#fee2e2` |
+
+### Colores Neutrales
+
+| Propiedad | Descripcion | Predeterminado (Claro) | Predeterminado (Oscuro) |
+|----------|-------------|-----------------|----------------|
+| `background` | Fondo principal | `#ffffff` | `#111827` |
+| `surface` | Superficies de tarjetas/paneles | `#f9fafb` | `#1f2937` |
+| `border` | Bordes | `#e5e7eb` | `#374151` |
+| `muted` | Elementos silenciados/deshabilitados | `#9ca3af` | `#6b7280` |
+
+### Colores de Texto
+
+| Propiedad | Descripcion | Predeterminado (Claro) | Predeterminado (Oscuro) |
+|----------|-------------|-----------------|----------------|
+| `text` | Texto primario | `#111827` | `#f9fafb` |
+| `textSecondary` | Texto secundario | `#6b7280` | `#9ca3af` |
+| `textDisabled` | Texto deshabilitado | `#9ca3af` | `#4b5563` |
+
+## Tipografia (11 propiedades)
+
+### Familias de Fuentes
+
+| Propiedad | Descripcion | Predeterminado |
+|----------|-------------|---------|
+| `fontFamily` | Fuente base | `ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif` |
+| `fontFamilyMono` | Fuente monoespaciada | `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace` |
+
+### Tamanos de Fuente
+
+| Propiedad | Descripcion | Predeterminado |
+|----------|-------------|---------|
+| `fontSizeBase` | Tamano base | `16px` |
+| `fontSizeSm` | Texto pequeno | `14px` |
+| `fontSizeLg` | Texto grande | `18px` |
+| `fontSizeXl` | Texto de encabezado | `24px` |
+
+### Pesos de Fuente
+
+| Propiedad | Descripcion | Predeterminado |
+|----------|-------------|---------|
+| `fontWeightNormal` | Normal | `400` |
+| `fontWeightMedium` | Medio | `500` |
+| `fontWeightBold` | Negrita | `700` |
+
+### Alturas de Linea
+
+| Propiedad | Descripcion | Predeterminado |
+|----------|-------------|---------|
+| `lineHeightBase` | Base | `1.5` |
+| `lineHeightTight` | Encabezados | `1.25` |
+| `lineHeightRelaxed` | Texto legible | `1.75` |
+
+## Espaciado (6 tamanos)
+
+| Propiedad | Descripcion | Predeterminado |
+|----------|-------------|---------|
+| `xs` | Extra pequeno | `4px` |
+| `sm` | Pequeno | `8px` |
+| `md` | Mediano | `16px` |
+| `lg` | Grande | `24px` |
+| `xl` | Extra grande | `32px` |
+| `xxl` | 2x extra grande | `48px` |
+
+## Border Radius (6 tamanos)
+
+| Propiedad | Descripcion | Predeterminado |
+|----------|-------------|---------|
+| `none` | Sin radio | `0` |
+| `sm` | Pequeno | `4px` |
+| `md` | Predeterminado | `8px` |
+| `lg` | Grande | `12px` |
+| `xl` | Extra grande | `16px` |
+| `full` | Pildora/circulo | `9999px` |
+
+## Sombras (4 niveles)
+
+| Propiedad | Descripcion | Predeterminado |
+|----------|-------------|---------|
+| `none` | Sin sombra | `none` |
+| `sm` | Sutil | `0 1px 2px 0 rgb(0 0 0 / 0.05)` |
+| `md` | Media | `0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)` |
+| `lg` | Prominente | `0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)` |
+
+## Transiciones (4 propiedades)
+
+| Propiedad | Descripcion | Predeterminado |
+|----------|-------------|---------|
+| `fast` | Interacciones rapidas | `150ms` |
+| `normal` | Animaciones estandar | `200ms` |
+| `slow` | Animaciones deliberadas | `300ms` |
+| `easing` | Funcion easing | `cubic-bezier(0.4, 0, 0.2, 1)` |
+
+## Crear un Tema Personalizado
+
+```typescript
+import {
+  QZPayThemeProvider,
+  qzpayMergeTheme,
+  qzpayDefaultTheme
+} from '@qazuor/qzpay-react';
+
+const customTheme = qzpayMergeTheme(qzpayDefaultTheme, {
+  colors: {
+    primary: '#8b5cf6',      // Purple primary
+    primaryHover: '#7c3aed',
+    success: '#10b981',      // Emerald success
+    error: '#f43f5e'         // Rose error
+  },
+  borderRadius: {
+    sm: '2px',
+    md: '4px',
+    lg: '8px'
+  },
+  typography: {
+    fontFamily: '"Inter", sans-serif'
+  }
+});
+
+function App() {
+  return (
+    <QZPayThemeProvider theme={customTheme}>
+      <YourApp />
+    </QZPayThemeProvider>
+  );
+}
+```
+
+## Creadores de Estilos
+
+Funciones de estilo preconstruidas para un estilo de componentes consistente:
+
+### Estilos de Boton
+
+```typescript
+import { qzpayButtonStyles } from '@qazuor/qzpay-react';
+
+const styles = qzpayButtonStyles(theme);
+// Returns: { base, primary, secondary, danger, disabled }
+```
+
+### Estilos de Input
+
+```typescript
+import { qzpayInputStyles } from '@qazuor/qzpay-react';
+
+const styles = qzpayInputStyles(theme);
+// Returns: { base, focus, error, disabled }
+```
+
+### Estilos de Card
+
+```typescript
+import { qzpayCardStyles } from '@qazuor/qzpay-react';
+
+const styles = qzpayCardStyles(theme);
+// Returns: { base, interactive, selected }
+```
+
+### Estilos de Badge
+
+```typescript
+import { qzpayBadgeStyles } from '@qazuor/qzpay-react';
+
+const styles = qzpayBadgeStyles(theme);
+// Returns: { base, success, warning, error, info, neutral }
+```
+
+### Estilos de Table
+
+```typescript
+import { qzpayTableStyles } from '@qazuor/qzpay-react';
+
+const styles = qzpayTableStyles(theme);
+// Returns: { table, header, headerCell, row, cell }
+```
+
+## Usar Estilos con Tema
+
+```tsx
+import { useQZPayTheme, useThemedStyles, qzpayButtonStyles } from '@qazuor/qzpay-react';
+
+function CustomButton({ children }) {
+  const theme = useQZPayTheme();
+  const buttonStyles = useThemedStyles(qzpayButtonStyles);
+
+  return (
+    <button style={{
+      ...buttonStyles.base,
+      ...buttonStyles.primary,
+      borderRadius: theme.borderRadius.md
+    }}>
+      {children}
+    </button>
+  );
+}
+```
+
+## CSS Variables
+
+El tema genera CSS Variables automaticamente:
+
+```css
+/* Color variables */
+--qzpay-color-primary
+--qzpay-color-primary-hover
+--qzpay-color-primary-text
+--qzpay-color-secondary
+--qzpay-color-success
+--qzpay-color-warning
+--qzpay-color-error
+--qzpay-color-background
+--qzpay-color-surface
+--qzpay-color-border
+--qzpay-color-text
+--qzpay-color-text-secondary
+
+/* Typography variables */
+--qzpay-font-family
+--qzpay-font-family-mono
+--qzpay-font-size-base
+--qzpay-font-size-sm
+--qzpay-font-size-lg
+
+/* Spacing variables */
+--qzpay-spacing-xs
+--qzpay-spacing-sm
+--qzpay-spacing-md
+--qzpay-spacing-lg
+--qzpay-spacing-xl
+
+/* Border radius variables */
+--qzpay-radius-sm
+--qzpay-radius-md
+--qzpay-radius-lg
+--qzpay-radius-full
+
+/* Shadow variables */
+--qzpay-shadow-sm
+--qzpay-shadow-md
+--qzpay-shadow-lg
+
+/* Transition variables */
+--qzpay-transition-fast
+--qzpay-transition-normal
+--qzpay-transition-slow
+```
+
+### Usar CSS Variables
+
+```css
+.custom-component {
+  background: var(--qzpay-color-surface);
+  border: 1px solid var(--qzpay-color-border);
+  border-radius: var(--qzpay-radius-md);
+  padding: var(--qzpay-spacing-md);
+  font-family: var(--qzpay-font-family);
+  transition: all var(--qzpay-transition-normal) var(--qzpay-transition-easing);
+}
+
+.custom-component:hover {
+  box-shadow: var(--qzpay-shadow-md);
+}
+```
+
+## Temas Integrados
+
+### Tema Predeterminado (Claro)
+
+```typescript
+import { qzpayDefaultTheme } from '@qazuor/qzpay-react';
+```
+
+### Tema Oscuro
+
+```typescript
+import { qzpayDarkTheme } from '@qazuor/qzpay-react';
+```
+
+### Cambiar entre Temas
+
+```tsx
+import {
+  QZPayThemeProvider,
+  qzpayDefaultTheme,
+  qzpayDarkTheme
+} from '@qazuor/qzpay-react';
+
+function App() {
+  const [isDark, setIsDark] = useState(false);
+
+  return (
+    <QZPayThemeProvider theme={isDark ? qzpayDarkTheme : qzpayDefaultTheme}>
+      <button onClick={() => setIsDark(!isDark)}>
+        Toggle Theme
+      </button>
+      <YourApp />
+    </QZPayThemeProvider>
+  );
+}
+```
+
+<Aside type="tip">
+Usa `qzpayMergeTheme` para crear variaciones de temas existentes en lugar de definir todas las propiedades desde cero.
+</Aside>

@@ -1,0 +1,286 @@
+---
+title: "@qazuor/qzpay-cli"
+description: CLI tool for scaffolding QZPay projects
+---
+
+import { Aside, Badge, LinkCard } from '@astrojs/starlight/components';
+
+# @qazuor/qzpay-cli
+
+<Badge text="Tooling" variant="caution" />
+
+<LinkCard
+  title="View on npm"
+  href="https://www.npmjs.com/package/@qazuor/qzpay-cli"
+  description="@qazuor/qzpay-cli"
+/>
+
+CLI tool for scaffolding complete QZPay billing setups.
+
+## Installation
+
+```bash
+# Global installation
+pnpm add -g @qazuor/qzpay-cli
+
+# Or as dev dependency
+pnpm add -D @qazuor/qzpay-cli
+```
+
+## Commands
+
+### init
+
+The `init` command scaffolds a complete billing setup through an interactive wizard:
+
+```bash
+# Interactive mode
+pnpm qzpay init
+
+# Specify output directory
+pnpm qzpay init --dir ./src/billing
+
+# Skip prompts and use defaults
+pnpm qzpay init --yes
+```
+
+#### What it does
+
+The wizard guides you through:
+
+1. **Project Info**
+   - Project name (kebab-case)
+   - Output directory
+   - Description (optional)
+
+2. **Payment Provider Selection**
+   - Stripe
+   - MercadoPago
+   - Both (multi-provider)
+
+3. **Storage Adapter**
+   - Drizzle + PostgreSQL (recommended for production)
+   - In-memory (for development/testing)
+
+4. **Framework Integration**
+   - Hono (fast, lightweight)
+   - NestJS (enterprise)
+   - Library only (no HTTP layer)
+
+5. **Features**
+   - Subscriptions (recurring billing)
+   - One-time payments
+   - Usage-based billing
+   - Marketplace (multi-vendor via Stripe Connect)
+   - Add-ons
+
+6. **Plan Configuration**
+   - Freemium: Free + Pro + Enterprise
+   - Tiered: Basic + Professional + Agency
+   - Usage-based: Starter + Growth + Business + Enterprise
+   - Custom plans
+
+## Generated Files
+
+Based on your selections, the CLI generates:
+
+### Core Files (Always Generated)
+
+| File | Description |
+|------|-------------|
+| `qzpay.config.ts` | Main billing configuration |
+| `.env.example` | Environment variables template |
+| `types.ts` | TypeScript type definitions |
+| `plans.ts` | Plan creation script |
+| `services.ts` | Business logic services |
+
+### Framework-Specific Files
+
+**Hono:**
+- `routes.ts` - API routes
+- `webhooks.ts` - Webhook handlers
+
+**NestJS:**
+- `billing.module.ts` - NestJS module
+- `billing.service.ts` - Injectable service
+- `webhooks.controller.ts` - Webhook controller
+- `webhooks.ts` - Webhook handlers
+
+## Generated Configuration
+
+### qzpay.config.ts
+
+```typescript
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+
+// Database connection
+const sql = postgres(process.env.DATABASE_URL!);
+const db = drizzle(sql);
+
+// Create billing instance
+export const billing = createQZPayBilling({
+  storage: createQZPayDrizzleAdapter(db),
+  paymentAdapter: createQZPayStripeAdapter({
+    apiKey: process.env.STRIPE_SECRET_KEY!
+  }),
+  livemode: process.env.NODE_ENV === 'production'
+});
+
+// Event listeners
+billing.on('subscription.created', async (event) => {
+  console.log('New subscription:', event.data.id);
+});
+
+billing.on('payment.succeeded', async (event) => {
+  console.log('Payment received:', event.data.amount);
+});
+```
+
+### .env.example
+
+```bash
+# Database
+DATABASE_URL=postgresql://user:pass@localhost:5432/billing
+
+# Stripe
+STRIPE_SECRET_KEY=sk_test_xxx
+STRIPE_WEBHOOK_SECRET=whsec_xxx
+STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+
+# MercadoPago (if selected)
+MERCADOPAGO_ACCESS_TOKEN=TEST-xxx
+MERCADOPAGO_WEBHOOK_SECRET=xxx
+MERCADOPAGO_PUBLIC_KEY=TEST-xxx
+
+# Server (if framework selected)
+PORT=3000
+HOST=localhost
+```
+
+### services.ts
+
+```typescript
+import { billing } from './qzpay.config';
+
+// Customer management
+export async function registerCustomer(email: string, name: string) {
+  return billing.customers.create({ email, name });
+}
+
+export async function getCustomer(customerId: string) {
+  return billing.customers.get(customerId);
+}
+
+// Subscription management
+export async function subscribeToPlan(customerId: string, planId: string) {
+  return billing.subscriptions.create({ customerId, planId });
+}
+
+export async function changePlan(subscriptionId: string, newPlanId: string) {
+  return billing.subscriptions.changePlan(subscriptionId, { newPlanId });
+}
+
+export async function cancelSubscription(subscriptionId: string) {
+  return billing.subscriptions.cancel(subscriptionId, { atPeriodEnd: true });
+}
+
+// Payment history
+export async function getPaymentHistory(customerId: string) {
+  return billing.payments.getByCustomerId(customerId);
+}
+
+export async function getInvoices(customerId: string) {
+  return billing.invoices.getByCustomerId(customerId);
+}
+```
+
+### plans.ts
+
+Script to create your plans in the payment provider:
+
+```typescript
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+async function createPlans() {
+  // Create Pro plan
+  const proProduct = await stripe.products.create({
+    name: 'Pro Plan',
+    description: 'Professional features'
+  });
+
+  const proMonthly = await stripe.prices.create({
+    product: proProduct.id,
+    unit_amount: 2900, // $29.00
+    currency: 'usd',
+    recurring: { interval: 'month' }
+  });
+
+  const proYearly = await stripe.prices.create({
+    product: proProduct.id,
+    unit_amount: 29000, // $290.00
+    currency: 'usd',
+    recurring: { interval: 'year' }
+  });
+
+  console.log('Plans created!');
+  console.log('Pro Monthly:', proMonthly.id);
+  console.log('Pro Yearly:', proYearly.id);
+}
+
+createPlans();
+```
+
+Run with: `npx tsx plans.ts`
+
+## After Scaffolding
+
+1. **Copy environment variables:**
+   ```bash
+   cp .env.example .env
+   # Fill in your actual credentials
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pnpm install
+   ```
+
+3. **Create plans in payment provider:**
+   ```bash
+   npx tsx plans.ts
+   ```
+
+4. **Run database migrations (if using Drizzle):**
+   ```bash
+   pnpm drizzle-kit push
+   ```
+
+5. **Start your application:**
+   ```bash
+   pnpm dev
+   ```
+
+## CLI Options
+
+```bash
+qzpay init [options]
+
+Options:
+  -d, --dir <directory>  Output directory (default: ".")
+  -y, --yes              Skip prompts and use defaults
+  -h, --help             Display help
+```
+
+<Aside type="note">
+The CLI is a scaffolding tool that generates project files. It does not include runtime commands for managing customers, subscriptions, or plans. Those operations are done programmatically through the generated code or via the QZPay API.
+</Aside>
+
+<Aside type="tip">
+After scaffolding, customize the generated files to match your specific business requirements. The generated code is meant as a starting point.
+</Aside>

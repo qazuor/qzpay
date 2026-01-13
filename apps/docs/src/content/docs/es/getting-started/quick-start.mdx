@@ -1,0 +1,259 @@
+---
+title: Inicio Rápido
+description: Comienza a usar QZPay en minutos
+---
+
+import { Steps, Aside, Code, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Inicio Rápido
+
+Esta guía te ayudará a configurar una integración básica de facturación con QZPay usando Stripe.
+
+## Elige tu Método de Configuración
+
+<Tabs>
+  <TabItem label="CLI (Recomendado)">
+
+El CLI proporciona la forma más rápida de comenzar:
+
+<Steps>
+
+1. **Instalar el CLI**
+
+   ```bash
+   pnpm add -D @qazuor/qzpay-cli
+   ```
+
+2. **Inicializar tu proyecto**
+
+   ```bash
+   pnpm qzpay init
+   ```
+
+   Este asistente interactivo:
+   - Preguntará qué proveedor de pago usar (Stripe, MercadoPago)
+   - Preguntará qué adaptador de almacenamiento usar (Drizzle)
+   - Preguntará con qué framework integrar (Hono, NestJS)
+   - Creará el archivo de configuración
+   - Generará archivos de servicio
+
+3. **Configurar variables de entorno**
+
+   Copia el `.env.example` generado a `.env`:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Completa con tus credenciales reales:
+
+   ```bash
+   DATABASE_URL=postgresql://user:pass@localhost:5432/billing
+   STRIPE_SECRET_KEY=sk_test_xxx
+   STRIPE_WEBHOOK_SECRET=whsec_xxx
+   ```
+
+4. **Ejecutar migraciones de base de datos**
+
+   ```bash
+   pnpm drizzle-kit push
+   ```
+
+5. **Crear planes en Stripe**
+
+   Ejecuta el script de planes generado:
+
+   ```bash
+   npx tsx plans.ts
+   ```
+
+</Steps>
+
+Tu configuración de QZPay está lista. El CLI crea un archivo `qzpay.config.ts` que puedes importar en tu aplicación.
+
+  </TabItem>
+  <TabItem label="Configuración Manual">
+
+<Steps>
+
+1. **Instalar los paquetes**
+
+   ```bash
+   pnpm add @qazuor/qzpay-core @qazuor/qzpay-stripe @qazuor/qzpay-drizzle stripe drizzle-orm postgres
+   ```
+
+2. **Configurar el esquema de base de datos**
+
+   Configura Drizzle con el esquema de QZPay:
+
+   ```typescript
+   // drizzle.config.ts
+   import { defineConfig } from 'drizzle-kit';
+
+   export default defineConfig({
+     schema: './node_modules/@qazuor/qzpay-drizzle/dist/schema',
+     out: './drizzle',
+     dialect: 'postgresql',
+     dbCredentials: {
+       url: process.env.DATABASE_URL!
+     }
+   });
+   ```
+
+   Ejecuta las migraciones:
+
+   ```bash
+   pnpm drizzle-kit push
+   ```
+
+3. **Inicializar el servicio de facturación**
+
+   ```typescript
+   // src/billing.ts
+   import { createQZPayBilling } from '@qazuor/qzpay-core';
+   import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+   import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+   import { drizzle } from 'drizzle-orm/postgres-js';
+   import postgres from 'postgres';
+
+   const sql = postgres(process.env.DATABASE_URL!);
+   const db = drizzle(sql);
+
+   export const billing = createQZPayBilling({
+     storage: createQZPayDrizzleAdapter(db),
+     paymentAdapter: createQZPayStripeAdapter({
+       apiKey: process.env.STRIPE_SECRET_KEY!,
+       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET
+     })
+   });
+   ```
+
+4. **Crear tu primer cliente**
+
+   ```typescript
+   const customer = await billing.customers.create({
+     email: 'user@example.com',
+     name: 'John Doe',
+     metadata: {
+       userId: 'usr_123'
+     }
+   });
+
+   console.log('Customer created:', customer.id);
+   ```
+
+5. **Crear una suscripción**
+
+   ```typescript
+   // First, ensure you have a plan configured in Stripe
+   const subscription = await billing.subscriptions.create({
+     customerId: customer.id,
+     planId: 'price_xxx' // Your Stripe price ID
+   });
+
+   console.log('Subscription created:', subscription.status);
+   ```
+
+6. **Manejar webhooks**
+
+   ```typescript
+   // src/routes/webhooks.ts
+   import { Hono } from 'hono';
+   import { createWebhookRouter } from '@qazuor/qzpay-hono';
+   import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+   import { billing } from '../billing';
+
+   const stripeAdapter = createQZPayStripeAdapter({
+     apiKey: process.env.STRIPE_SECRET_KEY!,
+     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!
+   });
+
+   const app = new Hono();
+
+   const webhookRouter = createWebhookRouter({
+     billing,
+     paymentAdapter: stripeAdapter
+   });
+
+   app.route('/webhooks/stripe', webhookRouter);
+
+   export default app;
+   ```
+
+</Steps>
+
+  </TabItem>
+</Tabs>
+
+## Ejemplo Completo
+
+Aquí tienes un ejemplo completo con Hono:
+
+```typescript
+import { Hono } from 'hono';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+import {
+  createQZPayMiddleware,
+  createBillingRoutes,
+  createWebhookRouter
+} from '@qazuor/qzpay-hono';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+
+// Database setup
+const sql = postgres(process.env.DATABASE_URL!);
+const db = drizzle(sql);
+
+// Create adapters
+const storage = createQZPayDrizzleAdapter(db);
+const stripeAdapter = createQZPayStripeAdapter({
+  apiKey: process.env.STRIPE_SECRET_KEY!,
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!
+});
+
+// Billing setup
+const billing = createQZPayBilling({
+  storage,
+  paymentAdapter: stripeAdapter
+});
+
+// Event handlers
+billing.on('subscription.created', async (event) => {
+  console.log('New subscription:', event.data.id);
+});
+
+billing.on('payment.succeeded', async (event) => {
+  console.log('Payment received:', event.data.amount);
+});
+
+// App setup
+const app = new Hono();
+
+// Add QZPay middleware
+app.use('*', createQZPayMiddleware({ billing }));
+
+// Mount billing routes
+const billingRoutes = createBillingRoutes({ billing });
+app.route('/api/billing', billingRoutes);
+
+// Mount webhook handler
+const webhookRouter = createWebhookRouter({
+  billing,
+  paymentAdapter: stripeAdapter
+});
+app.route('/webhooks/stripe', webhookRouter);
+
+export default app;
+```
+
+<Aside type="tip">
+Para producción, siempre usa variables de entorno para claves sensibles y configura la verificación adecuada de firmas de webhooks.
+</Aside>
+
+## Próximos Pasos
+
+- Aprende sobre [Conceptos Fundamentales](/es/concepts/architecture/)
+- Explora la [Integración con Stripe](/es/guides/stripe-integration/)
+- Configura el [Manejo de Webhooks](/es/guides/webhook-handling/)

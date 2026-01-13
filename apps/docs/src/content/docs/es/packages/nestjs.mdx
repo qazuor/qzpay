@@ -1,0 +1,265 @@
+---
+title: "@qazuor/qzpay-nestjs"
+description: Módulo NestJS para integración con QZPay
+---
+
+import { Aside, Badge, LinkCard } from '@astrojs/starlight/components';
+
+# @qazuor/qzpay-nestjs
+
+<Badge text="Integración" variant="success" />
+
+<LinkCard
+  title="Ver en npm"
+  href="https://www.npmjs.com/package/@qazuor/qzpay-nestjs"
+  description="@qazuor/qzpay-nestjs"
+/>
+
+Módulo NestJS con decoradores, guards y servicios.
+
+## Instalación
+
+```bash
+pnpm add @qazuor/qzpay-nestjs
+```
+
+## Configuración del Módulo
+
+### Configuración Síncrona
+
+```typescript
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { QZPayModule } from '@qazuor/qzpay-nestjs';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+const billing = createQZPayBilling({
+  storage: createQZPayDrizzleAdapter(db),
+  paymentAdapter: createQZPayStripeAdapter({
+    apiKey: process.env.STRIPE_SECRET_KEY!
+  })
+});
+
+@Module({
+  imports: [
+    QZPayModule.forRoot({ billing })
+  ]
+})
+export class AppModule {}
+```
+
+### Configuración Async
+
+```typescript
+import { QZPayModule } from '@qazuor/qzpay-nestjs';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+import { ConfigService } from '@nestjs/config';
+
+@Module({
+  imports: [
+    QZPayModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        billing: createQZPayBilling({
+          storage: createQZPayDrizzleAdapter(db),
+          paymentAdapter: createQZPayStripeAdapter({
+            apiKey: config.get('STRIPE_SECRET_KEY')
+          })
+        })
+      })
+    })
+  ]
+})
+export class AppModule {}
+```
+
+## QZPayService
+
+Inyecta el servicio de facturación en cualquier lugar:
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { QZPayService } from '@qazuor/qzpay-nestjs';
+
+@Injectable()
+export class SubscriptionService {
+  constructor(private readonly qzpay: QZPayService) {}
+
+  async createSubscription(userId: string, planId: string) {
+    const customer = await this.qzpay.customers.getByMetadata('userId', userId);
+
+    return this.qzpay.subscriptions.create({
+      customerId: customer.id,
+      planId
+    });
+  }
+}
+```
+
+## Controllers
+
+### Controllers Incorporados
+
+```typescript
+import { QZPayModule } from '@qazuor/qzpay-nestjs';
+
+@Module({
+  imports: [
+    QZPayModule.forRoot({
+      provider,
+      storage,
+      controllers: {
+        billing: true,      // /billing/*
+        webhooks: true,     // /webhooks/*
+        admin: false        // Deshabilitado por defecto
+      }
+    })
+  ]
+})
+```
+
+### Controller Personalizado
+
+```typescript
+import { Controller, Post, Body } from '@nestjs/common';
+import { QZPayService } from '@qazuor/qzpay-nestjs';
+
+@Controller('subscriptions')
+export class SubscriptionController {
+  constructor(private readonly qzpay: QZPayService) {}
+
+  @Post()
+  async create(@Body() body: CreateSubscriptionDto) {
+    return this.qzpay.subscriptions.create(body);
+  }
+}
+```
+
+## Decoradores
+
+### @RequireEntitlement
+
+Protege rutas basándote en entitlements de funcionalidad:
+
+```typescript
+import { RequireEntitlement } from '@qazuor/qzpay-nestjs';
+
+@Controller('api')
+export class ApiController {
+  @Get('advanced-analytics')
+  @RequireEntitlement('advanced_analytics')
+  getAnalytics() {
+    return { data: '...' };
+  }
+}
+```
+
+### @RequireSubscription
+
+Requiere una suscripción activa:
+
+```typescript
+import { RequireSubscription } from '@qazuor/qzpay-nestjs';
+
+@Controller('premium')
+@RequireSubscription()
+export class PremiumController {
+  @Get('content')
+  getContent() {
+    return { premium: true };
+  }
+}
+```
+
+### @RateLimit
+
+Aplica rate limiting basado en límites de cliente QZPay:
+
+```typescript
+import { RateLimit } from '@qazuor/qzpay-nestjs';
+
+@Controller('api')
+export class ApiController {
+  @Post('generate')
+  @RateLimit('api_requests')
+  generate() {
+    return { result: 'generated' };
+  }
+
+  @Post('upload')
+  @RateLimit('file_uploads', 5) // Cuenta como 5 usos
+  upload() {
+    return { uploaded: true };
+  }
+}
+```
+
+## Guards
+
+### EntitlementGuard
+
+```typescript
+import { EntitlementGuard } from '@qazuor/qzpay-nestjs';
+
+@UseGuards(EntitlementGuard)
+@RequireEntitlement('api_access')
+@Controller('api')
+export class ApiController {}
+```
+
+### SubscriptionGuard
+
+```typescript
+import { SubscriptionGuard } from '@qazuor/qzpay-nestjs';
+
+@UseGuards(SubscriptionGuard)
+@Controller('premium')
+export class PremiumController {}
+```
+
+## Manejo de Webhooks
+
+```typescript
+import { Controller, Post, Body, Headers } from '@nestjs/common';
+import { QZPayWebhookService } from '@qazuor/qzpay-nestjs';
+
+@Controller('webhooks')
+export class WebhookController {
+  constructor(private readonly webhooks: QZPayWebhookService) {}
+
+  @Post('stripe')
+  async handleStripe(
+    @Body() body: Buffer,
+    @Headers('stripe-signature') signature: string
+  ) {
+    await this.webhooks.processStripe(body, signature);
+    return { received: true };
+  }
+}
+```
+
+## Eventos
+
+Escucha eventos de facturación con NestJS event emitter:
+
+```typescript
+import { OnEvent } from '@nestjs/event-emitter';
+import { Injectable } from '@nestjs/common';
+
+@Injectable()
+export class BillingEventHandler {
+  @OnEvent('qzpay.subscription.created')
+  handleSubscriptionCreated(event: SubscriptionCreatedEvent) {
+    console.log('Nueva suscripción:', event.data.id);
+  }
+
+  @OnEvent('qzpay.payment.succeeded')
+  handlePaymentSucceeded(event: PaymentSucceededEvent) {
+    // Enviar recibo
+  }
+}
+```

@@ -1,0 +1,241 @@
+---
+title: Ciclo de Vida de Suscripciones
+description: Gestión del ciclo completo de suscripciones con QZPay
+---
+
+import { Steps, Aside } from '@astrojs/starlight/components';
+
+# Guía del Ciclo de Vida de Suscripciones
+
+Esta guía cubre la gestión de suscripciones desde la creación hasta la cancelación.
+
+## Visión General del Ciclo de Vida
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                CICLO DE VIDA DE SUSCRIPCIÓN                  │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ┌─────────┐        ┌──────────┐        ┌────────┐         │
+│   │ Creada  │───────▶│ En Prueba│───────▶│ Activa │         │
+│   └─────────┘        └──────────┘        └────────┘         │
+│        │                   │                  │              │
+│        │                   │                  ▼              │
+│        │                   │            ┌──────────┐         │
+│        │                   │            │ Vencida  │         │
+│        │                   │            └──────────┘         │
+│        │                   │                  │              │
+│        │                   ▼                  ▼              │
+│        │             ┌──────────┐        ┌────────┐          │
+│        └────────────▶│ Cancelada│◀───────│ Impaga │          │
+│                      └──────────┘        └────────┘          │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## Crear Suscripciones
+
+### Creación Básica
+
+```typescript
+const subscription = await billing.subscriptions.create({
+  customerId: 'cus_123',
+  planId: 'price_pro_monthly',
+  paymentMethodId: 'pm_card_visa'
+});
+```
+
+### Con Período de Prueba
+
+```typescript
+const subscription = await billing.subscriptions.create({
+  customerId: 'cus_123',
+  planId: 'price_pro_monthly',
+  trialDays: 14 // 14 días de prueba
+});
+
+// La suscripción inicia en estado 'trialing'
+// No se requiere pago hasta que termine la prueba
+```
+
+### Con Código Promocional
+
+```typescript
+const subscription = await billing.subscriptions.create({
+  customerId: 'cus_123',
+  planId: 'price_pro_monthly',
+  promoCode: 'LANZAMIENTO50' // 50% descuento primer mes
+});
+```
+
+## Gestión de Prueba
+
+### Verificar Estado de Prueba
+
+```typescript
+const subscription = await billing.subscriptions.get('sub_123');
+
+if (subscription.status === 'trialing') {
+  const daysLeft = Math.ceil(
+    (subscription.trialEnd - Date.now()) / (1000 * 60 * 60 * 24)
+  );
+  console.log(`La prueba termina en ${daysLeft} días`);
+}
+```
+
+### Notificación de Fin de Prueba
+
+```typescript
+billing.on('subscription.trial_ending', async (event) => {
+  const { customerId, trialEnd } = event.data;
+
+  // Enviar email recordatorio 3 días antes
+  await sendEmail(customerId, 'trial_ending', {
+    trialEndDate: trialEnd,
+    action: 'agregar_metodo_pago'
+  });
+});
+```
+
+## Cambios de Plan
+
+### Upgrade
+
+```typescript
+const subscription = await billing.subscriptions.update('sub_123', {
+  planId: 'price_enterprise_monthly',
+  proration: 'create_prorations'
+});
+
+// Se cobra la diferencia prorrateada inmediatamente
+// Las nuevas funcionalidades están disponibles inmediatamente
+```
+
+### Downgrade
+
+```typescript
+const subscription = await billing.subscriptions.update('sub_123', {
+  planId: 'price_basic_monthly'
+});
+```
+
+<Aside type="tip">
+Para downgrades, considera usar el método `changePlan` que maneja el prorrateo automáticamente.
+</Aside>
+
+### Usando changePlan para Cambios de Plan
+
+Para mayor control sobre cambios de plan con prorrateo:
+
+```typescript
+const result = await billing.subscriptions.changePlan('sub_123', {
+  newPlanId: 'price_enterprise_monthly',
+  proration: 'create_prorations'
+});
+
+console.log('Monto prorrateado:', result.proratedAmount);
+```
+
+## Pausar y Reanudar
+
+### Pausar
+
+```typescript
+// Pausar suscripción
+await billing.subscriptions.pause('sub_123');
+```
+
+### Reanudar
+
+```typescript
+await billing.subscriptions.resume('sub_123');
+
+// El estado vuelve a 'active'
+// La facturación se reanuda
+```
+
+## Cancelación
+
+### Cancelación Inmediata
+
+```typescript
+await billing.subscriptions.cancel('sub_123', {
+  atPeriodEnd: false
+});
+
+// El acceso termina inmediatamente
+// Sin reembolso por defecto
+```
+
+### Cancelar al Final del Período
+
+```typescript
+await billing.subscriptions.cancel('sub_123', {
+  atPeriodEnd: true
+});
+
+// El acceso continúa hasta currentPeriodEnd
+// No más cargos
+// El estado cambia a 'canceled' al final del período
+```
+
+### Recopilar Feedback
+
+```typescript
+billing.on('subscription.canceled', async (event) => {
+  await storeCancellationData({
+    subscriptionId: event.data.id,
+    customerId: event.data.customerId,
+    canceledAt: event.data.canceledAt,
+    reason: event.data.metadata?.cancellationReason
+  });
+
+  await sendSurvey(event.data.customerId, 'cancellation');
+});
+```
+
+## Manejo de Pagos Fallidos
+
+### Estado Vencido
+
+Cuando un pago falla, la suscripción entra en estado 'past_due':
+
+```typescript
+billing.on('payment.failed', async (event) => {
+  const { subscriptionId, customerId, failureReason } = event.data;
+
+  // Notificar al cliente
+  await sendEmail(customerId, 'pago_fallido', {
+    reason: failureReason,
+    updatePaymentUrl: `${APP_URL}/billing/metodo-pago`
+  });
+
+  // Tracking interno
+  await recordPaymentFailure(subscriptionId);
+});
+```
+
+## Control de Acceso a Funcionalidades
+
+### Basado en Estado
+
+```typescript
+function hasAccess(subscription: Subscription): boolean {
+  const activeStatuses = ['active', 'trialing', 'past_due'];
+
+  // Permitir acceso durante período de gracia
+  if (subscription.status === 'canceled') {
+    return subscription.currentPeriodEnd > new Date();
+  }
+
+  return activeStatuses.includes(subscription.status);
+}
+```
+
+## Mejores Prácticas
+
+1. **Siempre usa `atPeriodEnd: true`** para cancelaciones a menos que se solicite explícitamente
+2. **Envía notificaciones proactivas** para fin de prueba, pago fallido
+3. **Implementa períodos de gracia** para reducir churn involuntario
+4. **Rastrea razones de cancelación** para mejorar tu producto
+5. **Permite reactivación** dentro de una ventana razonable
