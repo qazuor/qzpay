@@ -7,6 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+#### Core Package (@qazuor/qzpay-core)
+- **Input Validation**: Added comprehensive Zod validation to all create methods
+  - `customers.create()` validates email, name, and external ID
+  - `payments.process()` validates amount, currency, and customer ID
+  - `invoices.create()` validates line items and customer data
+  - `addons.create()` validates pricing and plan associations
+- **Promo Code Validation**: Enhanced validation system
+  - Plan applicability checks (only applies to specified plans)
+  - Per-customer usage limits enforcement
+  - Date range validation (valid_from, valid_to)
+  - Active status verification
+  - Max uses limit enforcement
+- **Logger Integration**: Replaced all `console.error` calls with proper logger
+  - Structured logging with log levels (debug, info, warn, error)
+  - Context-aware error messages
+  - Consistent error tracking across all services
+
+#### Stripe Package (@qazuor/qzpay-stripe)
+- **Error Mapping System**: New comprehensive error handling
+  - `QZPayStripeError` class for consistent error types
+  - `/utils/error.utils.ts` with Stripe error mapper
+  - Maps Stripe errors to QZPay error codes
+  - Improved error messages for debugging
+- **3D Secure Support**: Enhanced 3DS authentication flow
+  - `clientSecret` exposed for frontend integration
+  - `nextAction` property for action-required payments
+  - Full support for SCA (Strong Customer Authentication)
+- **Bug Fix**: Fixed external customer ID handling
+  - Properly passes `externalId` to Stripe metadata
+  - Ensures customer sync between QZPay and Stripe
+
+#### MercadoPago Package (@qazuor/qzpay-mercadopago)
+- **Error Handling**: Comprehensive try/catch in all adapters
+  - Customer adapter error handling
+  - Payment adapter error handling
+  - Subscription adapter error handling
+  - Checkout adapter error handling
+  - Webhook adapter error handling
+- **QZPayMercadoPagoError**: New error class with error codes
+  - `/utils/error-mapper.ts` for error normalization
+  - Maps MercadoPago status codes to QZPay errors
+  - Provides user-friendly error messages
+  - Includes original error for debugging
+- **Bug Fix**: Fixed `payer_email` in subscriptions
+  - Now fetches customer email when creating preapprovals
+  - Ensures compliance with MercadoPago requirements
+- **Bug Fix**: Fixed checkout unit prices
+  - Properly fetches `unit_price` from price object
+  - Correctly sets `currency_id` in preferences
+  - Fixes checkout session creation
+
+#### React Package (@qazuor/qzpay-react)
+- **Accessibility (WCAG 2.1 AA)**: Full accessibility support
+  - ARIA labels on all interactive elements
+  - ARIA roles for semantic structure
+  - ARIA live regions for dynamic content
+  - Screen reader support in all components
+  - Keyboard navigation support
+- **ErrorBoundary Component**: New error handling component
+  - Catches errors in React component tree
+  - Provides fallback UI with error details
+  - Supports custom fallback components
+  - Error logging callback support
+  - Recovery mechanisms
+- **Bug Fix**: Fixed `usePlans` hook
+  - Corrected API endpoint call
+  - Fixed data fetching logic
+  - Proper error handling
+
+#### Dev Package (@qazuor/qzpay-dev)
+- **Mock Adapters**: Development and testing utilities
+  - Mock payment adapter for testing
+  - Mock storage adapter for development
+  - No external dependencies required
+  - Fast and predictable for testing
+
 ### Planned for v1.1.0
 - Redis rate limiting store
 - Transaction context propagation

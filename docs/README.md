@@ -13,6 +13,7 @@
 | [API](./05-api/) | Public API, events, constants | [Public API](./05-api/PUBLIC-API.md) |
 | [Implementation](./06-implementation/) | Roadmap, phases, task tracking | [Roadmap](./06-implementation/ROADMAP.md) |
 | [ADRs](./07-adr/) | Architecture Decision Records | [Index](./07-adr/README.md) |
+| [Guides](./08-guides/) | Practical implementation guides | [Payment Providers](./08-guides/payment-providers.md) |
 | [Examples](./examples/) | Real-world implementation examples | [GEMFolio](./examples/GEMFOLIO-EXAMPLE.md) |
 
 ---
@@ -131,6 +132,7 @@ Phase 8: Documentation  ░░░░░░░░░░░░░░░░░░�
 | API Specification | Complete | 2024-12-28 |
 | Implementation Plan | Complete | 2024-12-28 |
 | ADRs | In Progress | 2024-12-28 |
+| Guides | In Progress | 2026-01-13 |
 
 ---
 

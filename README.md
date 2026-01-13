@@ -41,6 +41,7 @@ Universal billing and payments library for Node.js applications. Provider-agnost
 | [`@qazuor/qzpay-hono`](./packages/hono) | Hono framework middleware | ![npm](https://img.shields.io/npm/v/@qazuor/qzpay-hono) |
 | [`@qazuor/qzpay-nestjs`](./packages/nestjs) | NestJS module | ![npm](https://img.shields.io/npm/v/@qazuor/qzpay-nestjs) |
 | [`@qazuor/qzpay-react`](./packages/react) | React hooks and components | ![npm](https://img.shields.io/npm/v/@qazuor/qzpay-react) |
+| [`@qazuor/qzpay-dev`](./packages/dev) | Development utilities and mocks | ![npm](https://img.shields.io/npm/v/@qazuor/qzpay-dev) |
 
 ## Installation
 
@@ -322,19 +323,41 @@ app.post('/webhooks/mercadopago', async (c) => {
 
 ## Documentation
 
+### Package Documentation
+
 - [Core Package](./packages/core/README.md) - Types, interfaces, and core services
+  - Input validation with Zod
+  - Promo code validation
+  - Logger integration
 - [Stripe Adapter](./packages/stripe/README.md) - Stripe integration guide
+  - Error mapping and handling
+  - 3D Secure support
+  - Customer external ID fixes
 - [MercadoPago Adapter](./packages/mercadopago/README.md) - MercadoPago integration guide
+  - Comprehensive error handling
+  - Fixed payer email in subscriptions
+  - Fixed checkout prices
 - [Drizzle Storage](./packages/drizzle/README.md) - Database schema and migrations
 - [Hono Integration](./packages/hono/README.md) - Hono middleware guide
 - [NestJS Integration](./packages/nestjs/README.md) - NestJS module guide
 - [React Components](./packages/react/README.md) - React hooks and components
+  - WCAG 2.1 AA accessibility
+  - ErrorBoundary component
+  - Fixed usePlans hook
+- [Dev Package](./packages/dev/README.md) - Development utilities and mocks
+
+### Guides
+
+- [Error Handling Guide](./docs/08-guides/error-handling.md) - Comprehensive error handling patterns
+- [Accessibility Guide](./docs/08-guides/accessibility.md) - WCAG 2.1 AA compliance
+- [Payment Providers](./docs/08-guides/payment-providers.md) - Provider configuration
 
 ### Architecture
 
 - [Architecture Overview](./docs/03-architecture/OVERVIEW.md)
 - [Data Model](./docs/04-data-model/OVERVIEW.md)
 - [API Reference](./docs/05-api/OVERVIEW.md)
+- [Error Catalog](./docs/05-api/ERROR-CATALOG.md) - Complete error reference
 
 ## Requirements
 
