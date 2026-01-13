@@ -4,7 +4,7 @@
 import type { QZPayEmailAdapter } from './adapters/email.adapter.js';
 import type { QZPayPaymentAdapter } from './adapters/payment.adapter.js';
 import type { QZPayStorageAdapter } from './adapters/storage.adapter.js';
-import type { QZPayBillingEvent, QZPayCurrency } from './constants/index.js';
+import type { QZPayBillingEvent, QZPayCurrency, QZPayPaymentStatus } from './constants/index.js';
 import { QZPayEventEmitter, type QZPayEventEmitterOptions } from './events/event-emitter.js';
 import {
     type QZPayGracePeriodConfig,
@@ -44,6 +44,7 @@ import type { QZPayPlan, QZPayPrice } from './types/plan.types.js';
 import type { QZPayPromoCode } from './types/promo-code.types.js';
 import type { QZPaySubscription } from './types/subscription.types.js';
 import { createDefaultLogger } from './utils/default-logger.js';
+import { qzpayCreateValidator } from './utils/validation.utils.js';
 
 /**
  * Subscription service input types
@@ -123,6 +124,19 @@ export interface QZPayProcessPaymentInput {
     subscriptionId?: string;
     paymentMethodId?: string;
     metadata?: Record<string, unknown>;
+    /** Card token for providers that require tokenization (e.g., MercadoPago) */
+    token?: string;
+    /** Number of installments for card payments */
+    installments?: number;
+    /** Saved card ID for recurring payments */
+    cardId?: string;
+    /** Payer identification for providers that require it (e.g., MercadoPago in Argentina) */
+    payerIdentification?: {
+        type: string;
+        number: string;
+    };
+    /** Override payer email (useful for test mode with MercadoPago test users) */
+    payerEmail?: string;
 }
 
 export interface QZPayRefundPaymentInput {
@@ -331,6 +345,24 @@ export interface QZPayPaymentService {
      * Get payments for a customer
      */
     getByCustomerId: (customerId: string) => Promise<QZPayPayment[]>;
+
+    /**
+     * Record an external payment (already processed by a payment provider)
+     * Use this when the payment was processed by an external system (e.g., backend API)
+     * and you need to create a local record for tracking purposes.
+     */
+    record: (input: {
+        id: string;
+        customerId: string;
+        amount: number;
+        currency: QZPayCurrency;
+        status: QZPayPaymentStatus;
+        providerPaymentId?: string;
+        provider?: string;
+        invoiceId?: string;
+        subscriptionId?: string;
+        metadata?: Record<string, unknown>;
+    }) => Promise<QZPayPayment>;
 
     /**
      * Refund a payment
@@ -709,40 +741,166 @@ class QZPayBillingImpl implements QZPayBilling {
     }
 
     get customers(): QZPayCustomerService {
+        const storage = this.storage;
+        const emitter = this.emitter;
+        const paymentAdapter = this.paymentAdapter;
+
         return {
             create: async (input) => {
-                const customer = await this.storage.customers.create(input);
-                await this.emitter.emit('customer.created', customer);
+                // Validate input
+                qzpayCreateValidator(input as unknown as Record<string, unknown>)
+                    .required('email', 'Email is required')
+                    .email('email', 'Invalid email format')
+                    .required('externalId', 'External ID is required')
+                    .custom(!input.name || (typeof input.name === 'string' && input.name.trim().length > 0), 'Name cannot be empty string')
+                    .assertValid();
+
+                const customer = await storage.customers.create(input);
+
+                // Sync with payment provider if available
+                if (paymentAdapter) {
+                    try {
+                        const providerInput: {
+                            email: string;
+                            name?: string | null;
+                            metadata?: Record<string, string>;
+                            externalId?: string;
+                        } = {
+                            email: input.email,
+                            externalId: input.externalId
+                        };
+                        if (input.name !== undefined) providerInput.name = input.name;
+                        if (input.metadata) providerInput.metadata = input.metadata as Record<string, string>;
+
+                        const providerCustomerId = await paymentAdapter.customers.create(providerInput);
+                        const updated = await storage.customers.update(customer.id, {
+                            providerCustomerIds: {
+                                ...customer.providerCustomerIds,
+                                [paymentAdapter.provider]: providerCustomerId
+                            }
+                        });
+                        await emitter.emit('customer.created', updated ?? customer);
+                        return updated ?? customer;
+                    } catch (error) {
+                        // If provider sync fails, still return the customer
+                        this.logger.error('Failed to create customer in provider', {
+                            provider: paymentAdapter.provider,
+                            error: error instanceof Error ? error.message : String(error)
+                        });
+                        await emitter.emit('customer.created', customer);
+                        return customer;
+                    }
+                }
+
+                await emitter.emit('customer.created', customer);
                 return customer;
             },
-            get: (id) => this.storage.customers.findById(id),
-            getByExternalId: (externalId) => this.storage.customers.findByExternalId(externalId),
+            get: (id) => storage.customers.findById(id),
+            getByExternalId: (externalId) => storage.customers.findByExternalId(externalId),
             update: async (id, input) => {
-                const customer = await this.storage.customers.update(id, input);
+                const customer = await storage.customers.update(id, input);
                 if (customer) {
-                    await this.emitter.emit('customer.updated', customer);
+                    await emitter.emit('customer.updated', customer);
                 }
                 return customer;
             },
             delete: async (id) => {
-                await this.storage.customers.delete(id);
-                const customer = await this.storage.customers.findById(id);
+                await storage.customers.delete(id);
+                const customer = await storage.customers.findById(id);
                 if (customer) {
-                    await this.emitter.emit('customer.deleted', customer);
+                    await emitter.emit('customer.deleted', customer);
                 }
             },
-            list: (options) => this.storage.customers.list(options),
+            list: (options) => storage.customers.list(options),
             syncUser: async (input) => {
-                const existing = await this.storage.customers.findByExternalId(input.externalId ?? '');
+                const existing = await storage.customers.findByExternalId(input.externalId ?? '');
                 if (existing) {
-                    const updated = await this.storage.customers.update(existing.id, input);
+                    // Sync with payment provider if not already linked
+                    if (paymentAdapter && !existing.providerCustomerIds[paymentAdapter.provider]) {
+                        try {
+                            const email = input.email ?? existing.email;
+                            const name = input.name !== undefined ? input.name : existing.name;
+                            const metadata = (input.metadata ?? existing.metadata) as Record<string, string>;
+                            const externalId = input.externalId ?? existing.externalId;
+
+                            const providerInput: {
+                                email: string;
+                                name?: string | null;
+                                metadata?: Record<string, string>;
+                                externalId?: string;
+                            } = {
+                                email,
+                                externalId
+                            };
+                            if (name !== undefined) providerInput.name = name;
+                            if (metadata) providerInput.metadata = metadata;
+
+                            const providerCustomerId = await paymentAdapter.customers.create(providerInput);
+                            const updated = await storage.customers.update(existing.id, {
+                                ...input,
+                                providerCustomerIds: {
+                                    ...existing.providerCustomerIds,
+                                    [paymentAdapter.provider]: providerCustomerId
+                                }
+                            });
+                            if (updated) {
+                                await emitter.emit('customer.updated', updated);
+                            }
+                            return updated ?? existing;
+                        } catch (error) {
+                            // Continue without provider sync
+                            this.logger.error('Failed to sync existing customer with provider', {
+                                provider: paymentAdapter.provider,
+                                customerId: existing.id,
+                                error: error instanceof Error ? error.message : String(error)
+                            });
+                        }
+                    }
+                    const updated = await storage.customers.update(existing.id, input);
                     if (updated) {
-                        await this.emitter.emit('customer.updated', updated);
+                        await emitter.emit('customer.updated', updated);
                     }
                     return updated ?? existing;
                 }
-                const customer = await this.storage.customers.create(input);
-                await this.emitter.emit('customer.created', customer);
+
+                // Create new customer (will be synced with provider)
+                const customer = await storage.customers.create(input);
+
+                // Sync with payment provider if available
+                if (paymentAdapter) {
+                    try {
+                        const providerInput: {
+                            email: string;
+                            name?: string | null;
+                            metadata?: Record<string, string>;
+                            externalId?: string;
+                        } = {
+                            email: input.email,
+                            externalId: input.externalId
+                        };
+                        if (input.name !== undefined) providerInput.name = input.name;
+                        if (input.metadata) providerInput.metadata = input.metadata as Record<string, string>;
+
+                        const providerCustomerId = await paymentAdapter.customers.create(providerInput);
+                        const updated = await storage.customers.update(customer.id, {
+                            providerCustomerIds: {
+                                ...customer.providerCustomerIds,
+                                [paymentAdapter.provider]: providerCustomerId
+                            }
+                        });
+                        await emitter.emit('customer.created', updated ?? customer);
+                        return updated ?? customer;
+                    } catch (error) {
+                        this.logger.error('Failed to sync new customer with provider', {
+                            provider: paymentAdapter.provider,
+                            error: error instanceof Error ? error.message : String(error)
+                        });
+                        await emitter.emit('customer.created', customer);
+                        return customer;
+                    }
+                }
+
+                await emitter.emit('customer.created', customer);
                 return customer;
             }
         };
@@ -830,16 +988,36 @@ class QZPayBillingImpl implements QZPayBilling {
                     throw new Error(`Subscription ${id} not found`);
                 }
 
-                // Get current plan and price
-                const currentPlan = planMap.get(currentSubscription.planId);
-                const currentPrice = currentPlan?.prices[0] ?? null;
+                // Get current plan and price (check both in-memory config and storage)
+                let currentPlan = planMap.get(currentSubscription.planId);
+                if (!currentPlan) {
+                    currentPlan = (await storage.plans.findById(currentSubscription.planId)) ?? undefined;
+                }
+                let currentPrice = currentPlan?.prices[0] ?? null;
+                // If plan from storage doesn't have prices array, fetch from storage
+                if (currentPlan && (!currentPlan.prices || currentPlan.prices.length === 0)) {
+                    const storagePrices = await storage.prices.findByPlanId(currentSubscription.planId);
+                    if (storagePrices.length > 0) {
+                        currentPrice = storagePrices[0] ?? null;
+                    }
+                }
 
-                // Get new plan and price
-                const newPlan = planMap.get(options.newPlanId);
+                // Get new plan and price (check both in-memory config and storage)
+                let newPlan = planMap.get(options.newPlanId);
+                if (!newPlan) {
+                    newPlan = (await storage.plans.findById(options.newPlanId)) ?? undefined;
+                }
                 if (!newPlan) {
                     throw new Error(`Plan ${options.newPlanId} not found`);
                 }
-                const newPrice = options.newPriceId ? newPlan.prices.find((p) => p.id === options.newPriceId) : newPlan.prices[0];
+
+                // Get prices for new plan - check storage if plan doesn't have prices
+                let newPlanPrices = newPlan.prices || [];
+                if (newPlanPrices.length === 0) {
+                    newPlanPrices = await storage.prices.findByPlanId(options.newPlanId);
+                }
+
+                const newPrice = options.newPriceId ? newPlanPrices.find((p) => p.id === options.newPriceId) : newPlanPrices[0];
                 if (!newPrice) {
                     throw new Error(`Price not found for plan ${options.newPlanId}`);
                 }
@@ -906,6 +1084,14 @@ class QZPayBillingImpl implements QZPayBilling {
         return {
             // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex payment processing with provider integration and error handling
             process: async (input) => {
+                // Validate payment input
+                qzpayCreateValidator(input as unknown as Record<string, unknown>)
+                    .required('amount', 'Amount is required')
+                    .custom(typeof input.amount === 'number' && input.amount > 0, 'Amount must be greater than 0')
+                    .required('currency', 'Currency is required')
+                    .currency('currency', 'Invalid currency code')
+                    .assertValid();
+
                 const paymentId = crypto.randomUUID();
                 const now = new Date();
 
@@ -949,6 +1135,16 @@ class QZPayBillingImpl implements QZPayBilling {
                         if (input.subscriptionId !== undefined) paymentInput.subscriptionId = input.subscriptionId;
                         if (input.invoiceId !== undefined) paymentInput.invoiceId = input.invoiceId;
                         if (input.metadata !== undefined) paymentInput.metadata = input.metadata;
+                        if (input.token !== undefined) paymentInput.token = input.token;
+                        if (input.cardId !== undefined) paymentInput.cardId = input.cardId;
+                        if (input.installments !== undefined) paymentInput.installments = input.installments;
+                        // Use provided payerEmail override, otherwise use customer email
+                        if (input.payerEmail) {
+                            paymentInput.payerEmail = input.payerEmail;
+                        } else if (customer?.email) {
+                            paymentInput.payerEmail = customer.email;
+                        }
+                        if (input.payerIdentification) paymentInput.payerIdentification = input.payerIdentification;
 
                         const result = await paymentAdapter.payments.create(providerCustomerId, paymentInput);
 
@@ -958,8 +1154,20 @@ class QZPayBillingImpl implements QZPayBilling {
                         });
                         await emitter.emit('payment.succeeded', updated);
                         return updated;
-                    } catch {
-                        const failed = await storage.payments.update(paymentId, { status: 'failed' });
+                    } catch (error) {
+                        const errorMessage = error instanceof Error ? error.message : 'Unknown payment error';
+                        this.logger.error('Payment processing failed', {
+                            provider: paymentAdapter.provider,
+                            customerId: input.customerId,
+                            amount: input.amount,
+                            currency: input.currency,
+                            error: errorMessage
+                        });
+                        const failed = await storage.payments.update(paymentId, {
+                            status: 'failed',
+                            failureMessage: errorMessage,
+                            failureCode: 'payment_failed'
+                        });
                         await emitter.emit('payment.failed', failed);
                         return failed;
                     }
@@ -970,6 +1178,53 @@ class QZPayBillingImpl implements QZPayBilling {
             },
             get: (id) => storage.payments.findById(id),
             getByCustomerId: (customerId) => storage.payments.findByCustomerId(customerId),
+            /**
+             * Record an external payment (already processed by a payment provider)
+             * Use this when the payment was processed by an external system (e.g., backend API)
+             * and you need to create a local record for tracking purposes.
+             */
+            record: async (input: {
+                id: string;
+                customerId: string;
+                amount: number;
+                currency: QZPayCurrency;
+                status: QZPayPaymentStatus;
+                providerPaymentId?: string;
+                provider?: string;
+                invoiceId?: string;
+                subscriptionId?: string;
+                metadata?: Record<string, unknown>;
+            }) => {
+                const now = new Date();
+                const providerPaymentIds: Record<string, string> = {};
+                if (input.provider && input.providerPaymentId) {
+                    providerPaymentIds[input.provider] = input.providerPaymentId;
+                }
+
+                const payment = await storage.payments.create({
+                    id: input.id,
+                    customerId: input.customerId,
+                    amount: input.amount,
+                    currency: input.currency,
+                    status: input.status,
+                    invoiceId: input.invoiceId ?? null,
+                    subscriptionId: input.subscriptionId ?? null,
+                    paymentMethodId: null,
+                    failureCode: null,
+                    failureMessage: null,
+                    metadata: input.metadata ?? {},
+                    livemode: this.livemode,
+                    createdAt: now,
+                    updatedAt: now,
+                    providerPaymentIds
+                });
+
+                if (input.status === 'succeeded') {
+                    await emitter.emit('payment.succeeded', payment);
+                }
+
+                return payment;
+            },
             refund: async (input) => {
                 const payment = await storage.payments.findById(input.paymentId);
                 if (!payment) {
@@ -994,6 +1249,21 @@ class QZPayBillingImpl implements QZPayBilling {
 
         return {
             create: async (input) => {
+                // Validate invoice input
+                qzpayCreateValidator(input as unknown as Record<string, unknown>)
+                    .required('customerId', 'Customer ID is required')
+                    .required('lines', 'Invoice lines are required')
+                    .custom(Array.isArray(input.lines) && input.lines.length > 0, 'Invoice must have at least one line item')
+                    .assertValid();
+
+                // Validate each line item
+                for (const line of input.lines) {
+                    qzpayCreateValidator(line as Record<string, unknown>)
+                        .custom(typeof line.quantity === 'number' && line.quantity > 0, 'Line quantity must be greater than 0')
+                        .custom(typeof line.unitAmount === 'number' && line.unitAmount >= 0, 'Line unit amount must be non-negative')
+                        .assertValid();
+                }
+
                 const invoice = await storage.invoices.create({
                     id: crypto.randomUUID(),
                     customerId: input.customerId,
@@ -1052,7 +1322,7 @@ class QZPayBillingImpl implements QZPayBilling {
         const storage = this.storage;
 
         return {
-            validate: async (code, _customerId, _planId) => {
+            validate: async (code, customerId, planId) => {
                 const promoCode = await storage.promoCodes.findByCode(code);
 
                 if (!promoCode) {
@@ -1063,12 +1333,35 @@ class QZPayBillingImpl implements QZPayBilling {
                     return { valid: false, promoCode, error: 'Promo code is not active' };
                 }
 
-                if (promoCode.validUntil && new Date() > promoCode.validUntil) {
+                // Validate date range
+                const now = new Date();
+                if (promoCode.validFrom && now < promoCode.validFrom) {
+                    return { valid: false, promoCode, error: 'Promo code is not yet valid' };
+                }
+
+                if (promoCode.validUntil && now > promoCode.validUntil) {
                     return { valid: false, promoCode, error: 'Promo code has expired' };
                 }
 
+                // Validate global redemption limit
                 if (promoCode.maxRedemptions && promoCode.currentRedemptions >= promoCode.maxRedemptions) {
                     return { valid: false, promoCode, error: 'Promo code has reached max redemptions' };
+                }
+
+                // Validate plan applicability
+                if (planId && promoCode.applicablePlanIds.length > 0 && !promoCode.applicablePlanIds.includes(planId)) {
+                    return { valid: false, promoCode, error: 'Promo code is not applicable to this plan' };
+                }
+
+                // Validate per-customer redemption limit
+                if (customerId && promoCode.maxRedemptionsPerCustomer !== null && promoCode.maxRedemptionsPerCustomer > 0) {
+                    // Count how many times this customer has used this promo code
+                    const customerSubscriptions = await storage.subscriptions.findByCustomerId(customerId);
+                    const redemptionCount = customerSubscriptions.filter((sub) => sub.promoCodeId === promoCode.id).length;
+
+                    if (redemptionCount >= promoCode.maxRedemptionsPerCustomer) {
+                        return { valid: false, promoCode, error: 'You have reached the maximum redemption limit for this promo code' };
+                    }
                 }
 
                 // Calculate discount - build result object with only defined discount values
@@ -1259,6 +1552,19 @@ class QZPayBillingImpl implements QZPayBilling {
 
         return {
             create: async (input) => {
+                // Validate addon input
+                qzpayCreateValidator(input as unknown as Record<string, unknown>)
+                    .required('name', 'Add-on name is required')
+                    .required('unitAmount', 'Unit amount is required')
+                    .custom(typeof input.unitAmount === 'number' && input.unitAmount > 0, 'Unit amount must be greater than 0')
+                    .required('currency', 'Currency is required')
+                    .currency('currency', 'Invalid currency code')
+                    .custom(
+                        !input.billingIntervalCount || (typeof input.billingIntervalCount === 'number' && input.billingIntervalCount > 0),
+                        'Billing interval count must be greater than 0'
+                    )
+                    .assertValid();
+
                 const addon = await storage.addons.create({
                     id: input.id ?? crypto.randomUUID(),
                     ...input

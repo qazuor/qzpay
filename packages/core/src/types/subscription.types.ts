@@ -19,6 +19,7 @@ export interface QZPaySubscription {
     canceledAt: Date | null;
     cancelAtPeriodEnd: boolean;
     providerSubscriptionIds: Record<string, string>;
+    promoCodeId?: string | null;
     metadata: Record<string, unknown>;
     livemode: boolean;
     createdAt: Date;
@@ -43,6 +44,10 @@ export interface QZPayUpdateSubscriptionInput {
     status?: QZPaySubscriptionStatus;
     canceledAt?: Date;
     cancelAt?: Date;
+    /** Current period start date (for renewals) */
+    currentPeriodStart?: Date;
+    /** Current period end date (for renewals) */
+    currentPeriodEnd?: Date;
 }
 
 export interface QZPayCancelSubscriptionInput {

@@ -29,6 +29,21 @@ export interface QZPayCreatePaymentInput {
     subscriptionId?: string;
     invoiceId?: string;
     metadata?: Record<string, unknown>;
+    /** Card token for providers that require tokenization (e.g., MercadoPago) */
+    token?: string;
+    /** Saved card ID for recurring payments without re-tokenization */
+    cardId?: string;
+    /** Number of installments for card payments */
+    installments?: number;
+    /** Flag to save card after payment (Card on File flow) */
+    saveCard?: boolean;
+    /** Payer email for providers that require it (e.g., MercadoPago) */
+    payerEmail?: string;
+    /** Payer identification for providers that require it (e.g., MercadoPago in Argentina) */
+    payerIdentification?: {
+        type: string;
+        number: string;
+    };
 }
 
 export interface QZPayRefundInput {

@@ -7,7 +7,6 @@ import type {
     QZPayCheckoutResult,
     QZPayCheckoutSession,
     QZPayCreateCheckoutInput,
-    QZPayCreateCustomerInput,
     QZPayCreatePaymentInput,
     QZPayCreatePriceInput,
     QZPayCreateSubscriptionInput,
@@ -63,9 +62,20 @@ export interface QZPayPaymentAdapter {
     vendors?: QZPayPaymentVendorAdapter;
 }
 
+/**
+ * Input for creating a customer in the payment provider
+ * This is a subset of QZPayCreateCustomerInput
+ */
+export interface QZPayProviderCreateCustomerInput {
+    email: string;
+    name?: string | null;
+    metadata?: Record<string, string>;
+    externalId?: string;
+}
+
 export interface QZPayPaymentCustomerAdapter {
-    create(input: QZPayCreateCustomerInput): Promise<string>;
-    update(providerCustomerId: string, input: Partial<QZPayCreateCustomerInput>): Promise<void>;
+    create(input: QZPayProviderCreateCustomerInput): Promise<string>;
+    update(providerCustomerId: string, input: Partial<QZPayProviderCreateCustomerInput>): Promise<void>;
     delete(providerCustomerId: string): Promise<void>;
     retrieve(providerCustomerId: string): Promise<QZPayProviderCustomer>;
 }
@@ -112,6 +122,11 @@ export interface QZPayProviderPayment {
     amount: number;
     currency: string;
     metadata: Record<string, string>;
+    clientSecret?: string;
+    nextAction?: {
+        type: string;
+        redirectUrl?: string;
+    };
 }
 
 export interface QZPayProviderRefund {
