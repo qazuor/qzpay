@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useWizardStore } from '../../stores/wizard.store';
+import { useWizardStore, WIZARD_STEPS } from '../../stores/wizard.store';
 import { ChevronLeft, ChevronRight, SkipForward, X } from 'lucide-react';
 
 interface WizardControlsProps {
@@ -9,21 +9,22 @@ interface WizardControlsProps {
 export function WizardControls({ onNavigate }: WizardControlsProps) {
   const { t } = useTranslation('wizard');
   const {
+    currentStepIndex,
     nextStep,
     prevStep,
     skipStep,
     exitWizard,
-    canGoPrev,
-    getCurrentStep,
   } = useWizardStore();
 
-  const currentStep = getCurrentStep();
+  const currentStep = WIZARD_STEPS[currentStepIndex] || null;
   const isLastStep = currentStep?.id === 'complete';
   const isFirstStep = currentStep?.id === 'welcome';
+  const canGoPrev = currentStepIndex > 0;
 
   const handleNext = () => {
     nextStep();
-    const nextStepData = getCurrentStep();
+    // Navigate to next step (currentStepIndex + 1)
+    const nextStepData = WIZARD_STEPS[currentStepIndex + 1];
     if (nextStepData) {
       onNavigate(nextStepData.targetView);
     }
@@ -31,7 +32,8 @@ export function WizardControls({ onNavigate }: WizardControlsProps) {
 
   const handlePrev = () => {
     prevStep();
-    const prevStepData = getCurrentStep();
+    // Navigate to previous step (currentStepIndex - 1)
+    const prevStepData = WIZARD_STEPS[currentStepIndex - 1];
     if (prevStepData) {
       onNavigate(prevStepData.targetView);
     }
@@ -39,7 +41,8 @@ export function WizardControls({ onNavigate }: WizardControlsProps) {
 
   const handleSkip = () => {
     skipStep();
-    const nextStepData = getCurrentStep();
+    // Navigate to next step (currentStepIndex + 1)
+    const nextStepData = WIZARD_STEPS[currentStepIndex + 1];
     if (nextStepData) {
       onNavigate(nextStepData.targetView);
     }
@@ -70,7 +73,7 @@ export function WizardControls({ onNavigate }: WizardControlsProps) {
       {/* Right side - Navigation buttons */}
       <div className="flex items-center gap-2">
         {/* Previous button */}
-        {canGoPrev() && !isFirstStep && (
+        {canGoPrev && !isFirstStep && (
           <button
             type="button"
             onClick={handlePrev}

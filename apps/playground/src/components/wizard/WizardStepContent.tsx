@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useWizardStore } from '../../stores/wizard.store';
+import { useWizardStore, WIZARD_STEPS } from '../../stores/wizard.store';
 import {
   Rocket,
   Settings,
@@ -30,7 +30,8 @@ const STEP_ICONS: Record<string, ReactNode> = {
 
 export function WizardStepContent() {
   const { t } = useTranslation('wizard');
-  const currentStep = useWizardStore((state) => state.getCurrentStep());
+  const currentStepIndex = useWizardStore((state) => state.currentStepIndex);
+  const currentStep = WIZARD_STEPS[currentStepIndex] || null;
 
   if (!currentStep) return null;
 

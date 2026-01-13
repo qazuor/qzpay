@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWizardStore, WIZARD_STEPS } from '../../stores/wizard.store';
 import { Check } from 'lucide-react';
@@ -5,7 +6,16 @@ import { Check } from 'lucide-react';
 export function WizardProgress() {
   const { t } = useTranslation('wizard');
   const { currentStepIndex, completedSteps, goToStep } = useWizardStore();
-  const progress = useWizardStore((state) => state.getProgress());
+
+  // Calculate progress from primitive values to avoid infinite loop
+  const progress = useMemo(() => {
+    const total = WIZARD_STEPS.length;
+    return {
+      current: currentStepIndex + 1,
+      total,
+      percentage: Math.round(((currentStepIndex + 1) / total) * 100),
+    };
+  }, [currentStepIndex]);
 
   return (
     <div className="wizard-progress">
