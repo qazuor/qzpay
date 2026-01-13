@@ -16,7 +16,7 @@ import type {
 /**
  * React types for QZPay
  */
-import type { ReactNode } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 
 /**
  * QZPay context value
@@ -674,4 +674,25 @@ export interface PaymentMethodManagerProps {
      * Custom empty state
      */
     emptyState?: ReactNode | undefined;
+}
+
+/**
+ * Error boundary props
+ */
+export interface QZPayErrorBoundaryProps {
+    /**
+     * Child components to render
+     */
+    children: ReactNode;
+
+    /**
+     * Fallback UI to show when an error occurs
+     * Can be a ReactNode or a function that receives the error
+     */
+    fallback?: ReactNode | ((error: Error) => ReactNode);
+
+    /**
+     * Callback when an error is caught
+     */
+    onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }

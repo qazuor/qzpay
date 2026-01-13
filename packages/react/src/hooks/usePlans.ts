@@ -41,7 +41,7 @@ export function usePlans(activeOnly = true): UsePlansReturn {
         setError(null);
 
         try {
-            const plans = activeOnly ? await billing.plans.getActive() : billing.getPlans();
+            const plans = activeOnly ? await billing.plans.getActive() : (await billing.plans.list()).data;
             setData(plans);
         } catch (err) {
             setError(err instanceof Error ? err : new Error('Failed to fetch plans'));

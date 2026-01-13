@@ -120,7 +120,7 @@ export function PaymentForm({
 
     if (isLoadingPaymentMethods) {
         return (
-            <div className={className} data-testid="payment-form-loading">
+            <div className={className} data-testid="payment-form-loading" role="status" aria-live="polite" aria-busy="true">
                 Loading payment methods...
             </div>
         );
@@ -128,7 +128,7 @@ export function PaymentForm({
 
     if (!paymentMethods || paymentMethods.length === 0) {
         return (
-            <div className={className} data-testid="payment-form-no-methods">
+            <div className={className} data-testid="payment-form-no-methods" role="alert" aria-live="polite">
                 <p>No payment methods available. Please add a payment method first.</p>
             </div>
         );
@@ -156,6 +156,8 @@ export function PaymentForm({
                     value={selectedMethod?.id ?? ''}
                     onChange={(e) => setSelectedMethodId(e.target.value)}
                     disabled={disabled || isLoading}
+                    aria-invalid={!!displayError}
+                    aria-describedby={displayError ? 'payment-error' : undefined}
                     style={{
                         width: '100%',
                         padding: '8px',
@@ -175,6 +177,9 @@ export function PaymentForm({
 
             {displayError && (
                 <div
+                    id="payment-error"
+                    role="alert"
+                    aria-live="assertive"
                     style={{
                         color: '#dc2626',
                         padding: '8px',
@@ -192,6 +197,8 @@ export function PaymentForm({
                 <button
                     type="submit"
                     disabled={disabled || isLoading}
+                    aria-busy={isProcessing}
+                    aria-disabled={disabled || isLoading}
                     style={{
                         flex: 1,
                         padding: '12px 24px',

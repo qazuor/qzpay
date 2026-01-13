@@ -52,12 +52,20 @@ export function EntitlementGate({
 
     // No customer ID available
     if (!effectiveCustomerId) {
-        return fallback;
+        return (
+            <div role="alert" aria-live="polite">
+                {fallback}
+            </div>
+        );
     }
 
     // Show loading state
     if (isLoading) {
-        return loading;
+        return (
+            <div aria-live="polite" aria-busy="true" aria-hidden={!loading}>
+                {loading}
+            </div>
+        );
     }
 
     // Check entitlement and render accordingly
@@ -65,5 +73,9 @@ export function EntitlementGate({
         return children;
     }
 
-    return fallback;
+    return (
+        <div role="alert" aria-live="polite">
+            {fallback}
+        </div>
+    );
 }

@@ -70,12 +70,20 @@ export function LimitGate({ limitKey, customerId, children, fallback = null, loa
 
     // No customer ID available
     if (!effectiveCustomerId) {
-        return fallback;
+        return (
+            <div role="alert" aria-live="polite">
+                {fallback}
+            </div>
+        );
     }
 
     // Show loading state
     if (isLoading || checking) {
-        return loading;
+        return (
+            <div aria-live="polite" aria-busy="true" aria-hidden={!loading}>
+                {loading}
+            </div>
+        );
     }
 
     // Check limit and render accordingly
@@ -83,5 +91,9 @@ export function LimitGate({ limitKey, customerId, children, fallback = null, loa
         return children;
     }
 
-    return fallback;
+    return (
+        <div role="alert" aria-live="polite">
+            {fallback}
+        </div>
+    );
 }

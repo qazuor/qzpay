@@ -9,3 +9,4 @@ export { PaymentForm } from './PaymentForm.js';
 export { CheckoutButton } from './CheckoutButton.js';
 export { InvoiceList } from './InvoiceList.js';
 export { PaymentMethodManager } from './PaymentMethodManager.js';
+export { QZPayErrorBoundary } from './ErrorBoundary.js';

@@ -110,6 +110,9 @@ export function CheckoutButton({
                 type="button"
                 onClick={handleClick}
                 disabled={disabled || isLoading || !onCheckout}
+                aria-busy={isLoading}
+                aria-disabled={disabled || isLoading || !onCheckout}
+                aria-describedby={error ? 'checkout-error' : undefined}
                 style={{
                     padding: '12px 24px',
                     backgroundColor: disabled || isLoading ? '#9ca3af' : '#2563eb',
@@ -127,6 +130,9 @@ export function CheckoutButton({
 
             {error && (
                 <div
+                    id="checkout-error"
+                    role="alert"
+                    aria-live="assertive"
                     style={{
                         color: '#dc2626',
                         fontSize: '14px',

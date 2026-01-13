@@ -147,7 +147,7 @@ export function PaymentMethodManager({
 
     if (isLoading) {
         return (
-            <div className={className} data-testid="payment-method-manager-loading">
+            <div className={className} data-testid="payment-method-manager-loading" role="status" aria-live="polite" aria-busy="true">
                 Loading payment methods...
             </div>
         );
@@ -187,6 +187,8 @@ export function PaymentMethodManager({
         <div className={className} data-testid="payment-method-manager">
             {actionError && (
                 <div
+                    role="alert"
+                    aria-live="assertive"
                     style={{
                         color: '#dc2626',
                         padding: '8px',
@@ -200,7 +202,7 @@ export function PaymentMethodManager({
                 </div>
             )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div role="list" aria-label="Payment methods" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Payment method rendering requires multiple conditional displays */}
                 {paymentMethods.map((method) => {
                     const { title, subtitle } = formatPaymentMethod(method);
@@ -212,6 +214,7 @@ export function PaymentMethodManager({
                     return (
                         <div
                             key={method.id}
+                            role="listitem"
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -301,6 +304,8 @@ export function PaymentMethodManager({
                                         type="button"
                                         onClick={() => handleSetDefault(method)}
                                         disabled={isProcessing}
+                                        aria-label={`Set ${title} as default payment method`}
+                                        aria-busy={isProcessing}
                                         style={{
                                             padding: '6px 12px',
                                             backgroundColor: 'transparent',
@@ -321,6 +326,8 @@ export function PaymentMethodManager({
                                         type="button"
                                         onClick={() => handleRemove(method)}
                                         disabled={isProcessing}
+                                        aria-label={`Remove ${title} payment method`}
+                                        aria-busy={isProcessing}
                                         style={{
                                             padding: '6px 12px',
                                             backgroundColor: 'transparent',
