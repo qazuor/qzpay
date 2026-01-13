@@ -494,8 +494,9 @@ describe('validation.utils', () => {
             expect(qzpayIsValidCurrency('XXX')).toBe(false);
         });
 
-        it('should reject lowercase currencies', () => {
-            expect(qzpayIsValidCurrency('usd')).toBe(false);
+        it('should accept lowercase currencies (case-insensitive)', () => {
+            expect(qzpayIsValidCurrency('usd')).toBe(true);
+            expect(qzpayIsValidCurrency('eur')).toBe(true);
         });
     });
 

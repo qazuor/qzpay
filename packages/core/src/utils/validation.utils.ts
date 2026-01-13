@@ -21,10 +21,10 @@ export function qzpayIsValidEmail(email: string): boolean {
 }
 
 /**
- * Validate currency code
+ * Validate currency code (case-insensitive)
  */
 export function qzpayIsValidCurrency(currency: string): currency is QZPayCurrency {
-    return QZPAY_CURRENCY_VALUES.includes(currency as QZPayCurrency);
+    return QZPAY_CURRENCY_VALUES.includes(currency.toUpperCase() as QZPayCurrency);
 }
 
 /**
