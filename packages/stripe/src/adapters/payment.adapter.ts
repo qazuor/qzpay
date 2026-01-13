@@ -30,6 +30,20 @@ export class QZPayStripePaymentAdapter implements QZPayPaymentPaymentAdapter {
         if (input.paymentMethodId) {
             params.payment_method = input.paymentMethodId;
             params.confirm = true;
+
+            // Configure 3DS behavior
+            params.payment_method_options = {
+                card: {
+                    request_three_d_secure: 'automatic'
+                }
+            };
+
+            // Return URL for 3DS redirect (if needed for hosted 3DS)
+            // biome-ignore lint/complexity/useLiteralKeys: Index signature requires bracket notation
+            if (input.metadata?.['return_url']) {
+                // biome-ignore lint/complexity/useLiteralKeys: Index signature requires bracket notation
+                params.return_url = input.metadata['return_url'] as string;
+            }
         }
 
         const paymentIntent = await this.stripe.paymentIntents.create(params);
@@ -93,13 +107,36 @@ export class QZPayStripePaymentAdapter implements QZPayPaymentPaymentAdapter {
      * Map Stripe PaymentIntent to QZPay provider payment
      */
     private mapPaymentIntent(paymentIntent: Stripe.PaymentIntent): QZPayProviderPayment {
-        return {
+        const result: QZPayProviderPayment = {
             id: paymentIntent.id,
             status: this.mapPaymentIntentStatus(paymentIntent.status),
             amount: paymentIntent.amount,
             currency: paymentIntent.currency.toUpperCase(),
             metadata: (paymentIntent.metadata as Record<string, string>) ?? {}
         };
+
+        // Include client secret for 3DS authentication
+        if (paymentIntent.status === 'requires_action' || paymentIntent.status === 'requires_confirmation') {
+            if (paymentIntent.client_secret) {
+                result.clientSecret = paymentIntent.client_secret;
+            }
+
+            // Include next action details if available
+            if (paymentIntent.next_action) {
+                const nextActionType = paymentIntent.next_action.type;
+                const nextAction: { type: string; redirectUrl?: string } = {
+                    type: nextActionType
+                };
+
+                if (nextActionType === 'redirect_to_url' && paymentIntent.next_action.redirect_to_url?.url) {
+                    nextAction.redirectUrl = paymentIntent.next_action.redirect_to_url.url;
+                }
+
+                result.nextAction = nextAction;
+            }
+        }
+
+        return result;
     }
 
     /**

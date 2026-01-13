@@ -1,4 +1,4 @@
-import type { QZPayCreateCustomerInput, QZPayPaymentCustomerAdapter, QZPayProviderCustomer } from '@qazuor/qzpay-core';
+import type { QZPayPaymentCustomerAdapter, QZPayProviderCreateCustomerInput, QZPayProviderCustomer } from '@qazuor/qzpay-core';
 /**
  * Stripe Customer Adapter
  *
@@ -12,23 +12,31 @@ export class QZPayStripeCustomerAdapter implements QZPayPaymentCustomerAdapter {
     /**
      * Create a customer in Stripe
      */
-    async create(input: QZPayCreateCustomerInput): Promise<string> {
+    async create(input: QZPayProviderCreateCustomerInput): Promise<string> {
         const params: Stripe.CustomerCreateParams = {
-            email: input.email,
-            metadata: {
-                qzpay_external_id: input.externalId
-            }
+            email: input.email
         };
 
         if (input.name) {
             params.name = input.name;
         }
 
+        // Build metadata with externalId
+        const metadata: Record<string, string> = {};
+
+        // Add externalId to metadata if provided
+        if ('externalId' in input && input.externalId) {
+            // biome-ignore lint/complexity/useLiteralKeys: Index signature requires bracket notation
+            metadata['qzpay_external_id'] = input.externalId;
+        }
+
+        // Merge with custom metadata
         if (input.metadata) {
-            params.metadata = {
-                ...params.metadata,
-                ...this.toStripeMetadata(input.metadata)
-            };
+            Object.assign(metadata, this.toStripeMetadata(input.metadata));
+        }
+
+        if (Object.keys(metadata).length > 0) {
+            params.metadata = metadata;
         }
 
         const customer = await this.stripe.customers.create(params);
@@ -39,7 +47,7 @@ export class QZPayStripeCustomerAdapter implements QZPayPaymentCustomerAdapter {
     /**
      * Update a customer in Stripe
      */
-    async update(providerCustomerId: string, input: Partial<QZPayCreateCustomerInput>): Promise<void> {
+    async update(providerCustomerId: string, input: Partial<QZPayProviderCreateCustomerInput>): Promise<void> {
         const params: Stripe.CustomerUpdateParams = {};
 
         if (input.email !== undefined) {
