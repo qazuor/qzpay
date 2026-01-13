@@ -5,6 +5,7 @@ import type { QZPayCreatePriceInput, QZPayPaymentPriceAdapter, QZPayProviderPric
  */
 import { type MercadoPagoConfig, PreApprovalPlan } from 'mercadopago';
 import { fromMercadoPagoInterval, toMercadoPagoInterval } from '../types.js';
+import { wrapAdapterMethod } from '../utils/error-mapper.js';
 
 export class QZPayMercadoPagoPriceAdapter implements QZPayPaymentPriceAdapter {
     private readonly planApi: PreApprovalPlan;
@@ -14,54 +15,60 @@ export class QZPayMercadoPagoPriceAdapter implements QZPayPaymentPriceAdapter {
     }
 
     async create(input: QZPayCreatePriceInput, providerProductId: string): Promise<string> {
-        const { frequency, frequencyType } = toMercadoPagoInterval(input.billingInterval, input.intervalCount ?? 1);
+        return wrapAdapterMethod('Create price', async () => {
+            const { frequency, frequencyType } = toMercadoPagoInterval(input.billingInterval, input.intervalCount ?? 1);
 
-        const autoRecurring: Parameters<PreApprovalPlan['create']>[0]['body']['auto_recurring'] = {
-            frequency,
-            frequency_type: frequencyType,
-            transaction_amount: input.unitAmount / 100, // Convert cents to decimal
-            currency_id: input.currency.toUpperCase(),
-            billing_day: 1 // Bill on first day of period
-        };
-
-        // Add free trial only if specified
-        if (input.trialDays) {
-            autoRecurring.free_trial = {
-                frequency: input.trialDays,
-                frequency_type: 'days'
+            const autoRecurring: Parameters<PreApprovalPlan['create']>[0]['body']['auto_recurring'] = {
+                frequency,
+                frequency_type: frequencyType,
+                transaction_amount: input.unitAmount / 100, // Convert cents to decimal
+                currency_id: input.currency.toUpperCase(),
+                billing_day: 1 // Bill on first day of period
             };
-        }
 
-        const response = await this.planApi.create({
-            body: {
-                reason: providerProductId, // Use product ID as plan name
-                auto_recurring: autoRecurring
+            // Add free trial only if specified
+            if (input.trialDays) {
+                autoRecurring.free_trial = {
+                    frequency: input.trialDays,
+                    frequency_type: 'days'
+                };
             }
+
+            const response = await this.planApi.create({
+                body: {
+                    reason: providerProductId, // Use product ID as plan name
+                    auto_recurring: autoRecurring
+                }
+            });
+
+            if (!response.id) {
+                throw new Error('Failed to create MercadoPago plan');
+            }
+
+            return response.id;
         });
-
-        if (!response.id) {
-            throw new Error('Failed to create MercadoPago plan');
-        }
-
-        return response.id;
     }
 
     async archive(providerPriceId: string): Promise<void> {
-        // MercadoPago doesn't have archive, we update status
-        await this.planApi.update({
-            id: providerPriceId,
-            updatePreApprovalPlanRequest: {
-                status: 'inactive'
-            }
+        return wrapAdapterMethod('Archive price', async () => {
+            // MercadoPago doesn't have archive, we update status
+            await this.planApi.update({
+                id: providerPriceId,
+                updatePreApprovalPlanRequest: {
+                    status: 'inactive'
+                }
+            });
         });
     }
 
     async retrieve(providerPriceId: string): Promise<QZPayProviderPrice> {
-        const response = await this.planApi.get({
-            preApprovalPlanId: providerPriceId
-        });
+        return wrapAdapterMethod('Retrieve price', async () => {
+            const response = await this.planApi.get({
+                preApprovalPlanId: providerPriceId
+            });
 
-        return this.mapToProviderPrice(response);
+            return this.mapToProviderPrice(response);
+        });
     }
 
     async createProduct(name: string, _description?: string): Promise<string> {

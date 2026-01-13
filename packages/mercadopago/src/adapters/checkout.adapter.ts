@@ -3,84 +3,102 @@ import type { QZPayCreateCheckoutInput, QZPayPaymentCheckoutAdapter, QZPayProvid
  * MercadoPago Checkout Adapter
  * Uses Preference API for checkout sessions
  */
-import { type MercadoPagoConfig, Preference } from 'mercadopago';
+import { type MercadoPagoConfig, PreApprovalPlan, Preference } from 'mercadopago';
+import { wrapAdapterMethod } from '../utils/error-mapper.js';
 
 export class QZPayMercadoPagoCheckoutAdapter implements QZPayPaymentCheckoutAdapter {
     private readonly preferenceApi: Preference;
+    private readonly planApi: PreApprovalPlan;
     private readonly useSandbox: boolean;
 
     constructor(client: MercadoPagoConfig, useSandbox = false) {
         this.preferenceApi = new Preference(client);
+        this.planApi = new PreApprovalPlan(client);
         this.useSandbox = useSandbox;
     }
 
     async create(input: QZPayCreateCheckoutInput, providerPriceIds: string[]): Promise<QZPayProviderCheckout> {
-        // Build line items from price IDs
-        // Note: MercadoPago requires unit_price, which should be set when creating the preference
-        // The actual price should come from the plan/product configuration
-        const items = providerPriceIds.map((priceId, index) => ({
-            id: priceId,
-            title: input.lineItems?.[index]?.description ?? `Item ${index + 1}`,
-            quantity: input.lineItems?.[index]?.quantity ?? 1,
-            unit_price: 0, // Price should be fetched from plan or passed differently
-            currency_id: 'USD'
-        }));
+        return wrapAdapterMethod('Create checkout session', async () => {
+            // Fetch price information for each line item
+            const items = await Promise.all(
+                providerPriceIds.map(async (priceId, index) => {
+                    const plan = await this.planApi.get({ preApprovalPlanId: priceId });
+                    const autoRecurring = plan.auto_recurring;
 
-        // Build body without undefined values
-        const body: Parameters<Preference['create']>[0]['body'] = {
-            items,
-            back_urls: {
-                success: input.successUrl,
-                failure: input.cancelUrl,
-                pending: input.successUrl
-            },
-            auto_return: 'approved',
-            metadata: {
-                qzpay_mode: input.mode,
-                qzpay_customer_id: input.customerId ?? null
+                    if (!autoRecurring) {
+                        throw new Error(`Price ${priceId} does not have recurring configuration`);
+                    }
+
+                    return {
+                        id: priceId,
+                        title: input.lineItems?.[index]?.description ?? `Item ${index + 1}`,
+                        quantity: input.lineItems?.[index]?.quantity ?? 1,
+                        unit_price: autoRecurring.transaction_amount ?? 0,
+                        currency_id: (autoRecurring.currency_id ?? 'USD').toUpperCase()
+                    };
+                })
+            );
+
+            // Build body without undefined values
+            const body: Parameters<Preference['create']>[0]['body'] = {
+                items,
+                back_urls: {
+                    success: input.successUrl,
+                    failure: input.cancelUrl,
+                    pending: input.successUrl
+                },
+                auto_return: 'approved',
+                metadata: {
+                    qzpay_mode: input.mode,
+                    qzpay_customer_id: input.customerId ?? null
+                }
+            };
+
+            // Add optional payer
+            if (input.customerEmail) {
+                body.payer = { email: input.customerEmail };
             }
-        };
 
-        // Add optional payer
-        if (input.customerEmail) {
-            body.payer = { email: input.customerEmail };
-        }
+            // Add optional external reference
+            if (input.customerId) {
+                body.external_reference = input.customerId;
+            }
 
-        // Add optional external reference
-        if (input.customerId) {
-            body.external_reference = input.customerId;
-        }
+            // Add expiration if specified
+            if (input.expiresInMinutes !== undefined) {
+                body.expires = true;
+                body.expiration_date_from = new Date().toISOString();
+                body.expiration_date_to = new Date(Date.now() + input.expiresInMinutes * 60 * 1000).toISOString();
+            }
 
-        // Add expiration if specified
-        if (input.expiresInMinutes !== undefined) {
-            body.expires = true;
-            body.expiration_date_from = new Date().toISOString();
-            body.expiration_date_to = new Date(Date.now() + input.expiresInMinutes * 60 * 1000).toISOString();
-        }
+            const response = await this.preferenceApi.create({ body });
 
-        const response = await this.preferenceApi.create({ body });
-
-        return this.mapToProviderCheckout(response);
+            return this.mapToProviderCheckout(response);
+        });
     }
 
     async retrieve(providerSessionId: string): Promise<QZPayProviderCheckout> {
-        const response = await this.preferenceApi.get({
-            preferenceId: providerSessionId
-        });
+        return wrapAdapterMethod('Retrieve checkout session', async () => {
+            const response = await this.preferenceApi.get({
+                preferenceId: providerSessionId
+            });
 
-        return this.mapToProviderCheckout(response);
+            return this.mapToProviderCheckout(response);
+        });
     }
 
     async expire(providerSessionId: string): Promise<void> {
-        // MercadoPago doesn't have a direct expire API
-        // We update the expiration date to now
-        await this.preferenceApi.update({
-            id: providerSessionId,
-            updatePreferenceRequest: {
-                items: [], // Required field, keep existing
-                expires: true,
-                expiration_date_to: new Date().toISOString()
-            }
+        return wrapAdapterMethod('Expire checkout session', async () => {
+            // MercadoPago doesn't have a direct expire API
+            // We update the expiration date to now
+            await this.preferenceApi.update({
+                id: providerSessionId,
+                updatePreferenceRequest: {
+                    items: [], // Required field, keep existing
+                    expires: true,
+                    expiration_date_to: new Date().toISOString()
+                }
+            });
         });
     }
 
