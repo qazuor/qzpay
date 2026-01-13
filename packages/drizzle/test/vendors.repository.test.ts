@@ -391,7 +391,7 @@ describe('QZPayVendorsRepository', () => {
             const payout = await repository.createPayout({
                 vendorId: testVendorId,
                 amount: 50000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe'
             });
@@ -406,7 +406,7 @@ describe('QZPayVendorsRepository', () => {
             const created = await repository.createPayout({
                 vendorId: testVendorId,
                 amount: 25000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe'
             });
@@ -421,7 +421,7 @@ describe('QZPayVendorsRepository', () => {
             await repository.createPayout({
                 vendorId: testVendorId,
                 amount: 30000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPayoutId: 'po_stripe123'
@@ -438,7 +438,7 @@ describe('QZPayVendorsRepository', () => {
                 await repository.createPayout({
                     vendorId: testVendorId,
                     amount: 10000 * (i + 1),
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'succeeded',
                     provider: 'stripe'
                 });
@@ -454,14 +454,14 @@ describe('QZPayVendorsRepository', () => {
             await repository.createPayout({
                 vendorId: testVendorId,
                 amount: 10000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe'
             });
             await repository.createPayout({
                 vendorId: testVendorId,
                 amount: 20000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe'
             });
@@ -477,7 +477,7 @@ describe('QZPayVendorsRepository', () => {
             const created = await repository.createPayout({
                 vendorId: testVendorId,
                 amount: 15000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe'
             });
@@ -492,7 +492,7 @@ describe('QZPayVendorsRepository', () => {
             const created = await repository.createPayout({
                 vendorId: testVendorId,
                 amount: 15000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'processing',
                 provider: 'stripe'
             });
@@ -510,28 +510,28 @@ describe('QZPayVendorsRepository', () => {
             await repository.createPayout({
                 vendorId: testVendorId,
                 amount: 10000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe'
             });
             await repository.createPayout({
                 vendorId: testVendorId,
                 amount: 20000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe'
             });
             await repository.createPayout({
                 vendorId: testVendorId,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe'
             });
             await repository.createPayout({
                 vendorId: testVendorId,
                 amount: 3000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'failed',
                 provider: 'stripe'
             });

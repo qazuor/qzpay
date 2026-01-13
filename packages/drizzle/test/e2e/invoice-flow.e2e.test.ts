@@ -85,7 +85,7 @@ describe('Invoice Flow E2E', () => {
                 subscriptionId: testSubscriptionId,
                 number: invoiceNumber,
                 status: 'draft',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 9900,
                 tax: 0,
                 total: 9900,
@@ -105,7 +105,7 @@ describe('Invoice Flow E2E', () => {
                 quantity: 1,
                 unitAmount: 7900,
                 amount: 7900,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -115,7 +115,7 @@ describe('Invoice Flow E2E', () => {
                 quantity: 2,
                 unitAmount: 1000,
                 amount: 2000,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -137,7 +137,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 invoiceId: invoice.id,
                 amount: 9900,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPaymentId: 'pi_invoice_payment',
@@ -149,7 +149,7 @@ describe('Invoice Flow E2E', () => {
                 invoiceId: invoice.id,
                 paymentId: payment.id,
                 amountApplied: 9900,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -175,7 +175,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'INV-VOID-001',
                 status: 'draft',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 5000,
                 total: 5000,
                 amountRemaining: 5000,
@@ -202,7 +202,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: num1,
                 status: 'draft',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 1000,
                 total: 1000,
                 amountRemaining: 1000,
@@ -217,7 +217,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: num2,
                 status: 'draft',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 1000,
                 total: 1000,
                 amountRemaining: 1000,
@@ -246,7 +246,7 @@ describe('Invoice Flow E2E', () => {
                     subscriptionId: testSubscriptionId,
                     number: invoiceNumber,
                     status: 'draft',
-                    currency: 'usd',
+                    currency: 'USD',
                     subtotal: 9900,
                     total: 9900,
                     amountRemaining: 9900,
@@ -263,7 +263,7 @@ describe('Invoice Flow E2E', () => {
                     quantity: 1,
                     unitAmount: 9900,
                     amount: 9900,
-                    currency: 'usd',
+                    currency: 'USD',
                     livemode: true
                 });
 
@@ -292,7 +292,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'INV-OVERDUE-001',
                 status: 'open', // Already finalized
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 5000,
                 total: 5000,
                 amountRemaining: 5000,
@@ -309,7 +309,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'INV-FUTURE-001',
                 status: 'open',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 3000,
                 total: 3000,
                 amountRemaining: 3000,
@@ -330,7 +330,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'INV-DRAFT-001',
                 status: 'draft',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 1000,
                 total: 1000,
                 amountRemaining: 1000,
@@ -343,7 +343,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'INV-OPEN-001',
                 status: 'open',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 2000,
                 total: 2000,
                 amountRemaining: 2000,
@@ -356,7 +356,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'INV-PAID-001',
                 status: 'paid',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 3000,
                 total: 3000,
                 amountRemaining: 0,
@@ -377,7 +377,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'INV-PARTIAL-001',
                 status: 'open',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 10000,
                 total: 10000,
                 amountRemaining: 10000,
@@ -390,7 +390,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 invoiceId: invoice.id,
                 amount: 4000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -400,7 +400,7 @@ describe('Invoice Flow E2E', () => {
                 invoiceId: invoice.id,
                 paymentId: payment1.id,
                 amountApplied: 4000,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -414,7 +414,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 invoiceId: invoice.id,
                 amount: 6000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -424,7 +424,7 @@ describe('Invoice Flow E2E', () => {
                 invoiceId: invoice.id,
                 paymentId: payment2.id,
                 amountApplied: 6000,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -455,7 +455,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'SEARCH-001',
                 status: 'paid',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 1000,
                 total: 1000,
                 amountRemaining: 0,
@@ -466,7 +466,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'SEARCH-002',
                 status: 'open',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 2000,
                 total: 2000,
                 amountRemaining: 2000,
@@ -477,7 +477,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'SEARCH-003',
                 status: 'void',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 3000,
                 total: 3000,
                 amountRemaining: 3000,
@@ -518,7 +518,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'STRIPE-001',
                 status: 'open',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 1000,
                 total: 1000,
                 amountRemaining: 1000,
@@ -556,7 +556,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'GENERIC-001',
                 status: 'open',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 1000,
                 total: 1000,
                 amountRemaining: 1000,
@@ -577,7 +577,7 @@ describe('Invoice Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'TAX-001',
                 status: 'draft',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 10000, // $100.00
                 tax: 800, // $8.00 (8% tax)
                 total: 10800, // $108.00
@@ -593,7 +593,7 @@ describe('Invoice Flow E2E', () => {
                 quantity: 1,
                 unitAmount: 10000,
                 amount: 10000,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -604,7 +604,7 @@ describe('Invoice Flow E2E', () => {
                 quantity: 1,
                 unitAmount: 800,
                 amount: 800,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 

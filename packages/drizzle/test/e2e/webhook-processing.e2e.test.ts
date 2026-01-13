@@ -85,7 +85,7 @@ describe('Webhook Processing E2E', () => {
                     id: 'pi_test_123',
                     object: 'payment_intent',
                     amount: 5000,
-                    currency: 'usd',
+                    currency: 'USD',
                     customer: 'cus_webhook_test'
                 },
                 livemode: true
@@ -127,7 +127,7 @@ describe('Webhook Processing E2E', () => {
                     id: 'pi_webhook_payment',
                     object: 'payment_intent',
                     amount: 9900,
-                    currency: 'usd',
+                    currency: 'USD',
                     customer: 'cus_webhook_test',
                     metadata: { subscriptionId: testSubscriptionId }
                 },
@@ -142,7 +142,7 @@ describe('Webhook Processing E2E', () => {
                 customerId: testCustomerId,
                 subscriptionId: testSubscriptionId,
                 amount: 9900,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPaymentId: 'pi_webhook_payment',
@@ -167,7 +167,7 @@ describe('Webhook Processing E2E', () => {
                     id: 'pi_failed_payment',
                     object: 'payment_intent',
                     amount: 9900,
-                    currency: 'usd',
+                    currency: 'USD',
                     customer: 'cus_webhook_test',
                     last_payment_error: {
                         code: 'card_declined',
@@ -182,7 +182,7 @@ describe('Webhook Processing E2E', () => {
                 customerId: testCustomerId,
                 subscriptionId: testSubscriptionId,
                 amount: 9900,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'failed',
                 provider: 'stripe',
                 providerPaymentId: 'pi_failed_payment',
@@ -248,7 +248,7 @@ describe('Webhook Processing E2E', () => {
             const payment = await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPaymentId: 'ch_refund_test',
@@ -281,7 +281,7 @@ describe('Webhook Processing E2E', () => {
             const refund = await paymentsRepo.createRefund({
                 paymentId: payment.id,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 reason: 'requested_by_customer',
                 status: 'succeeded',
                 providerRefundId: 're_webhook_123',

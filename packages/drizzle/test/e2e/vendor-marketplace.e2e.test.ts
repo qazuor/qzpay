@@ -188,7 +188,7 @@ describe('Vendor Marketplace E2E', () => {
                 vendorId: testVendorId,
                 provider: 'stripe',
                 amount: 50000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 livemode: true
             });
@@ -220,7 +220,7 @@ describe('Vendor Marketplace E2E', () => {
                 vendorId: testVendorId,
                 provider: 'stripe',
                 amount: 50000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 livemode: true
             });
@@ -247,7 +247,7 @@ describe('Vendor Marketplace E2E', () => {
                     vendorId: testVendorId,
                     provider: 'stripe',
                     amount: 10000 * i,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'pending',
                     livemode: true
                 });
@@ -265,7 +265,7 @@ describe('Vendor Marketplace E2E', () => {
                 vendorId: testVendorId,
                 provider: 'stripe',
                 amount: 10000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 livemode: true
             });
@@ -276,7 +276,7 @@ describe('Vendor Marketplace E2E', () => {
                 vendorId: testVendorId,
                 provider: 'stripe',
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 livemode: true
             });
@@ -286,7 +286,7 @@ describe('Vendor Marketplace E2E', () => {
                 vendorId: testVendorId,
                 provider: 'stripe',
                 amount: 2000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 livemode: true
             });
@@ -360,7 +360,7 @@ describe('Vendor Marketplace E2E', () => {
             const payment = await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: saleAmount,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPaymentId: 'pi_marketplace_sale',
@@ -397,7 +397,7 @@ describe('Vendor Marketplace E2E', () => {
                 await paymentsRepo.create({
                     customerId: testCustomerId,
                     amount: sale.amount,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'succeeded',
                     provider: 'stripe',
                     livemode: true

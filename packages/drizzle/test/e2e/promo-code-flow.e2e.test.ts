@@ -251,7 +251,7 @@ describe('Promo Code Flow E2E', () => {
                 customerId: testCustomerId,
                 subscriptionId: null,
                 discountAmount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -286,7 +286,7 @@ describe('Promo Code Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'INV-PROMO-001',
                 status: 'open',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: invoiceSubtotal,
                 discount: discountAmount,
                 total: invoiceSubtotal - discountAmount,
@@ -302,7 +302,7 @@ describe('Promo Code Flow E2E', () => {
                 promoCodeId: promoCode.id,
                 customerId: testCustomerId,
                 discountAmount,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -329,7 +329,7 @@ describe('Promo Code Flow E2E', () => {
                 customerId: testCustomerId,
                 number: 'INV-FLAT-001',
                 status: 'open',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: invoiceSubtotal,
                 discount: discountAmount,
                 total: invoiceSubtotal - discountAmount,
@@ -363,7 +363,7 @@ describe('Promo Code Flow E2E', () => {
                     promoCodeId,
                     customerId: testCustomerId,
                     discountAmount: 1000 * i,
-                    currency: 'usd',
+                    currency: 'USD',
                     livemode: true
                 });
             }
@@ -380,14 +380,14 @@ describe('Promo Code Flow E2E', () => {
                 promoCodeId,
                 customerId: testCustomerId,
                 discountAmount: 1000,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
             await promoCodesRepo.recordUsage({
                 promoCodeId,
                 customerId: newCustomerId,
                 discountAmount: 2500,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -400,7 +400,7 @@ describe('Promo Code Flow E2E', () => {
                 promoCodeId,
                 customerId: testCustomerId,
                 discountAmount: 1000,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -416,7 +416,7 @@ describe('Promo Code Flow E2E', () => {
                 promoCodeId,
                 customerId: testCustomerId,
                 discountAmount: 1000,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -566,7 +566,7 @@ describe('Promo Code Flow E2E', () => {
                     promoCodeId: promoCode.id,
                     customerId: testCustomerId,
                     discountAmount: 100,
-                    currency: 'usd',
+                    currency: 'USD',
                     livemode: true
                 });
             }

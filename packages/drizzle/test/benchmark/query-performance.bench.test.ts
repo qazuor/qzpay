@@ -314,7 +314,7 @@ describe('Query Performance Benchmarks', () => {
                     await billing.payments.process({
                         customerId,
                         amount: 5000,
-                        currency: 'usd'
+                        currency: 'USD'
                     });
                 },
                 50
@@ -331,7 +331,7 @@ describe('Query Performance Benchmarks', () => {
                 const payment = await billing.payments.process({
                     customerId,
                     amount: 1000 * (i + 1),
-                    currency: 'usd'
+                    currency: 'USD'
                 });
                 paymentIds.push(payment.id);
             }
@@ -356,7 +356,7 @@ describe('Query Performance Benchmarks', () => {
                 await billing.payments.process({
                     customerId,
                     amount: 1000 * (i + 1),
-                    currency: 'usd'
+                    currency: 'USD'
                 });
             }
 
@@ -570,7 +570,7 @@ describe('Query Performance Benchmarks', () => {
                     await billing.payments.process({
                         customerId: customer.id,
                         amount: 9900,
-                        currency: 'usd'
+                        currency: 'USD'
                     });
 
                     // Grant entitlement

@@ -94,7 +94,7 @@ describe('Payment Flow E2E', () => {
                 subscriptionId: testSubscriptionId,
                 paymentMethodId: testPaymentMethodId,
                 amount: 9900, // $99.00
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe',
                 livemode: true
@@ -127,7 +127,7 @@ describe('Payment Flow E2E', () => {
                 subscriptionId: testSubscriptionId,
                 paymentMethodId: testPaymentMethodId,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe',
                 livemode: true
@@ -155,7 +155,7 @@ describe('Payment Flow E2E', () => {
             const payment = await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 10000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPaymentId: 'pi_refund_test',
@@ -166,7 +166,7 @@ describe('Payment Flow E2E', () => {
             const refund = await paymentsRepo.createRefund({
                 paymentId: payment.id,
                 amount: 10000,
-                currency: 'usd',
+                currency: 'USD',
                 reason: 'requested_by_customer',
                 status: 'succeeded',
                 providerRefundId: 'rf_test_full',
@@ -200,7 +200,7 @@ describe('Payment Flow E2E', () => {
             const payment = await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 20000, // $200.00
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPaymentId: 'pi_partial_refund',
@@ -211,7 +211,7 @@ describe('Payment Flow E2E', () => {
             await paymentsRepo.createRefund({
                 paymentId: payment.id,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 reason: 'requested_by_customer',
                 status: 'succeeded',
                 providerRefundId: 'rf_partial_1',
@@ -226,7 +226,7 @@ describe('Payment Flow E2E', () => {
             await paymentsRepo.createRefund({
                 paymentId: payment.id,
                 amount: 3000,
-                currency: 'usd',
+                currency: 'USD',
                 reason: 'requested_by_customer',
                 status: 'succeeded',
                 providerRefundId: 'rf_partial_2',
@@ -258,7 +258,7 @@ describe('Payment Flow E2E', () => {
             const payment1 = await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 7500,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe',
                 idempotencyKey,
@@ -281,7 +281,7 @@ describe('Payment Flow E2E', () => {
                     subscriptionId: testSubscriptionId,
                     paymentMethodId: testPaymentMethodId,
                     amount: 9900,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'succeeded',
                     provider: 'stripe',
                     providerPaymentId: `pi_recurring_${month}`,
@@ -314,7 +314,7 @@ describe('Payment Flow E2E', () => {
             await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 10000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -323,7 +323,7 @@ describe('Payment Flow E2E', () => {
             await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 refundedAmount: 2000,
@@ -333,7 +333,7 @@ describe('Payment Flow E2E', () => {
             await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 3000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'failed',
                 provider: 'stripe',
                 livemode: true
@@ -355,7 +355,7 @@ describe('Payment Flow E2E', () => {
             const stripePayment = await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPaymentId: 'pi_stripe_123',
@@ -395,7 +395,7 @@ describe('Payment Flow E2E', () => {
             await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 1000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -403,7 +403,7 @@ describe('Payment Flow E2E', () => {
             await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 2000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe',
                 livemode: true
@@ -411,7 +411,7 @@ describe('Payment Flow E2E', () => {
             await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 3000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'failed',
                 provider: 'mercadopago',
                 livemode: false

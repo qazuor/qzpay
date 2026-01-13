@@ -149,35 +149,35 @@ describe('Error Handling Integration', () => {
     });
 
     describe('Edge Cases', () => {
-        it('should handle zero amount payment', async () => {
+        it('should reject zero amount payment', async () => {
             const customer = await billing.customers.create({
                 externalId: 'zero-payment',
                 email: 'zero@test.com',
                 name: 'Zero Payment'
             });
 
-            const payment = await billing.payments.process({
-                customerId: customer.id,
-                amount: 0,
-                currency: 'usd'
-            });
-
-            expect(payment.amount).toBe(0);
+            await expect(
+                billing.payments.process({
+                    customerId: customer.id,
+                    amount: 0,
+                    currency: 'USD'
+                })
+            ).rejects.toThrow('Amount must be greater than 0');
         });
 
-        it('should handle empty invoice lines', async () => {
+        it('should reject empty invoice lines', async () => {
             const customer = await billing.customers.create({
                 externalId: 'empty-invoice',
                 email: 'empty@test.com',
                 name: 'Empty Invoice'
             });
 
-            const invoice = await billing.invoices.create({
-                customerId: customer.id,
-                lines: []
-            });
-
-            expect(invoice.total).toBe(0);
+            await expect(
+                billing.invoices.create({
+                    customerId: customer.id,
+                    lines: []
+                })
+            ).rejects.toThrow('Invoice must have at least one line item');
         });
 
         it('should handle very long strings', async () => {
@@ -234,7 +234,7 @@ describe('Error Handling Integration', () => {
             const payment = await billing.payments.process({
                 customerId: customer.id,
                 amount: largeAmount,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             expect(payment.amount).toBe(largeAmount);
@@ -260,7 +260,7 @@ describe('Error Handling Integration', () => {
             const payment = await billing.payments.process({
                 customerId: customer.id,
                 amount: 10000,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             // First partial refund
@@ -441,7 +441,7 @@ describe('Error Handling Integration', () => {
                 billing.payments.process({
                     customerId: customer.id,
                     amount: 1000 * (i + 1),
-                    currency: 'usd'
+                    currency: 'USD'
                 })
             );
 

@@ -272,7 +272,7 @@ describe('Payment Mapper', () => {
                 subscriptionId: 'sub-123',
                 invoiceId: null,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 baseAmount: null,
                 baseCurrency: null,
                 exchangeRate: null,
@@ -298,7 +298,7 @@ describe('Payment Mapper', () => {
             expect(core.customerId).toBe('cust-123');
             expect(core.subscriptionId).toBe('sub-123');
             expect(core.amount).toBe(9999);
-            expect(core.currency).toBe('usd');
+            expect(core.currency).toBe('USD');
             expect(core.status).toBe('succeeded');
             // Provider is mapped to providerPaymentIds
             expect(core.providerPaymentIds).toEqual({ stripe: 'pi_stripe123' });
@@ -313,7 +313,7 @@ describe('Payment Mapper', () => {
                 subscriptionId: null,
                 invoiceId: null,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 baseAmount: null,
                 baseCurrency: null,
                 exchangeRate: null,

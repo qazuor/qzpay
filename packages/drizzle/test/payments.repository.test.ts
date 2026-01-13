@@ -41,7 +41,7 @@ describe('QZPayPaymentsRepository', () => {
             const payment = await paymentsRepo.create({
                 customerId,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe',
                 livemode: true
@@ -50,7 +50,7 @@ describe('QZPayPaymentsRepository', () => {
             expect(payment.id).toBeDefined();
             expect(payment.customerId).toBe(customerId);
             expect(payment.amount).toBe(9999);
-            expect(payment.currency).toBe('usd');
+            expect(payment.currency).toBe('USD');
             expect(payment.status).toBe('pending');
             expect(payment.provider).toBe('stripe');
         });
@@ -59,7 +59,7 @@ describe('QZPayPaymentsRepository', () => {
             const payment = await paymentsRepo.create({
                 customerId,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPaymentId: 'pi_test_123456',
@@ -89,7 +89,7 @@ describe('QZPayPaymentsRepository', () => {
             const created = await paymentsRepo.create({
                 customerId,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe',
                 livemode: true
@@ -115,7 +115,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.create({
                 customerId,
                 amount: 1000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -124,7 +124,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.create({
                 customerId,
                 amount: 2000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -133,7 +133,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.create({
                 customerId,
                 amount: 3000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'failed',
                 provider: 'stripe',
                 livemode: true
@@ -151,7 +151,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.create({
                 customerId,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPaymentId: 'pi_unique_123',
@@ -175,7 +175,7 @@ describe('QZPayPaymentsRepository', () => {
             const created = await paymentsRepo.create({
                 customerId,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe',
                 livemode: true
@@ -193,7 +193,7 @@ describe('QZPayPaymentsRepository', () => {
             const created = await paymentsRepo.create({
                 customerId,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe',
                 metadata: {},
@@ -211,7 +211,7 @@ describe('QZPayPaymentsRepository', () => {
             const created = await paymentsRepo.create({
                 customerId,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe',
                 livemode: true
@@ -230,7 +230,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.create({
                 customerId,
                 amount: 1000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -239,7 +239,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.create({
                 customerId,
                 amount: 2000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'failed',
                 provider: 'stripe',
                 livemode: true
@@ -248,7 +248,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.create({
                 customerId,
                 amount: 3000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -267,7 +267,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.create({
                 customerId,
                 amount: 1000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -276,7 +276,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.create({
                 customerId,
                 amount: 2000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'mercadopago',
                 livemode: true
@@ -297,7 +297,7 @@ describe('QZPayPaymentsRepository', () => {
                 await paymentsRepo.create({
                     customerId,
                     amount: (i + 1) * 1000,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'succeeded',
                     provider: 'stripe',
                     livemode: true
@@ -320,7 +320,7 @@ describe('QZPayPaymentsRepository', () => {
             const payment = await paymentsRepo.create({
                 customerId,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -329,7 +329,7 @@ describe('QZPayPaymentsRepository', () => {
             const refund = await paymentsRepo.createRefund({
                 paymentId: payment.id,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 reason: 'Customer requested refund',
                 status: 'pending'
             });
@@ -344,7 +344,7 @@ describe('QZPayPaymentsRepository', () => {
             const payment = await paymentsRepo.create({
                 customerId,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -353,7 +353,7 @@ describe('QZPayPaymentsRepository', () => {
             const refund = await paymentsRepo.createRefund({
                 paymentId: payment.id,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 reason: 'Order canceled',
                 status: 'succeeded'
             });
@@ -368,7 +368,7 @@ describe('QZPayPaymentsRepository', () => {
             const payment = await paymentsRepo.create({
                 customerId,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -377,7 +377,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.createRefund({
                 paymentId: payment.id,
                 amount: 2000,
-                currency: 'usd',
+                currency: 'USD',
                 reason: 'Partial refund 1',
                 status: 'succeeded'
             });
@@ -385,7 +385,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.createRefund({
                 paymentId: payment.id,
                 amount: 3000,
-                currency: 'usd',
+                currency: 'USD',
                 reason: 'Partial refund 2',
                 status: 'succeeded'
             });
@@ -402,7 +402,7 @@ describe('QZPayPaymentsRepository', () => {
             const payment = await paymentsRepo.create({
                 customerId,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -411,7 +411,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.createRefund({
                 paymentId: payment.id,
                 amount: 2000,
-                currency: 'usd',
+                currency: 'USD',
                 reason: 'Partial refund 1',
                 status: 'succeeded'
             });
@@ -419,7 +419,7 @@ describe('QZPayPaymentsRepository', () => {
             await paymentsRepo.createRefund({
                 paymentId: payment.id,
                 amount: 3000,
-                currency: 'usd',
+                currency: 'USD',
                 reason: 'Partial refund 2',
                 status: 'succeeded'
             });

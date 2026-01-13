@@ -138,7 +138,7 @@ describe('Core + Drizzle Integration', () => {
             // Create price
             const price = await storageAdapter.prices.create({
                 planId: plan.id,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 2999,
                 billingInterval: 'month',
                 active: true,
@@ -244,13 +244,13 @@ describe('Core + Drizzle Integration', () => {
             const payment = await billing.payments.process({
                 customerId,
                 amount: 5000,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             expect(payment.id).toBeDefined();
             expect(payment.customerId).toBe(customerId);
             expect(payment.amount).toBe(5000);
-            expect(payment.currency).toBe('usd');
+            expect(payment.currency).toBe('USD');
             // Without payment adapter, status is 'pending' (payment recorded but not processed)
             // Provider-specific tests (Stripe/MercadoPago) test actual payment processing
             expect(payment.status).toBe('pending');
@@ -260,7 +260,7 @@ describe('Core + Drizzle Integration', () => {
             const created = await billing.payments.process({
                 customerId,
                 amount: 2500,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             const fetched = await billing.payments.get(created.id);
@@ -269,8 +269,8 @@ describe('Core + Drizzle Integration', () => {
         });
 
         it('should get payments by customer ID', async () => {
-            await billing.payments.process({ customerId, amount: 1000, currency: 'usd' });
-            await billing.payments.process({ customerId, amount: 2000, currency: 'usd' });
+            await billing.payments.process({ customerId, amount: 1000, currency: 'USD' });
+            await billing.payments.process({ customerId, amount: 2000, currency: 'USD' });
 
             const payments = await billing.payments.getByCustomerId(customerId);
             expect(payments).toHaveLength(2);
@@ -280,7 +280,7 @@ describe('Core + Drizzle Integration', () => {
             const payment = await billing.payments.process({
                 customerId,
                 amount: 5000,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             const refunded = await billing.payments.refund({
@@ -297,7 +297,7 @@ describe('Core + Drizzle Integration', () => {
             const payment = await billing.payments.process({
                 customerId,
                 amount: 5000,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             const refunded = await billing.payments.refund({
@@ -564,7 +564,7 @@ describe('Core + Drizzle Integration', () => {
                 code: 'FLAT500',
                 discountType: 'fixed_amount',
                 discountValue: 500,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             const result = await billing.promoCodes.validate('FLAT500', customerId, planId);
@@ -656,7 +656,7 @@ describe('Core + Drizzle Integration', () => {
             const payment = await billing.payments.process({
                 customerId: customer.id,
                 amount: 1000,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             await billing.payments.refund({ paymentId: payment.id });
@@ -685,7 +685,7 @@ describe('Core + Drizzle Integration', () => {
 
             await storageAdapter.prices.create({
                 planId: plan.id,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 4999,
                 billingInterval: 'month',
                 active: true,
@@ -719,7 +719,7 @@ describe('Core + Drizzle Integration', () => {
             const payment = await billing.payments.process({
                 customerId: customer.id,
                 amount: invoice.total,
-                currency: 'usd',
+                currency: 'USD',
                 invoiceId: invoice.id,
                 subscriptionId: subscription.id
             });

@@ -360,7 +360,7 @@ describe('QZPayPromoCodesRepository', () => {
                 promoCodeId: promo.id,
                 customerId: testCustomerId,
                 discountAmount: 1000,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             const result = await repository.validateAndGet('NEWONLY', testCustomerId, true);
@@ -512,7 +512,7 @@ describe('QZPayPromoCodesRepository', () => {
                 promoCodeId: testPromoId,
                 customerId: testCustomerId,
                 discountAmount: 2500,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             expect(usage.id).toBeDefined();
@@ -528,7 +528,7 @@ describe('QZPayPromoCodesRepository', () => {
                 promoCodeId: testPromoId,
                 customerId: testCustomerId,
                 discountAmount: 1000,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             const usage = await repository.findUsageByPromoCodeId(testPromoId);
@@ -542,7 +542,7 @@ describe('QZPayPromoCodesRepository', () => {
                 promoCodeId: testPromoId,
                 customerId: testCustomerId,
                 discountAmount: 1500,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             const usage = await repository.findUsageByCustomerId(testCustomerId);
@@ -558,7 +558,7 @@ describe('QZPayPromoCodesRepository', () => {
                 promoCodeId: testPromoId,
                 customerId: testCustomerId,
                 discountAmount: 1000,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             expect(await repository.hasCustomerUsedCode(testPromoId, testCustomerId)).toBe(true);
@@ -569,7 +569,7 @@ describe('QZPayPromoCodesRepository', () => {
                 promoCodeId: testPromoId,
                 customerId: testCustomerId,
                 discountAmount: 1000,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             // Create another customer for second usage
@@ -583,7 +583,7 @@ describe('QZPayPromoCodesRepository', () => {
                 promoCodeId: testPromoId,
                 customerId: customer2.id,
                 discountAmount: 2000,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             const count = await repository.getUsageCount(testPromoId);
@@ -596,7 +596,7 @@ describe('QZPayPromoCodesRepository', () => {
                 promoCodeId: testPromoId,
                 customerId: testCustomerId,
                 discountAmount: 1000,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             const customer2 = await customersRepository.create({
@@ -609,7 +609,7 @@ describe('QZPayPromoCodesRepository', () => {
                 promoCodeId: testPromoId,
                 customerId: customer2.id,
                 discountAmount: 2500,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             const total = await repository.getTotalDiscountGiven(testPromoId);

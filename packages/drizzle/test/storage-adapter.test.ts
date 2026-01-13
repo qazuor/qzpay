@@ -218,14 +218,14 @@ describe('QZPayDrizzleStorageAdapter', () => {
             const created = await adapter.payments.create({
                 customerId,
                 amount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe'
             });
 
             expect(created.id).toBeDefined();
             expect(created.amount).toBe(9999);
-            expect(created.currency).toBe('usd');
+            expect(created.currency).toBe('USD');
             expect(created.status).toBe('pending');
 
             const found = await adapter.payments.findById(created.id);
@@ -236,7 +236,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
             await adapter.payments.create({
                 customerId,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe'
             });
@@ -249,7 +249,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
             const created = await adapter.payments.create({
                 customerId,
                 amount: 7500,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe'
             });

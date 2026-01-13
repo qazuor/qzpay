@@ -44,7 +44,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-000001',
                 status: 'draft' as const,
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 10000,
                 tax: 1000,
                 total: 11000,
@@ -68,7 +68,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-000002',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 5000,
                 stripeInvoiceId: 'in_stripe123',
                 mpInvoiceId: 'mp_inv456',
@@ -88,7 +88,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-FIND-001',
                 status: 'draft' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 5000,
                 livemode: true
             });
@@ -112,7 +112,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-UNIQUE-123',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 7500,
                 livemode: true
             });
@@ -130,7 +130,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-STRIPE-001',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 3000,
                 stripeInvoiceId: 'in_test123456',
                 livemode: true
@@ -168,7 +168,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-PROV-S1',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 2000,
                 stripeInvoiceId: 'in_provider_stripe',
                 livemode: true
@@ -201,7 +201,7 @@ describe('QZPayInvoicesRepository', () => {
                     customerId: testCustomerId,
                     number: `INV-CUST-${i.toString().padStart(3, '0')}`,
                     status: 'open' as const,
-                    currency: 'usd',
+                    currency: 'USD',
                     total: i * 1000,
                     livemode: true
                 });
@@ -218,7 +218,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-STATUS-1',
                 status: 'draft' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 1000,
                 livemode: true
             });
@@ -226,7 +226,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-STATUS-2',
                 status: 'paid' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 2000,
                 livemode: true
             });
@@ -243,7 +243,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-MULTI-1',
                 status: 'draft' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 1000,
                 livemode: true
             });
@@ -251,7 +251,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-MULTI-2',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 2000,
                 livemode: true
             });
@@ -259,7 +259,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-MULTI-3',
                 status: 'paid' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 3000,
                 livemode: true
             });
@@ -276,7 +276,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-UNPAID-1',
                 status: 'draft' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 1000,
                 livemode: true
             });
@@ -284,7 +284,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-UNPAID-2',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 2000,
                 livemode: true
             });
@@ -292,7 +292,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-UNPAID-3',
                 status: 'paid' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 3000,
                 livemode: true
             });
@@ -315,7 +315,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-OVERDUE-1',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 1000,
                 dueDate: yesterday,
                 livemode: true
@@ -324,7 +324,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-OVERDUE-2',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 2000,
                 dueDate: tomorrow,
                 livemode: true
@@ -343,7 +343,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-UPDATE-1',
                 status: 'draft' as const,
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: 5000,
                 total: 5000,
                 livemode: true
@@ -368,7 +368,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-PAID-1',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 5000,
                 livemode: true
             });
@@ -384,7 +384,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-VOID-1',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 5000,
                 livemode: true
             });
@@ -402,7 +402,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-FINALIZE-1',
                 status: 'draft' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 5000,
                 livemode: true
             });
@@ -417,7 +417,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-FINALIZE-2',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 5000,
                 livemode: true
             });
@@ -432,7 +432,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-SEARCH-1',
                 status: 'draft' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 1000,
                 livemode: true
             });
@@ -440,7 +440,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-SEARCH-2',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 2000,
                 livemode: true
             });
@@ -448,7 +448,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-SEARCH-3',
                 status: 'paid' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 3000,
                 livemode: false
             });
@@ -487,7 +487,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-000005',
                 status: 'draft' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 1000,
                 livemode: true
             });
@@ -508,7 +508,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-DELETE-1',
                 status: 'draft' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 5000,
                 livemode: true
             });
@@ -532,7 +532,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-LINES-001',
                 status: 'draft' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 10000,
                 livemode: true
             });
@@ -546,7 +546,7 @@ describe('QZPayInvoicesRepository', () => {
                 quantity: 1,
                 unitAmount: 5000,
                 amount: 5000,
-                currency: 'usd'
+                currency: 'USD'
             });
 
             expect(line.id).toBeDefined();
@@ -562,7 +562,7 @@ describe('QZPayInvoicesRepository', () => {
                     quantity: 2,
                     unitAmount: 1000,
                     amount: 2000,
-                    currency: 'usd'
+                    currency: 'USD'
                 },
                 {
                     invoiceId: testInvoiceId,
@@ -570,7 +570,7 @@ describe('QZPayInvoicesRepository', () => {
                     quantity: 1,
                     unitAmount: 3000,
                     amount: 3000,
-                    currency: 'usd'
+                    currency: 'USD'
                 }
             ]);
 
@@ -585,7 +585,7 @@ describe('QZPayInvoicesRepository', () => {
                     quantity: 1,
                     unitAmount: 1000,
                     amount: 1000,
-                    currency: 'usd'
+                    currency: 'USD'
                 },
                 {
                     invoiceId: testInvoiceId,
@@ -593,7 +593,7 @@ describe('QZPayInvoicesRepository', () => {
                     quantity: 1,
                     unitAmount: 2000,
                     amount: 2000,
-                    currency: 'usd'
+                    currency: 'USD'
                 }
             ]);
 
@@ -610,7 +610,7 @@ describe('QZPayInvoicesRepository', () => {
                     quantity: 1,
                     unitAmount: 1000,
                     amount: 1000,
-                    currency: 'usd'
+                    currency: 'USD'
                 }
             ]);
 
@@ -630,7 +630,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-PAY-001',
                 status: 'open' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 10000,
                 amountRemaining: 10000,
                 livemode: true
@@ -640,7 +640,7 @@ describe('QZPayInvoicesRepository', () => {
             const payment = await paymentsRepository.create({
                 customerId: testCustomerId,
                 amount: 10000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -653,7 +653,7 @@ describe('QZPayInvoicesRepository', () => {
                 invoiceId: testInvoiceId,
                 paymentId: testPaymentId,
                 amountApplied: 10000,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -666,7 +666,7 @@ describe('QZPayInvoicesRepository', () => {
                 invoiceId: testInvoiceId,
                 paymentId: testPaymentId,
                 amountApplied: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -681,7 +681,7 @@ describe('QZPayInvoicesRepository', () => {
                 invoiceId: testInvoiceId,
                 paymentId: testPaymentId,
                 amountApplied: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -697,7 +697,7 @@ describe('QZPayInvoicesRepository', () => {
                 customerId: testCustomerId,
                 number: 'INV-WITH-LINES-1',
                 status: 'draft' as const,
-                currency: 'usd',
+                currency: 'USD',
                 total: 5000,
                 livemode: true
             });
@@ -709,7 +709,7 @@ describe('QZPayInvoicesRepository', () => {
                     quantity: 1,
                     unitAmount: 5000,
                     amount: 5000,
-                    currency: 'usd'
+                    currency: 'USD'
                 }
             ]);
 

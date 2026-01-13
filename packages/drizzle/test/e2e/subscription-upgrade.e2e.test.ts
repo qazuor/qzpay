@@ -84,7 +84,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
         const basicPrice = await pricesRepo.create({
             planId: basicPlanId,
             unitAmount: 999, // $9.99/month
-            currency: 'usd',
+            currency: 'USD',
             billingInterval: 'month',
             active: true,
             livemode: true
@@ -94,7 +94,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
         const proPrice = await pricesRepo.create({
             planId: proPlanId,
             unitAmount: 2999, // $29.99/month
-            currency: 'usd',
+            currency: 'USD',
             billingInterval: 'month',
             active: true,
             livemode: true
@@ -104,7 +104,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
         const enterprisePrice = await pricesRepo.create({
             planId: enterprisePlanId,
             unitAmount: 9999, // $99.99/month
-            currency: 'usd',
+            currency: 'USD',
             billingInterval: 'month',
             active: true,
             livemode: true
@@ -158,7 +158,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
                 subscriptionId: subscription.id,
                 number: 'INV-PRORATE-001',
                 status: 'open',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: prorationAmount,
                 total: prorationAmount,
                 amountPaid: 0,
@@ -301,7 +301,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
                 subscriptionId: subscription.id,
                 number: 'INV-UPGRADE-001',
                 status: 'open',
-                currency: 'usd',
+                currency: 'USD',
                 subtotal: prorationAmount,
                 total: prorationAmount,
                 amountPaid: 0,
@@ -313,7 +313,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
                 customerId: testCustomerId,
                 subscriptionId: subscription.id,
                 amount: prorationAmount,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPaymentId: 'pi_upgrade_123',
@@ -325,7 +325,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
                 invoiceId: invoice.id,
                 paymentId: payment.id,
                 amountApplied: prorationAmount,
-                currency: 'usd',
+                currency: 'USD',
                 livemode: true
             });
 
@@ -400,7 +400,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
                 customerId: testCustomerId,
                 subscriptionId: subscription.id,
                 amount: 2999,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true

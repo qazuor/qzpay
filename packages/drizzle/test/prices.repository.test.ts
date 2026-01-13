@@ -39,7 +39,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 2999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,
@@ -51,7 +51,7 @@ describe('QZPayPricesRepository', () => {
             expect(price.id).toBe(input.id);
             expect(price.planId).toBe(testPlanId);
             expect(price.unitAmount).toBe(2999);
-            expect(price.currency).toBe('usd');
+            expect(price.currency).toBe('USD');
             expect(price.billingInterval).toBe('month');
             expect(price.active).toBe(true);
         });
@@ -61,7 +61,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 4999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'year',
                 intervalCount: 1,
                 stripePriceId: 'price_stripe123',
@@ -81,7 +81,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 2999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 nickname: 'Monthly Pro',
@@ -103,7 +103,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 1999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,
@@ -129,7 +129,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,
@@ -139,7 +139,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'year',
                 intervalCount: 1,
                 active: true,
@@ -149,7 +149,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 1999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: false,
@@ -180,7 +180,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 2999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 stripePriceId: 'price_test123',
@@ -222,7 +222,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 2999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 stripePriceId: 'price_provider_test',
@@ -260,7 +260,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 1999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,
@@ -282,7 +282,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 1999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,
@@ -316,7 +316,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 1999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,
@@ -339,7 +339,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 1999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: false,
@@ -356,7 +356,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 1999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,
@@ -375,7 +375,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 1999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,
@@ -399,7 +399,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,
@@ -419,7 +419,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 9999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'year',
                 intervalCount: 1,
                 active: false,
@@ -428,10 +428,10 @@ describe('QZPayPricesRepository', () => {
         });
 
         it('should search by currency', async () => {
-            const result = await repository.search({ currency: 'usd' });
+            const result = await repository.search({ currency: 'USD' });
 
             expect(result.data).toHaveLength(2);
-            expect(result.data.every((p) => p.currency === 'usd')).toBe(true);
+            expect(result.data.every((p) => p.currency === 'USD')).toBe(true);
         });
 
         it('should search by billing interval', async () => {
@@ -471,7 +471,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 1999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 metadata: { initial: true },
@@ -491,7 +491,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,
@@ -501,7 +501,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 2999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: false,
@@ -528,7 +528,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 2999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,
@@ -538,7 +538,7 @@ describe('QZPayPricesRepository', () => {
                 id: crypto.randomUUID(),
                 planId: testPlanId,
                 unitAmount: 999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,

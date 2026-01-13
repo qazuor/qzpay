@@ -46,7 +46,7 @@ describe('QZPayAddonsRepository', () => {
                     description: '100GB storage',
                     active: true,
                     unitAmount: 500,
-                    currency: 'usd',
+                    currency: 'USD',
                     billingInterval: 'month',
                     billingIntervalCount: 1,
                     compatiblePlanIds: [planId],
@@ -76,7 +76,7 @@ describe('QZPayAddonsRepository', () => {
                     description: null,
                     active: true,
                     unitAmount: 100,
-                    currency: 'usd',
+                    currency: 'USD',
                     billingInterval: 'month',
                     billingIntervalCount: 1,
                     compatiblePlanIds: [],
@@ -106,7 +106,7 @@ describe('QZPayAddonsRepository', () => {
                     description: null,
                     active: true,
                     unitAmount: 100,
-                    currency: 'usd',
+                    currency: 'USD',
                     billingInterval: 'month',
                     billingIntervalCount: 1,
                     compatiblePlanIds: [],
@@ -123,7 +123,7 @@ describe('QZPayAddonsRepository', () => {
                     description: null,
                     active: false,
                     unitAmount: 100,
-                    currency: 'usd',
+                    currency: 'USD',
                     billingInterval: 'month',
                     billingIntervalCount: 1,
                     compatiblePlanIds: [],
@@ -152,7 +152,7 @@ describe('QZPayAddonsRepository', () => {
                     description: null,
                     active: true,
                     unitAmount: 100,
-                    currency: 'usd',
+                    currency: 'USD',
                     billingInterval: 'month',
                     billingIntervalCount: 1,
                     compatiblePlanIds: [],
@@ -184,7 +184,7 @@ describe('QZPayAddonsRepository', () => {
                     description: null,
                     active: true,
                     unitAmount: 100,
-                    currency: 'usd',
+                    currency: 'USD',
                     billingInterval: 'month',
                     billingIntervalCount: 1,
                     compatiblePlanIds: [],
@@ -213,7 +213,7 @@ describe('QZPayAddonsRepository', () => {
                     description: null,
                     active: false,
                     unitAmount: 100,
-                    currency: 'usd',
+                    currency: 'USD',
                     billingInterval: 'month',
                     billingIntervalCount: 1,
                     compatiblePlanIds: [],
@@ -257,7 +257,7 @@ describe('QZPayAddonsRepository', () => {
                 id: randomUUID(),
                 planId: plan.id,
                 unitAmount: 1999,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 intervalCount: 1,
                 active: true,
@@ -286,7 +286,7 @@ describe('QZPayAddonsRepository', () => {
                 description: 'Test',
                 active: true,
                 unitAmount: 500,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 billingIntervalCount: 1,
                 compatiblePlanIds: [plan.id],
@@ -310,7 +310,7 @@ describe('QZPayAddonsRepository', () => {
                     addOnId: testAddonId,
                     quantity: 2,
                     unitAmount: 500,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'active',
                     metadata: {}
                 };
@@ -332,7 +332,7 @@ describe('QZPayAddonsRepository', () => {
                     description: null,
                     active: true,
                     unitAmount: 1000,
-                    currency: 'usd',
+                    currency: 'USD',
                     billingInterval: 'month',
                     billingIntervalCount: 1,
                     compatiblePlanIds: [],
@@ -350,7 +350,7 @@ describe('QZPayAddonsRepository', () => {
                     addOnId: testAddonId,
                     quantity: 1,
                     unitAmount: 500,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'active',
                     metadata: {}
                 });
@@ -360,7 +360,7 @@ describe('QZPayAddonsRepository', () => {
                     addOnId: addon2.id,
                     quantity: 1,
                     unitAmount: 1000,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'active',
                     metadata: {}
                 });
@@ -383,7 +383,7 @@ describe('QZPayAddonsRepository', () => {
                     description: null,
                     active: true,
                     unitAmount: 500,
-                    currency: 'usd',
+                    currency: 'USD',
                     billingInterval: 'month',
                     billingIntervalCount: 1,
                     compatiblePlanIds: [],
@@ -402,7 +402,7 @@ describe('QZPayAddonsRepository', () => {
                     description: null,
                     active: true,
                     unitAmount: 500,
-                    currency: 'usd',
+                    currency: 'USD',
                     billingInterval: 'month',
                     billingIntervalCount: 1,
                     compatiblePlanIds: [],
@@ -420,7 +420,7 @@ describe('QZPayAddonsRepository', () => {
                     addOnId: addon1.id,
                     quantity: 1,
                     unitAmount: 500,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'active',
                     metadata: {}
                 });
@@ -430,7 +430,7 @@ describe('QZPayAddonsRepository', () => {
                     addOnId: addon2.id,
                     quantity: 1,
                     unitAmount: 500,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'canceled',
                     metadata: {}
                 });
@@ -452,7 +452,7 @@ describe('QZPayAddonsRepository', () => {
                     addOnId: testAddonId,
                     quantity: 1,
                     unitAmount: 500,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'active',
                     metadata: {}
                 });
@@ -475,7 +475,7 @@ describe('QZPayAddonsRepository', () => {
                     addOnId: testAddonId,
                     quantity: 1,
                     unitAmount: 500,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'active',
                     metadata: {}
                 });
@@ -499,7 +499,7 @@ describe('QZPayAddonsRepository', () => {
                     description: null,
                     active: true,
                     unitAmount: 500,
-                    currency: 'usd',
+                    currency: 'USD',
                     billingInterval: 'month',
                     billingIntervalCount: 1,
                     compatiblePlanIds: [],
@@ -518,7 +518,7 @@ describe('QZPayAddonsRepository', () => {
                     description: null,
                     active: true,
                     unitAmount: 1000,
-                    currency: 'usd',
+                    currency: 'USD',
                     billingInterval: 'month',
                     billingIntervalCount: 1,
                     compatiblePlanIds: [],
@@ -536,7 +536,7 @@ describe('QZPayAddonsRepository', () => {
                     addOnId: addon1.id,
                     quantity: 2,
                     unitAmount: 500,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'active',
                     metadata: {}
                 });
@@ -546,7 +546,7 @@ describe('QZPayAddonsRepository', () => {
                     addOnId: addon2.id,
                     quantity: 1,
                     unitAmount: 1000,
-                    currency: 'usd',
+                    currency: 'USD',
                     status: 'active',
                     metadata: {}
                 });
@@ -554,7 +554,7 @@ describe('QZPayAddonsRepository', () => {
                 const total = await repository.calculateTotalAmount(testSubscriptionId);
 
                 expect(total.amount).toBe(2000); // (2 * 500) + (1 * 1000)
-                expect(total.currency).toBe('usd');
+                expect(total.currency).toBe('USD');
             });
 
             it('should return 0 when no addons', async () => {

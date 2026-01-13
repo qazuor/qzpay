@@ -145,7 +145,7 @@ describe('Multi-Provider E2E', () => {
             const stripePayment = await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPaymentId: 'pi_stripe_success',
@@ -184,7 +184,7 @@ describe('Multi-Provider E2E', () => {
             await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 1000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -193,7 +193,7 @@ describe('Multi-Provider E2E', () => {
             await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 2000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -222,7 +222,7 @@ describe('Multi-Provider E2E', () => {
             const failedPayment = await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 provider: 'stripe',
                 livemode: true
@@ -242,7 +242,7 @@ describe('Multi-Provider E2E', () => {
             const _stripeAttempt = await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'failed',
                 provider: 'stripe',
                 failureCode: 'card_declined',
@@ -258,7 +258,7 @@ describe('Multi-Provider E2E', () => {
             const mpRetry = await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'mercadopago',
                 providerPaymentId: 'mp_retry_success',
@@ -281,13 +281,13 @@ describe('Multi-Provider E2E', () => {
             const usdPayment = await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 9999, // $99.99
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
             });
 
-            expect(usdPayment.currency).toBe('usd');
+            expect(usdPayment.currency).toBe('USD');
             expect(usdPayment.amount).toBe(9999);
         });
 
@@ -309,7 +309,7 @@ describe('Multi-Provider E2E', () => {
             await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 1000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 livemode: true
@@ -335,7 +335,7 @@ describe('Multi-Provider E2E', () => {
 
             // Get all payments and filter by currency
             const allPayments = await paymentsRepo.findByCustomerId(testCustomerId);
-            const usdPayments = allPayments.data.filter((p) => p.currency === 'usd');
+            const usdPayments = allPayments.data.filter((p) => p.currency === 'USD');
             const arsPayments = allPayments.data.filter((p) => p.currency === 'ars');
             const eurPayments = allPayments.data.filter((p) => p.currency === 'eur');
 
@@ -368,7 +368,7 @@ describe('Multi-Provider E2E', () => {
                 vendorId: testVendorId,
                 provider: 'stripe',
                 amount: 50000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'pending',
                 livemode: true
             });
@@ -396,7 +396,7 @@ describe('Multi-Provider E2E', () => {
                 vendorId: testVendorId,
                 provider: 'stripe',
                 amount: 25000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 livemode: true
             });
@@ -405,7 +405,7 @@ describe('Multi-Provider E2E', () => {
                 vendorId: testVendorId,
                 provider: 'stripe',
                 amount: 25000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 livemode: true
             });
@@ -517,7 +517,7 @@ describe('Multi-Provider E2E', () => {
             const payment = await paymentsRepo.create({
                 customerId: testCustomerId,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
                 providerPaymentId: 'pi_stripe_refund_test',
@@ -527,7 +527,7 @@ describe('Multi-Provider E2E', () => {
             const refund = await paymentsRepo.createRefund({
                 paymentId: payment.id,
                 amount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 reason: 'requested_by_customer',
                 status: 'succeeded',
                 providerRefundId: 're_stripe_123',

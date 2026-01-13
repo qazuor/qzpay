@@ -25,7 +25,7 @@ describe('Add-on Mapper', () => {
                 description: '100GB additional storage',
                 active: true,
                 unitAmount: 500,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month',
                 billingIntervalCount: 1,
                 compatiblePlanIds: ['plan-1', 'plan-2'],
@@ -47,7 +47,7 @@ describe('Add-on Mapper', () => {
             expect(core.description).toBe('100GB additional storage');
             expect(core.active).toBe(true);
             expect(core.unitAmount).toBe(500);
-            expect(core.currency).toBe('usd');
+            expect(core.currency).toBe('USD');
             expect(core.billingInterval).toBe('month');
             expect(core.billingIntervalCount).toBe(1);
             expect(core.compatiblePlanIds).toEqual(['plan-1', 'plan-2']);
@@ -97,7 +97,7 @@ describe('Add-on Mapper', () => {
                 description: null,
                 active: true,
                 unitAmount: 12000,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'year',
                 billingIntervalCount: 1,
                 compatiblePlanIds: [],
@@ -125,7 +125,7 @@ describe('Add-on Mapper', () => {
                 name: 'Priority Support',
                 description: '24/7 priority support',
                 unitAmount: 3000,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month' as const,
                 billingIntervalCount: 1,
                 compatiblePlanIds: ['plan-pro'],
@@ -143,7 +143,7 @@ describe('Add-on Mapper', () => {
             expect(drizzle.description).toBe('24/7 priority support');
             expect(drizzle.active).toBe(true);
             expect(drizzle.unitAmount).toBe(3000);
-            expect(drizzle.currency).toBe('usd');
+            expect(drizzle.currency).toBe('USD');
             expect(drizzle.billingInterval).toBe('month');
             expect(drizzle.billingIntervalCount).toBe(1);
             expect(drizzle.compatiblePlanIds).toEqual(['plan-pro']);
@@ -159,7 +159,7 @@ describe('Add-on Mapper', () => {
                 id: 'new-addon-2',
                 name: 'Basic Feature',
                 unitAmount: 100,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'month' as const
             };
 
@@ -181,7 +181,7 @@ describe('Add-on Mapper', () => {
                 id: 'new-addon-3',
                 name: 'One-time Setup',
                 unitAmount: 5000,
-                currency: 'usd',
+                currency: 'USD',
                 billingInterval: 'one_time' as const
             };
 
@@ -253,7 +253,7 @@ describe('Add-on Mapper', () => {
                 addOnId: 'addon-123',
                 quantity: 3,
                 unitAmount: 500,
-                currency: 'usd',
+                currency: 'USD',
                 status: 'active',
                 addedAt: added,
                 canceledAt: null,
@@ -270,7 +270,7 @@ describe('Add-on Mapper', () => {
             expect(core.addOnId).toBe('addon-123');
             expect(core.quantity).toBe(3);
             expect(core.unitAmount).toBe(500);
-            expect(core.currency).toBe('usd');
+            expect(core.currency).toBe('USD');
             expect(core.status).toBe('active');
             expect(core.addedAt).toEqual(added);
             expect(core.canceledAt).toBeNull();
@@ -336,7 +336,7 @@ describe('Add-on Mapper', () => {
                 addOnId: 'addon-123',
                 quantity: 2,
                 unitAmount: 1500,
-                currency: 'usd',
+                currency: 'USD',
                 metadata: { source: 'api' }
             };
 
@@ -347,7 +347,7 @@ describe('Add-on Mapper', () => {
             expect(drizzle.addOnId).toBe('addon-123');
             expect(drizzle.quantity).toBe(2);
             expect(drizzle.unitAmount).toBe(1500);
-            expect(drizzle.currency).toBe('usd');
+            expect(drizzle.currency).toBe('USD');
             expect(drizzle.status).toBe('active');
             expect(drizzle.metadata).toEqual({ source: 'api' });
         });

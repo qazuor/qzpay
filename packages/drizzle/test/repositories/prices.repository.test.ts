@@ -40,7 +40,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId,
                 planId,
                 nickname: 'Monthly Pro',
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 2999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -55,7 +55,7 @@ describe('QZPayPricesRepository', () => {
             const price = await repository.create(input);
 
             expect(price.id).toBe(priceId);
-            expect(price.currency).toBe('usd');
+            expect(price.currency).toBe('USD');
             expect(price.unitAmount).toBe(2999);
         });
     });
@@ -67,7 +67,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 1999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -94,7 +94,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId1,
                 planId,
                 nickname: 'Monthly',
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -109,7 +109,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId2,
                 planId,
                 nickname: 'Yearly',
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 9999,
                 billingInterval: 'year',
                 intervalCount: 1,
@@ -133,7 +133,7 @@ describe('QZPayPricesRepository', () => {
                 id: activeId,
                 planId,
                 nickname: 'Active',
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -148,7 +148,7 @@ describe('QZPayPricesRepository', () => {
                 id: inactiveId,
                 planId,
                 nickname: 'Inactive',
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 1999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -173,7 +173,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -225,7 +225,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -273,7 +273,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId,
                 planId,
                 nickname: 'Original',
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -302,7 +302,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -352,7 +352,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -375,7 +375,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -400,7 +400,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -426,7 +426,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -449,7 +449,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -461,9 +461,9 @@ describe('QZPayPricesRepository', () => {
                 livemode: true
             });
 
-            const result = await repository.search({ currency: 'usd' });
+            const result = await repository.search({ currency: 'USD' });
 
-            expect(result.data.every((p) => p.currency === 'usd')).toBe(true);
+            expect(result.data.every((p) => p.currency === 'USD')).toBe(true);
         });
     });
 
@@ -475,7 +475,7 @@ describe('QZPayPricesRepository', () => {
                 id: lowId,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -490,7 +490,7 @@ describe('QZPayPricesRepository', () => {
                 id: highId,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 9999,
                 billingInterval: 'year',
                 intervalCount: 1,
@@ -514,7 +514,7 @@ describe('QZPayPricesRepository', () => {
                 id: usdId,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 1999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -556,7 +556,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId1,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 999,
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -571,7 +571,7 @@ describe('QZPayPricesRepository', () => {
                 id: priceId2,
                 planId,
                 nickname: null,
-                currency: 'usd',
+                currency: 'USD',
                 unitAmount: 1999,
                 billingInterval: 'year',
                 intervalCount: 1,
