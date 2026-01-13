@@ -425,6 +425,7 @@ describe('billing.customers', () => {
         const billing = createQZPayBilling({ storage });
 
         const customer = await billing.customers.create({
+            externalId: 'user_create_1',
             email: 'test@example.com',
             name: 'Test User'
         });
@@ -440,7 +441,7 @@ describe('billing.customers', () => {
         const handler = vi.fn();
 
         billing.on('customer.created', handler);
-        await billing.customers.create({ email: 'test@example.com' });
+        await billing.customers.create({ externalId: 'user_emit_1', email: 'test@example.com' });
 
         expect(handler).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -454,7 +455,7 @@ describe('billing.customers', () => {
         const storage = createMockStorage();
         const billing = createQZPayBilling({ storage });
 
-        const created = await billing.customers.create({ email: 'test@example.com' });
+        const created = await billing.customers.create({ externalId: 'user_get_1', email: 'test@example.com' });
         const customer = await billing.customers.get(created.id);
 
         expect(customer).toBeDefined();
@@ -466,7 +467,7 @@ describe('billing.customers', () => {
         const billing = createQZPayBilling({ storage });
         const handler = vi.fn();
 
-        const created = await billing.customers.create({ email: 'test@example.com' });
+        const created = await billing.customers.create({ externalId: 'user_update_1', email: 'test@example.com' });
         billing.on('customer.updated', handler);
 
         const updated = await billing.customers.update(created.id, { name: 'Updated Name' });
@@ -513,8 +514,8 @@ describe('billing.customers', () => {
         const storage = createMockStorage();
         const billing = createQZPayBilling({ storage });
 
-        await billing.customers.create({ email: 'test1@example.com' });
-        await billing.customers.create({ email: 'test2@example.com' });
+        await billing.customers.create({ externalId: 'user_1', email: 'test1@example.com' });
+        await billing.customers.create({ externalId: 'user_2', email: 'test2@example.com' });
 
         const result = await billing.customers.list();
         expect(result.data).toHaveLength(2);
@@ -528,7 +529,7 @@ describe('billing.on/once/off', () => {
         const handler = vi.fn();
 
         billing.on('customer.created', handler);
-        await billing.customers.create({ email: 'test@example.com' });
+        await billing.customers.create({ externalId: 'user_event_1', email: 'test@example.com' });
 
         expect(handler).toHaveBeenCalled();
     });
@@ -540,7 +541,7 @@ describe('billing.on/once/off', () => {
 
         billing.on('customer.created', handler);
         billing.off('customer.created', handler);
-        await billing.customers.create({ email: 'test@example.com' });
+        await billing.customers.create({ externalId: 'user_event_2', email: 'test@example.com' });
 
         expect(handler).not.toHaveBeenCalled();
     });
@@ -551,8 +552,8 @@ describe('billing.on/once/off', () => {
         const handler = vi.fn();
 
         billing.once('customer.created', handler);
-        await billing.customers.create({ email: 'test1@example.com' });
-        await billing.customers.create({ email: 'test2@example.com' });
+        await billing.customers.create({ externalId: 'user_once_1', email: 'test1@example.com' });
+        await billing.customers.create({ externalId: 'user_once_2', email: 'test2@example.com' });
 
         expect(handler).toHaveBeenCalledTimes(1);
     });
@@ -564,7 +565,7 @@ describe('billing.on/once/off', () => {
 
         const unsubscribe = billing.on('customer.created', handler);
         unsubscribe();
-        await billing.customers.create({ email: 'test@example.com' });
+        await billing.customers.create({ externalId: 'user_unsub_1', email: 'test@example.com' });
 
         expect(handler).not.toHaveBeenCalled();
     });
