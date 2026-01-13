@@ -1,0 +1,58 @@
+{
+  "tabs": {
+    "reference": "Referencia",
+    "events": "Eventos",
+    "state": "Estado"
+  },
+  "expand": "Expandir panel",
+  "collapse": "Colapsar panel",
+  "testCards": {
+    "title": "Tarjetas de Prueba",
+    "success": "Exitosa",
+    "declined": "Rechazada",
+    "insufficientFunds": "Sin fondos",
+    "requires3ds": "3DS",
+    "expiredCard": "Expirada"
+  },
+  "config": {
+    "title": "Config. Actual",
+    "mode": "Modo",
+    "currency": "Moneda",
+    "defaultInterval": "Intervalo por defecto"
+  },
+  "stats": {
+    "title": "Estadísticas",
+    "plans": "Planes",
+    "prices": "Precios",
+    "customers": "Clientes",
+    "subs": "Subs",
+    "addons": "Add-ons",
+    "promos": "Promos",
+    "entitlements": "Entitlements",
+    "limits": "Límites"
+  },
+  "contextual": {
+    "availablePlans": "Planes Disponibles",
+    "noPlans": "Aún no hay planes creados",
+    "simulationSettings": "Config. de Simulación",
+    "autoProcess": "Auto-procesar",
+    "failureRate": "Tasa de fallo",
+    "webhookDelay": "Delay de webhook",
+    "entitlementStats": "Stats de Entitlements",
+    "limitStats": "Stats de Límites",
+    "defined": "Definidos",
+    "plansUsing": "Planes usando"
+  },
+  "events": {
+    "count": "{{count}} eventos",
+    "clear": "Limpiar",
+    "empty": "Sin eventos aún",
+    "emptyHint": "Crea suscripciones o pagos para ver eventos"
+  },
+  "state": {
+    "autoRefresh": "Auto",
+    "copyAll": "Copiar todo",
+    "refresh": "Actualizar",
+    "noData": "Sin datos disponibles"
+  }
+}

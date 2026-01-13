@@ -1,0 +1,75 @@
+{
+  "title": "Tour Guiado",
+  "progress": {
+    "step": "Paso {{current}} de {{total}}"
+  },
+  "steps": {
+    "welcome": {
+      "title": "Bienvenido",
+      "description": "¡Bienvenido al Playground de QZPay! Este tour guiado te mostrará cómo crear tu primera configuración de facturación."
+    },
+    "setup": {
+      "title": "Configuración",
+      "description": "Primero, configuremos tu modo de pago. Elige 'Mock' para pruebas sin pagos reales, o conecta un proveedor real."
+    },
+    "plans": {
+      "title": "Crear Planes",
+      "description": "Los planes definen los diferentes niveles de suscripción que ofreces. Crea al menos un plan para comenzar."
+    },
+    "prices": {
+      "title": "Agregar Precios",
+      "description": "Los precios definen cuánto cuesta cada plan. Agrega precios mensuales o anuales a tus planes."
+    },
+    "customers": {
+      "title": "Crear Clientes",
+      "description": "Los clientes son los usuarios que se suscribirán a tus planes. Crea un cliente de prueba para continuar."
+    },
+    "subscriptions": {
+      "title": "Crear Suscripción",
+      "description": "Suscribe tu cliente de prueba a un plan. Esto crea una relación de suscripción activa."
+    },
+    "actions": {
+      "title": "Probar Acciones",
+      "description": "Ahora prueba algunas acciones de suscripción como pausar, reanudar o cancelar. Observa cómo responde el sistema."
+    },
+    "events": {
+      "title": "Ver Eventos",
+      "description": "Cada acción genera eventos. Revisa la vista de Eventos para ver la línea de tiempo de lo que sucedió."
+    },
+    "components": {
+      "title": "Componentes React",
+      "description": "Explora los componentes React pre-construidos de @qazuor/qzpay-react que puedes usar en tu app."
+    },
+    "complete": {
+      "title": "¡Tour Completado!",
+      "description": "¡Felicitaciones! Has completado el tour guiado y aprendido los conceptos básicos de QZPay."
+    }
+  },
+  "tips": {
+    "label": "Consejo",
+    "setup": "Usa el modo Mock para probar sin pagos reales. Puedes cambiar a Stripe o MercadoPago después.",
+    "plans": "Comienza con 2-3 niveles como Gratis, Pro y Enterprise. Siempre puedes agregar más después.",
+    "prices": "Considera ofrecer precios mensuales y anuales con descuento para suscripciones anuales.",
+    "customers": "En producción, los clientes se crean automáticamente cuando los usuarios se registran.",
+    "subscriptions": "Las suscripciones rastrean la relación continua entre un cliente y un plan.",
+    "actions": "Prueba cancelar una suscripción para ver cómo el sistema lo maneja de forma elegante.",
+    "events": "Los eventos son útiles para depuración y crear registros de auditoría en producción.",
+    "components": "Estos componentes funcionan con cualquier instancia de billing y pueden estilizarse según tu app."
+  },
+  "controls": {
+    "start": "Iniciar Tour",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "skip": "Saltar",
+    "exit": "Salir del Tour",
+    "finish": "Finalizar"
+  },
+  "complete": {
+    "message": "¡Ya estás listo para construir experiencias de facturación increíbles con QZPay! Explora el playground para aprender más."
+  },
+  "welcome": {
+    "startTour": "Iniciar Tour Guiado",
+    "resumeTour": "Continuar Tour",
+    "tourDescription": "¿Nuevo en QZPay? Toma un tour guiado para aprender lo básico."
+  }
+}

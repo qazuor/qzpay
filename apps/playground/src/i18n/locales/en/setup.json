@@ -1,0 +1,207 @@
+{
+  "title": "Setup",
+  "description": "Configure how the playground processes billing operations.",
+  "firstTime": {
+    "title": "First time here?",
+    "description": "Start with <strong>Mock mode</strong> - it simulates all billing operations locally without needing any API keys. Perfect for learning how QZPay works."
+  },
+  "status": {
+    "initialized": "Playground initialized in {{mode}} mode",
+    "modes": {
+      "mock": "Mock",
+      "stripe": "Stripe Test",
+      "mercadopago": "MercadoPago Sandbox"
+    }
+  },
+  "paymentMode": {
+    "title": "Payment Mode",
+    "description": "Choose how billing operations are processed. You can change this anytime.",
+    "mock": {
+      "title": "Mock",
+      "description": "Simulates everything locally. No API keys needed, instant responses.",
+      "recommended": "Recommended",
+      "features": {
+        "testCards": "Test cards simulate different outcomes",
+        "browserStorage": "All data stored in browser",
+        "perfectLearning": "Perfect for learning"
+      }
+    },
+    "stripe": {
+      "title": "Stripe Test",
+      "description": "Uses real Stripe Test Mode API. Requires sk_test_* key.",
+      "features": {
+        "realApi": "Real API responses",
+        "testCharges": "Test mode charges (no real money)",
+        "fullIntegration": "Full Stripe integration"
+      }
+    },
+    "mercadopago": {
+      "title": "MercadoPago",
+      "description": "Uses MercadoPago Sandbox. Requires TEST access token.",
+      "features": {
+        "realApi": "Real API responses",
+        "sandbox": "Sandbox environment",
+        "latam": "LATAM payments focus"
+      }
+    }
+  },
+  "apiKeys": {
+    "title": "API Keys",
+    "description": "Enter your test/sandbox API credentials. These are stored locally in your browser.",
+    "stripe": {
+      "label": "Stripe Secret Key",
+      "placeholder": "sk_test_...",
+      "help": "Find this in your <link>Stripe Dashboard → API Keys</link> (make sure you're in Test Mode)"
+    },
+    "mercadopago": {
+      "label": "MercadoPago Access Token",
+      "placeholder": "TEST-...",
+      "help": "Find this in your <link>MercadoPago Developers Panel</link> → Your Application → Credentials"
+    }
+  },
+  "buttons": {
+    "initialize": "Initialize Playground",
+    "reinitialize": "Re-initialize with New Settings"
+  },
+  "testCards": {
+    "title": "Test Cards Reference",
+    "description": "Use these card numbers when simulating payments. Any expiry date and CVC will work.",
+    "success": "Success",
+    "declined": "Declined",
+    "insufficientFunds": "Insufficient Funds",
+    "expiredCard": "Expired Card",
+    "requires3ds": "3DS Required",
+    "attachFails": "Attach Fails",
+    "stripeDocsLink": "More test cards at",
+    "mercadopagoDocsLink": "More test cards at"
+  },
+  "nextSteps": {
+    "title": "Next Steps",
+    "createPlans": {
+      "title": "Create Plans",
+      "description": "Go to Catalog → Plans to define your subscription tiers"
+    },
+    "addPrices": {
+      "title": "Add Prices",
+      "description": "Go to Catalog → Prices to set pricing for your plans"
+    },
+    "createCustomers": {
+      "title": "Create Customers",
+      "description": "Go to Simulate → Customers to create test customers"
+    },
+    "subscribe": {
+      "title": "Subscribe",
+      "description": "Go to Simulate → Subscriptions to subscribe customers to plans"
+    }
+  },
+  "templates": {
+    "title": "Quick Start Templates",
+    "description": "Load a pre-configured template to explore different billing scenarios instantly.",
+    "plans": "plan",
+    "plans_plural": "plans",
+    "prices": "price",
+    "prices_plural": "prices",
+    "addons": "addon",
+    "addons_plural": "addons",
+    "promos": "promo",
+    "promos_plural": "promos",
+    "customers": "customer",
+    "customers_plural": "customers",
+    "entitlements": "entitlement",
+    "entitlements_plural": "entitlements",
+    "limits": "limit",
+    "limits_plural": "limits",
+    "saasBasic": {
+      "name": "SaaS Basic",
+      "description": "Classic B2B SaaS with Free, Pro, and Enterprise tiers"
+    },
+    "apiDeveloper": {
+      "name": "API / Developer",
+      "description": "Usage-based API pricing for developer products"
+    },
+    "ecommerceBox": {
+      "name": "E-commerce Box",
+      "description": "Subscription box model with monthly deliveries"
+    },
+    "freemium": {
+      "name": "Freemium",
+      "description": "Free tier with optional paid upgrades"
+    },
+    "loadButton": "Load Template",
+    "loaded": "Template loaded successfully!"
+  },
+  "extendedConfig": {
+    "simulation": {
+      "title": "Simulation Behavior",
+      "description": "Control how the playground simulates billing operations.",
+      "autoProcessPayments": {
+        "label": "Auto-process Payments",
+        "help": "When enabled, payments are processed instantly. Disable to manually control payment processing."
+      },
+      "webhookDelay": {
+        "label": "Webhook Delay",
+        "help": "Add artificial delay to simulated events to mimic real webhook behavior."
+      },
+      "failureRate": {
+        "label": "Payment Failure Rate",
+        "help": "Percentage of payments that will randomly fail. Useful for testing error handling."
+      },
+      "trialAutoConvert": {
+        "label": "Auto-convert Trials",
+        "help": "Automatically convert trial subscriptions to paid when trial ends."
+      }
+    },
+    "display": {
+      "title": "Display Preferences",
+      "description": "Customize how data is displayed throughout the playground.",
+      "showFullIds": {
+        "label": "Show Full IDs",
+        "help": "Display complete IDs instead of truncated versions."
+      },
+      "dateFormat": {
+        "label": "Date Format",
+        "help": "Choose how dates are displayed.",
+        "options": {
+          "short": "Short (1/15/25)",
+          "long": "Long (January 15, 2025)",
+          "iso": "ISO (2025-01-15)"
+        }
+      },
+      "currencyDisplay": {
+        "label": "Currency Display",
+        "help": "Choose how currencies are shown.",
+        "options": {
+          "symbol": "Symbol ($, €, £)",
+          "code": "Code (USD, EUR, GBP)",
+          "name": "Name (US Dollar)"
+        }
+      }
+    },
+    "defaults": {
+      "title": "Default Values",
+      "description": "Set default values for new entities created in the playground.",
+      "currency": {
+        "label": "Default Currency",
+        "help": "Currency used when creating new prices."
+      },
+      "billingInterval": {
+        "label": "Default Billing Interval",
+        "help": "Default billing cycle for new prices.",
+        "options": {
+          "day": "Daily",
+          "week": "Weekly",
+          "month": "Monthly",
+          "year": "Yearly"
+        }
+      },
+      "trialDays": {
+        "label": "Default Trial Days",
+        "help": "Default trial period for new prices (0 = no trial)."
+      },
+      "invoiceDaysUntilDue": {
+        "label": "Invoice Days Until Due",
+        "help": "Default number of days until invoices are due."
+      }
+    }
+  }
+}

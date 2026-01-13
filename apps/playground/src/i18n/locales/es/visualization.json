@@ -1,0 +1,75 @@
+{
+  "events": {
+    "title": "Eventos",
+    "description": "Stream en tiempo real de todos los eventos de facturación",
+    "helpTitle": "Entendiendo los Eventos",
+    "helpContent": "Cada acción en QZPay emite eventos. Usa eventos para reaccionar a cambios de facturación en tu aplicación, como enviar correos cuando se crean suscripciones o fallan pagos.",
+    "legend": {
+      "customer": "Cliente",
+      "subscription": "Suscripción",
+      "payment": "Pago",
+      "invoice": "Factura",
+      "errors": "Errores"
+    },
+    "filters": {
+      "all": "Todos los eventos",
+      "customer": "Cliente",
+      "subscription": "Suscripción",
+      "payment": "Pago",
+      "invoice": "Factura",
+      "addon": "Add-on"
+    },
+    "clear": "Limpiar",
+    "empty": {
+      "noEvents": "Aún no hay eventos",
+      "noMatching": "No hay eventos coincidentes",
+      "startSimulating": "Comienza a simular flujos de facturación para ver eventos aquí.",
+      "noMatchingFilter": "Ningún evento coincide con el filtro actual."
+    },
+    "tips": {
+      "tip1": "Crea un cliente para ver un evento customer.created",
+      "tip2": "Crea una suscripción para ver múltiples eventos a la vez",
+      "tip3": "Haz clic en cualquier evento para inspeccionar su payload completo"
+    },
+    "eventTypes": {
+      "customer.created": "Cliente creado",
+      "customer.updated": "Cliente actualizado",
+      "customer.deleted": "Cliente eliminado",
+      "subscription.created": "Suscripción creada",
+      "subscription.updated": "Suscripción actualizada",
+      "subscription.canceled": "Suscripción cancelada",
+      "subscription.paused": "Suscripción pausada",
+      "subscription.resumed": "Suscripción reanudada",
+      "subscription.trial_ending": "Prueba terminando",
+      "subscription.trial_ended": "Prueba terminada",
+      "subscription.addon_added": "Add-on agregado",
+      "subscription.addon_removed": "Add-on eliminado",
+      "subscription.addon_updated": "Add-on actualizado",
+      "payment.succeeded": "Pago exitoso",
+      "payment.failed": "Pago fallido",
+      "payment.refunded": "Pago reembolsado",
+      "payment.disputed": "Pago disputado",
+      "invoice.created": "Factura creada",
+      "invoice.paid": "Factura pagada",
+      "invoice.payment_failed": "Pago de factura fallido",
+      "invoice.voided": "Factura anulada",
+      "addon.created": "Add-on creado",
+      "addon.updated": "Add-on actualizado",
+      "addon.deleted": "Add-on eliminado"
+    },
+    "modal": {
+      "webhookInfo": "Este es el payload que se enviaría a tu manejador de webhook en una aplicación real. Usa estos datos para actualizar tu base de datos, enviar notificaciones o disparar otras acciones.",
+      "eventPayload": "Payload del evento"
+    }
+  },
+  "state": {
+    "title": "Estado",
+    "description": "Ve el estado completo de facturación almacenado en localStorage",
+    "helpTitle": "Acerca de la vista de Estado",
+    "helpContent": "Esta vista muestra los datos crudos almacenados en el localStorage de tu navegador. Es útil para depuración y entender cómo QZPay almacena datos.",
+    "helpNote": "Haz clic en cualquier nodo para expandirlo y ver la estructura de datos anidada.",
+    "localStorageKey": "localStorage: qzpay_playground_data",
+    "noData": "No hay datos disponibles.",
+    "refresh": "Actualizar"
+  }
+}

@@ -1,0 +1,211 @@
+{
+  "customers": {
+    "title": "Clientes",
+    "description": "Crea clientes de prueba para simular flujos de facturación",
+    "helpTitle": "¿Qué son los Clientes?",
+    "helpContent": "Los clientes representan a las personas u organizaciones que se suscriben a tus planes. En una aplicación real, los clientes típicamente se crean cuando los usuarios se registran.",
+    "helpNextStep": "Después de crear clientes, ve a <strong>Suscripciones</strong> para suscribirlos a planes.",
+    "addCustomer": "Agregar cliente",
+    "unnamed": "Sin nombre",
+    "loading": "Cargando clientes...",
+    "setupCatalogFirst": {
+      "title": "Primero configura tu catálogo",
+      "description": "Antes de crear clientes, necesitas al menos un <strong>Plan</strong> y un <strong>Precio</strong> en tu catálogo. Ve a la sección Catálogo para configurarlos."
+    },
+    "empty": {
+      "title": "Aún no hay clientes",
+      "description": "Crea tu primer cliente para comenzar a simular flujos de facturación.",
+      "createFirst": "Crea tu primer cliente"
+    },
+    "tips": {
+      "tip1": "Usa cualquier dirección de correo, estos son clientes simulados",
+      "tip2": "En modo Mock, los clientes se almacenan en tu navegador",
+      "tip3": "Cada cliente puede tener múltiples suscripciones"
+    },
+    "readyForSubscriptions": {
+      "title": "Listo para crear suscripciones",
+      "description": "Ve a <strong>Suscripciones</strong> para suscribir estos clientes a tus planes."
+    },
+    "modal": {
+      "title": "Crear cliente",
+      "emailLabel": "Correo electrónico *",
+      "emailPlaceholder": "cliente@ejemplo.com",
+      "emailHelp": "Usa cualquier correo, esto es solo para identificación en el playground",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Juan Pérez",
+      "nameHelp": "Nombre de visualización opcional para el cliente",
+      "createCustomer": "Crear cliente"
+    },
+    "confirmDelete": "¿Estás seguro de que quieres eliminar este cliente?"
+  },
+  "subscriptions": {
+    "title": "Suscripciones",
+    "description": "Suscribe clientes a planes y gestiona sus suscripciones",
+    "helpTitle": "¿Qué son las Suscripciones?",
+    "helpContent": "Las suscripciones vinculan clientes a planes a un precio específico. Cuando se crea una suscripción, genera facturas y pagos automáticamente según el intervalo de facturación.",
+    "statuses": {
+      "active": "Facturando actualmente",
+      "trialing": "Período de prueba gratuita",
+      "paused": "Temporalmente detenido",
+      "canceled": "Finalizado",
+      "incomplete": "Pago pendiente"
+    },
+    "createSubscription": "Crear suscripción",
+    "plan": "Plan: {{name}}",
+    "period": "Período: {{start}} - {{end}}",
+    "loading": "Cargando suscripciones...",
+    "prerequisitesNeeded": {
+      "title": "Se necesitan prerrequisitos",
+      "description": "Para crear suscripciones, necesitas:",
+      "needCustomer": "Al menos un <strong>Cliente</strong>",
+      "needPrice": "Al menos un <strong>Precio</strong> (vinculado a un plan)"
+    },
+    "empty": {
+      "title": "Aún no hay suscripciones",
+      "description": "Crea una suscripción para ver la facturación en acción.",
+      "createFirst": "Crea tu primera suscripción"
+    },
+    "tips": {
+      "tip1": "Las suscripciones generan facturas automáticamente",
+      "tip2": "En modo Mock, los pagos se simulan instantáneamente",
+      "tip3": "Prueba pausar y reanudar suscripciones para ver eventos de ciclo de vida"
+    },
+    "checkEvents": {
+      "title": "Revisa la línea de tiempo de Eventos",
+      "description": "Mira el panel inferior para ver eventos de suscripción, factura y pago mientras suceden."
+    },
+    "actions": {
+      "pause": "Pausar suscripción",
+      "resume": "Reanudar suscripción",
+      "cancel": "Cancelar suscripción",
+      "changePlan": "Cambiar plan",
+      "retryPayment": "Reintentar pago"
+    },
+    "modal": {
+      "title": "Crear suscripción",
+      "customerLabel": "Cliente *",
+      "customerHelp": "¿Quién se está suscribiendo?",
+      "priceLabel": "Precio *",
+      "priceHelp": "¿Qué plan y precio?",
+      "priceOption": "{{plan}} - {{price}}",
+      "priceOptionWithTrial": "{{plan}} - {{price}} ({{days}} días de prueba)",
+      "dayTrial": "días de prueba",
+      "requireCardForTrial": "Requerir método de pago para la prueba",
+      "requireCardForTrialHelp": "Recolectar datos de tarjeta ahora, pero no cobrar hasta que termine la prueba",
+      "startTrial": "Iniciar Prueba",
+      "proceedToPayment": "Proceder al Pago",
+      "info": {
+        "title": "Crear una suscripción:",
+        "trialTitle": "Iniciar una prueba:",
+        "event": "Generará un evento <strong>subscription.created</strong>",
+        "invoice": "Creará una <strong>factura</strong> para el primer período",
+        "payment": "Procesará el <strong>pago</strong> (simulado en modo Mock)",
+        "trialStart": "Iniciará una <strong>prueba gratuita de {{days}} días</strong>",
+        "noPaymentNow": "<strong>Sin pago</strong> requerido ahora"
+      },
+      "createSubscription": "Crear suscripción"
+    },
+    "payment": {
+      "title": "Completar Pago",
+      "titleCollect": "Agregar Método de Pago",
+      "amount": "Monto a Pagar",
+      "collectOnlyInfo": "Tu tarjeta será guardada para pagos futuros cuando termine la prueba. No se realizará ningún cargo hoy.",
+      "selectCard": "Seleccionar Tarjeta de Prueba",
+      "customCard": "Número personalizado",
+      "testCards": "Tarjetas de Prueba",
+      "cards": {
+        "success": "Éxito",
+        "declined": "Rechazada",
+        "noFunds": "Sin Fondos",
+        "expired": "Vencida",
+        "3ds": "3DS",
+        "attachFails": "Falla al Adjuntar"
+      },
+      "cardNumber": "Número de Tarjeta",
+      "cardHelp": "Selecciona una tarjeta de prueba para simular diferentes resultados de pago",
+      "processing": "Procesando...",
+      "saveCard": "Guardar Tarjeta",
+      "pay": "Pagar {{amount}}",
+      "success": "¡Pago exitoso!",
+      "failed": "Pago fallido",
+      "genericError": "El pago no pudo ser procesado",
+      "retry": "Reintentar",
+      "firstPayment": "Primer pago",
+      "retryPayment": "Reintento de pago",
+      "backendConnected": "Conectado a API de {{provider}} via backend",
+      "backendFallback": "Backend no disponible - usando pagos simulados"
+    },
+    "changePlan": {
+      "title": "Cambiar Plan",
+      "currentPlan": "Plan Actual",
+      "selectNewPlan": "Seleccionar Nuevo Plan",
+      "noOtherPlans": "No hay otros planes disponibles",
+      "selectPrice": "Seleccionar Período de Facturación",
+      "prorationPreview": "Vista Previa de Prorrateo",
+      "unusedCredit": "Crédito no utilizado",
+      "days": "días",
+      "newPlanCharge": "Cargo del nuevo plan",
+      "netAmount": "Monto neto",
+      "applyWhen": "Cuándo Aplicar",
+      "immediately": "Inmediatamente",
+      "immediatelyDesc": "El cambio toma efecto ahora con prorrateo",
+      "atPeriodEnd": "Al Final del Período",
+      "downgradeWarning": "Bajar de plan puede resultar en perder acceso a algunas funciones. Asegúrate de que tu uso esté dentro de los límites del nuevo plan.",
+      "error": "Error al cambiar plan",
+      "processing": "Cambiando...",
+      "confirmUpgrade": "Confirmar Mejora",
+      "confirmDowngrade": "Confirmar Reducción"
+    },
+    "confirmCancel": "¿Estás seguro de que quieres cancelar esta suscripción?"
+  },
+  "payments": {
+    "title": "Pagos",
+    "description": "Ve el historial de pagos y transacciones",
+    "helpTitle": "Entendiendo los Pagos",
+    "helpContent": "Los pagos se crean automáticamente cuando las suscripciones generan facturas. Cada pago exitoso de factura aparece aquí.",
+    "statuses": {
+      "succeeded": "Pago completado",
+      "pending": "Procesando",
+      "failed": "Pago fallido"
+    },
+    "loading": "Cargando pagos...",
+    "empty": {
+      "title": "Aún no hay pagos",
+      "description": "Los pagos se crean automáticamente cuando se facturan las suscripciones."
+    },
+    "tips": {
+      "tip1": "Crea una suscripción para ver pagos",
+      "tip2": "En modo Mock, los pagos se procesan instantáneamente",
+      "tip3": "Cada ciclo de facturación genera un nuevo pago"
+    },
+    "viewEvents": {
+      "title": "Ver eventos de pago",
+      "description": "Revisa la sección de Eventos para ver eventos detallados de payment.succeeded y payment.failed."
+    }
+  },
+  "invoices": {
+    "title": "Facturas",
+    "description": "Ve facturas generadas por suscripciones",
+    "helpTitle": "Entendiendo las Facturas",
+    "helpContent": "Las facturas se generan automáticamente para cada período de facturación. Rastrean lo que los clientes deben y se vinculan a los pagos.",
+    "statuses": {
+      "paid": "Totalmente pagada",
+      "open": "Esperando pago",
+      "void": "Cancelada"
+    },
+    "loading": "Cargando facturas...",
+    "empty": {
+      "title": "Aún no hay facturas",
+      "description": "Las facturas se crean automáticamente cuando se facturan las suscripciones."
+    },
+    "tips": {
+      "tip1": "Crea una suscripción para generar facturas",
+      "tip2": "Cada período de facturación crea una nueva factura",
+      "tip3": "Las facturas vinculan suscripciones con pagos"
+    },
+    "viewPayments": {
+      "title": "Ver pagos relacionados",
+      "description": "Revisa la sección de Pagos para ver las transacciones de estas facturas."
+    }
+  }
+}

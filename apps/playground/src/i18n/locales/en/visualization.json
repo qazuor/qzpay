@@ -1,0 +1,75 @@
+{
+  "events": {
+    "title": "Events",
+    "description": "Real-time stream of all billing events",
+    "helpTitle": "Understanding Events",
+    "helpContent": "Every action in QZPay emits events. Use events to react to billing changes in your application, like sending emails when subscriptions are created or payments fail.",
+    "legend": {
+      "customer": "Customer",
+      "subscription": "Subscription",
+      "payment": "Payment",
+      "invoice": "Invoice",
+      "errors": "Errors"
+    },
+    "filters": {
+      "all": "All Events",
+      "customer": "Customer",
+      "subscription": "Subscription",
+      "payment": "Payment",
+      "invoice": "Invoice",
+      "addon": "Add-on"
+    },
+    "clear": "Clear",
+    "empty": {
+      "noEvents": "No events yet",
+      "noMatching": "No matching events",
+      "startSimulating": "Start simulating billing flows to see events here.",
+      "noMatchingFilter": "No events match the current filter."
+    },
+    "tips": {
+      "tip1": "Create a customer to see a customer.created event",
+      "tip2": "Create a subscription to see multiple events at once",
+      "tip3": "Click any event to inspect its full payload"
+    },
+    "eventTypes": {
+      "customer.created": "Customer Created",
+      "customer.updated": "Customer Updated",
+      "customer.deleted": "Customer Deleted",
+      "subscription.created": "Subscription Created",
+      "subscription.updated": "Subscription Updated",
+      "subscription.canceled": "Subscription Canceled",
+      "subscription.paused": "Subscription Paused",
+      "subscription.resumed": "Subscription Resumed",
+      "subscription.trial_ending": "Trial Ending",
+      "subscription.trial_ended": "Trial Ended",
+      "subscription.addon_added": "Add-on Added",
+      "subscription.addon_removed": "Add-on Removed",
+      "subscription.addon_updated": "Add-on Updated",
+      "payment.succeeded": "Payment Succeeded",
+      "payment.failed": "Payment Failed",
+      "payment.refunded": "Payment Refunded",
+      "payment.disputed": "Payment Disputed",
+      "invoice.created": "Invoice Created",
+      "invoice.paid": "Invoice Paid",
+      "invoice.payment_failed": "Invoice Payment Failed",
+      "invoice.voided": "Invoice Voided",
+      "addon.created": "Add-on Created",
+      "addon.updated": "Add-on Updated",
+      "addon.deleted": "Add-on Deleted"
+    },
+    "modal": {
+      "webhookInfo": "This is the payload that would be sent to your webhook handler in a real application. Use this data to update your database, send notifications, or trigger other actions.",
+      "eventPayload": "Event Payload"
+    }
+  },
+  "state": {
+    "title": "State",
+    "description": "View the complete billing state stored in localStorage",
+    "helpTitle": "About State View",
+    "helpContent": "This view shows the raw data stored in your browser's localStorage. It's useful for debugging and understanding how QZPay stores data.",
+    "helpNote": "Click on any node to expand it and see the nested data structure.",
+    "localStorageKey": "localStorage: qzpay_playground_data",
+    "noData": "No data available.",
+    "refresh": "Refresh"
+  }
+}

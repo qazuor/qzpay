@@ -1,0 +1,78 @@
+{
+  "title": "Componentes React",
+  "description": "Explora y prueba los componentes de @qazuor/qzpay-react con datos del playground en vivo.",
+  "overview": {
+    "packageDescription": "Componentes React y hooks para integración de facturación QZPay",
+    "sourceCode": "Código Fuente",
+    "prerequisitesWarning": "Primero crea algunos planes y precios para ver los componentes en acción. Ve a Catálogo → Planes para comenzar."
+  },
+  "tabs": {
+    "overview": "Vista General",
+    "pricingTable": "PricingTable",
+    "subscriptionStatus": "SubscriptionStatus",
+    "paymentForm": "PaymentForm",
+    "invoiceList": "InvoiceList",
+    "entitlementGate": "EntitlementGate",
+    "limitGate": "LimitGate"
+  },
+  "descriptions": {
+    "pricing-table": "Muestra planes de precios con opciones de suscripción",
+    "subscription-status": "Muestra detalles y acciones de suscripción del cliente",
+    "payment-form": "Recopila información de pago de los clientes",
+    "invoice-list": "Lista y gestiona facturas del cliente",
+    "entitlement-gate": "Renderiza contenido condicionalmente basado en acceso a funciones",
+    "limit-gate": "Controla contenido basado en límites de uso"
+  },
+  "customerSelector": {
+    "label": "Seleccionar Cliente",
+    "placeholder": "Elige un cliente...",
+    "noCustomers": "Aún no hay clientes. Crea clientes en Simular → Clientes primero."
+  },
+  "demos": {
+    "livePreview": "Vista Previa en Vivo",
+    "codeExample": "Ejemplo de Código",
+    "selectCustomer": "Selecciona un cliente arriba para ver el componente en acción.",
+    "pricingTable": {
+      "title": "Componente PricingTable",
+      "description": "Muestra tus planes y precios en un formato de tabla de precios atractivo. Los usuarios pueden seleccionar un plan para suscribirse.",
+      "noData": "Primero crea planes y precios para ver la tabla de precios."
+    },
+    "subscriptionStatus": {
+      "title": "Componente SubscriptionStatus",
+      "description": "Muestra la suscripción activa del cliente con detalles y botones de acción (cancelar, pausar, reanudar).",
+      "noSubscription": "Este cliente no tiene suscripción activa. Crea una en Simular → Suscripciones."
+    },
+    "paymentForm": {
+      "title": "Componente PaymentForm",
+      "description": "Un formulario para recopilar información de pago. En modo mock, usa los números de tarjeta de prueba de la página de Configuración.",
+      "submitLabel": "Agregar Método de Pago"
+    },
+    "invoiceList": {
+      "title": "Componente InvoiceList",
+      "description": "Muestra una lista de facturas del cliente con estado, monto y acciones (pagar, descargar).",
+      "noInvoices": "Este cliente no tiene facturas aún. Las facturas se crean cuando se facturan las suscripciones."
+    },
+    "entitlementGate": {
+      "title": "Componente EntitlementGate",
+      "description": "Renderiza contenido condicionalmente basado en si el cliente tiene acceso a funciones específicas (entitlements).",
+      "noEntitlements": "No hay entitlements definidos. Crea entitlements en Catálogo → Entitlements primero.",
+      "currentPlan": "Plan Actual",
+      "noPlan": "Sin suscripción",
+      "activeEntitlements": "Entitlements Activos",
+      "locked": "Acceso denegado - actualiza para desbloquear esta función",
+      "unlocked": "Acceso concedido - esta función está disponible"
+    },
+    "limitGate": {
+      "title": "Componente LimitGate",
+      "description": "Controla contenido basado en límites de uso. Muestra contenido cuando el usuario está dentro de su cuota permitida.",
+      "noLimits": "No hay límites definidos. Crea límites en Catálogo → Límites primero.",
+      "currentPlan": "Plan Actual",
+      "noPlan": "Sin suscripción",
+      "planLimits": "Límites del Plan",
+      "unlimited": "Ilimitado",
+      "usage": "Uso",
+      "exceeded": "Límite excedido - actualiza para continuar",
+      "withinLimit": "Dentro del límite - acción permitida"
+    }
+  }
+}

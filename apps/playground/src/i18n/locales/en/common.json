@@ -1,0 +1,52 @@
+{
+  "buttons": {
+    "add": "Add",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "close": "Close",
+    "confirm": "Confirm",
+    "create": "Create",
+    "clear": "Clear",
+    "refresh": "Refresh"
+  },
+  "labels": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "loading": "Loading...",
+    "name": "Name",
+    "description": "Description",
+    "email": "Email",
+    "price": "Price",
+    "currency": "Currency",
+    "amount": "Amount",
+    "status": "Status",
+    "date": "Date",
+    "type": "Type"
+  },
+  "errors": {
+    "generic": "An error occurred",
+    "notFound": "Not found",
+    "required": "This field is required",
+    "invalidEmail": "Invalid email address"
+  },
+  "confirmations": {
+    "delete": "Are you sure you want to delete this? This action cannot be undone.",
+    "reset": "Are you sure you want to reset all data? This cannot be undone."
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "succeeded": "Succeeded",
+    "failed": "Failed",
+    "canceled": "Canceled",
+    "paused": "Paused"
+  },
+  "billingNotInitialized": {
+    "title": "Billing Not Initialized",
+    "description": "Please configure and initialize billing from the Setup page first."
+  },
+  "tips": "TIPS"
+}

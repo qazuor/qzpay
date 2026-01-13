@@ -1,0 +1,56 @@
+{
+  "header": {
+    "title": "QZPay Playground",
+    "modes": {
+      "mock": "Mock",
+      "stripe": "Stripe Test",
+      "mercadopago": "MercadoPago Sandbox"
+    },
+    "help": "Help",
+    "export": "Export",
+    "import": "Import",
+    "reset": "Reset",
+    "tooltips": {
+      "help": "Show welcome guide",
+      "export": "Export data",
+      "import": "Import data",
+      "reset": "Reset all data"
+    },
+    "errors": {
+      "importFailed": "Failed to import data. Invalid file format."
+    }
+  },
+  "sidebar": {
+    "sections": {
+      "setup": "Setup",
+      "catalog": "Catalog",
+      "simulate": "Simulate",
+      "view": "View",
+      "components": "Components"
+    },
+    "items": {
+      "configuration": "Configuration",
+      "plans": "Plans",
+      "prices": "Prices",
+      "addons": "Add-ons",
+      "products": "Products",
+      "promos": "Promo Codes",
+      "entitlements": "Entitlements",
+      "limits": "Limits",
+      "customers": "Customers",
+      "subscriptions": "Subscriptions",
+      "payments": "Payments",
+      "invoices": "Invoices",
+      "state": "State",
+      "events": "Events",
+      "reactComponents": "React Components"
+    }
+  },
+  "languageSelector": {
+    "label": "Language",
+    "languages": {
+      "en": "English",
+      "es": "Español"
+    }
+  }
+}

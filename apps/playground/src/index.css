@@ -1,0 +1,298 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --sidebar-width: 260px;
+  --header-height: 60px;
+  --timeline-height: 200px;
+
+  /* Colors matching docs site */
+  --color-bg: #17181c;
+  --color-surface: #24272f;
+  --color-surface-elevated: #353841;
+  --color-border: #353841;
+  --color-text: #eceef2;
+  --color-text-secondary: #888b96;
+  --color-text-muted: #545861;
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-accent-low: #1e3a5f;
+  --color-accent-high: #93c5fd;
+}
+
+/* Apply dark mode by default */
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-elevated);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+/* Base component styles */
+@layer components {
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200;
+  }
+
+  .btn-primary {
+    background-color: var(--color-accent);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-accent-hover);
+  }
+
+  .btn-secondary {
+    background-color: var(--color-surface-elevated);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--color-text-muted);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+
+  .btn-ghost:hover {
+    background-color: var(--color-surface);
+    color: var(--color-text);
+  }
+
+  /* Cards */
+  .card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full px-3 py-2 text-sm rounded-lg transition-colors duration-200;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-low);
+  }
+
+  .input::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  /* Labels */
+  .label {
+    @apply block text-sm font-medium mb-1.5;
+    color: var(--color-text);
+  }
+
+  /* Select */
+  .select {
+    @apply w-full px-3 py-2 text-sm rounded-lg transition-colors duration-200 appearance-none;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23888b96'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1rem;
+    padding-right: 2.5rem;
+  }
+
+  .select:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-low);
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-primary {
+    background-color: var(--color-accent-low);
+    color: var(--color-accent-high);
+  }
+
+  .badge-success {
+    @apply bg-green-900/50 text-green-400;
+  }
+
+  .badge-warning {
+    @apply bg-yellow-900/50 text-yellow-400;
+  }
+
+  .badge-error {
+    @apply bg-red-900/50 text-red-400;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-content {
+    @apply w-full max-w-lg mx-4 rounded-xl shadow-2xl;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between px-6 py-4;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .modal-body {
+    @apply px-6 py-4;
+  }
+
+  .modal-footer {
+    @apply flex items-center justify-end gap-3 px-6 py-4;
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* Table */
+  .table {
+    @apply w-full text-sm;
+  }
+
+  .table th {
+    @apply text-left px-4 py-3 font-medium;
+    color: var(--color-text-secondary);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .table td {
+    @apply px-4 py-3;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .table tr:hover td {
+    background-color: var(--color-surface-elevated);
+  }
+
+  /* Empty state */
+  .empty-state {
+    @apply flex flex-col items-center justify-center py-12 px-4 text-center;
+  }
+
+  .empty-state-icon {
+    @apply w-16 h-16 mb-4;
+    color: var(--color-text-muted);
+  }
+
+  .empty-state-title {
+    @apply text-lg font-medium mb-2;
+    color: var(--color-text);
+  }
+
+  .empty-state-description {
+    @apply text-sm max-w-sm;
+    color: var(--color-text-secondary);
+  }
+}
+
+/* Event timeline styles */
+.event-timeline {
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  font-size: 0.8125rem;
+}
+
+.event-timeline-item {
+  @apply flex items-center gap-3 py-2 px-3 rounded-lg cursor-pointer transition-colors duration-150;
+}
+
+.event-timeline-item:hover {
+  background-color: var(--color-surface-elevated);
+}
+
+.event-timeline-time {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.event-timeline-type {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.event-timeline-id {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+/* Sidebar active item */
+.sidebar-item {
+  @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors duration-150;
+  color: var(--color-text-secondary);
+}
+
+.sidebar-item:hover {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+.sidebar-item.active {
+  background-color: var(--color-accent-low);
+  color: var(--color-accent-high);
+}
+
+/* Gradient text for titles */
+.gradient-text {
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-high) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Code blocks */
+.code-block {
+  @apply px-4 py-3 rounded-lg overflow-x-auto;
+  background-color: var(--color-bg);
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  font-size: 0.8125rem;
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

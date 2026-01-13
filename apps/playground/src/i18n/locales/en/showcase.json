@@ -1,0 +1,78 @@
+{
+  "title": "React Components",
+  "description": "Explore and test the @qazuor/qzpay-react components with live playground data.",
+  "overview": {
+    "packageDescription": "React components and hooks for QZPay billing integration",
+    "sourceCode": "Source Code",
+    "prerequisitesWarning": "Create some plans and prices first to see the components in action. Go to Catalog → Plans to get started."
+  },
+  "tabs": {
+    "overview": "Overview",
+    "pricingTable": "PricingTable",
+    "subscriptionStatus": "SubscriptionStatus",
+    "paymentForm": "PaymentForm",
+    "invoiceList": "InvoiceList",
+    "entitlementGate": "EntitlementGate",
+    "limitGate": "LimitGate"
+  },
+  "descriptions": {
+    "pricing-table": "Display pricing plans with subscription options",
+    "subscription-status": "Show customer's subscription details and actions",
+    "payment-form": "Collect payment information from customers",
+    "invoice-list": "List and manage customer invoices",
+    "entitlement-gate": "Conditionally render content based on feature access",
+    "limit-gate": "Gate content based on usage limits"
+  },
+  "customerSelector": {
+    "label": "Select Customer",
+    "placeholder": "Choose a customer...",
+    "noCustomers": "No customers yet. Create customers in Simulate → Customers first."
+  },
+  "demos": {
+    "livePreview": "Live Preview",
+    "codeExample": "Code Example",
+    "selectCustomer": "Select a customer above to see the component in action.",
+    "pricingTable": {
+      "title": "PricingTable Component",
+      "description": "Displays your plans and prices in a beautiful pricing table format. Users can select a plan to subscribe.",
+      "noData": "Create plans and prices first to see the pricing table."
+    },
+    "subscriptionStatus": {
+      "title": "SubscriptionStatus Component",
+      "description": "Shows the customer's active subscription with details and action buttons (cancel, pause, resume).",
+      "noSubscription": "This customer has no active subscription. Create one in Simulate → Subscriptions."
+    },
+    "paymentForm": {
+      "title": "PaymentForm Component",
+      "description": "A form for collecting payment information. In mock mode, use test card numbers from the Setup page.",
+      "submitLabel": "Add Payment Method"
+    },
+    "invoiceList": {
+      "title": "InvoiceList Component",
+      "description": "Displays a list of customer invoices with status, amount, and actions (pay, download).",
+      "noInvoices": "This customer has no invoices yet. Invoices are created when subscriptions are billed."
+    },
+    "entitlementGate": {
+      "title": "EntitlementGate Component",
+      "description": "Conditionally renders content based on whether the customer has access to specific features (entitlements).",
+      "noEntitlements": "No entitlements defined. Create entitlements in Catalog → Entitlements first.",
+      "currentPlan": "Current Plan",
+      "noPlan": "No subscription",
+      "activeEntitlements": "Active Entitlements",
+      "locked": "Access denied - upgrade to unlock this feature",
+      "unlocked": "Access granted - this feature is available"
+    },
+    "limitGate": {
+      "title": "LimitGate Component",
+      "description": "Gates content based on usage limits. Shows content when user is within their allowed quota.",
+      "noLimits": "No limits defined. Create limits in Catalog → Limits first.",
+      "currentPlan": "Current Plan",
+      "noPlan": "No subscription",
+      "planLimits": "Plan Limits",
+      "unlimited": "Unlimited",
+      "usage": "Usage",
+      "exceeded": "Limit exceeded - upgrade to continue",
+      "withinLimit": "Within limit - action allowed"
+    }
+  }
+}

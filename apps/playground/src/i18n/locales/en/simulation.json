@@ -1,0 +1,212 @@
+{
+  "customers": {
+    "title": "Customers",
+    "description": "Create test customers to simulate billing flows",
+    "helpTitle": "What are Customers?",
+    "helpContent": "Customers represent the people or organizations that subscribe to your plans. In a real application, customers are typically created when users sign up.",
+    "helpNextStep": "After creating customers, go to <strong>Subscriptions</strong> to subscribe them to plans.",
+    "addCustomer": "Add Customer",
+    "unnamed": "Unnamed",
+    "loading": "Loading customers...",
+    "deleteCustomer": "Delete customer",
+    "setupCatalogFirst": {
+      "title": "Set up your catalog first",
+      "description": "Before creating customers, you need at least one <strong>Plan</strong> and one <strong>Price</strong> in your catalog. Go to the Catalog section to set these up."
+    },
+    "empty": {
+      "title": "No customers yet",
+      "description": "Create your first customer to start simulating billing flows.",
+      "createFirst": "Create Your First Customer"
+    },
+    "tips": {
+      "tip1": "Use any email address - these are simulated customers",
+      "tip2": "In Mock mode, customers are stored in your browser",
+      "tip3": "Each customer can have multiple subscriptions"
+    },
+    "readyForSubscriptions": {
+      "title": "Ready to create subscriptions",
+      "description": "Go to <strong>Subscriptions</strong> to subscribe these customers to your plans."
+    },
+    "modal": {
+      "title": "Create Customer",
+      "emailLabel": "Email *",
+      "emailPlaceholder": "customer@example.com",
+      "emailHelp": "Use any email - this is just for identification in the playground",
+      "nameLabel": "Name",
+      "namePlaceholder": "John Doe",
+      "nameHelp": "Optional display name for the customer",
+      "createCustomer": "Create Customer"
+    },
+    "confirmDelete": "Are you sure you want to delete this customer?"
+  },
+  "subscriptions": {
+    "title": "Subscriptions",
+    "description": "Subscribe customers to plans and manage their subscriptions",
+    "helpTitle": "What are Subscriptions?",
+    "helpContent": "Subscriptions link customers to plans at a specific price. When a subscription is created, it generates invoices and payments automatically based on the billing interval.",
+    "statuses": {
+      "active": "Currently billing",
+      "trialing": "Free trial period",
+      "paused": "Temporarily stopped",
+      "canceled": "Ended",
+      "incomplete": "Payment pending"
+    },
+    "createSubscription": "Create Subscription",
+    "plan": "Plan: {{name}}",
+    "period": "Period: {{start}} - {{end}}",
+    "loading": "Loading subscriptions...",
+    "prerequisitesNeeded": {
+      "title": "Prerequisites needed",
+      "description": "To create subscriptions, you need:",
+      "needCustomer": "At least one <strong>Customer</strong>",
+      "needPrice": "At least one <strong>Price</strong> (linked to a plan)"
+    },
+    "empty": {
+      "title": "No subscriptions yet",
+      "description": "Create a subscription to see billing in action.",
+      "createFirst": "Create Your First Subscription"
+    },
+    "tips": {
+      "tip1": "Subscriptions automatically generate invoices",
+      "tip2": "In Mock mode, payments are simulated instantly",
+      "tip3": "Try pausing and resuming subscriptions to see lifecycle events"
+    },
+    "checkEvents": {
+      "title": "Check the Events timeline",
+      "description": "Look at the bottom panel to see subscription, invoice, and payment events as they happen."
+    },
+    "actions": {
+      "pause": "Pause subscription",
+      "resume": "Resume subscription",
+      "cancel": "Cancel subscription",
+      "changePlan": "Change plan",
+      "retryPayment": "Retry payment"
+    },
+    "modal": {
+      "title": "Create Subscription",
+      "customerLabel": "Customer *",
+      "customerHelp": "Who is subscribing?",
+      "priceLabel": "Price *",
+      "priceHelp": "Which plan and price?",
+      "priceOption": "{{plan}} - {{price}}",
+      "priceOptionWithTrial": "{{plan}} - {{price}} ({{days}} day trial)",
+      "dayTrial": "day trial",
+      "requireCardForTrial": "Require payment method for trial",
+      "requireCardForTrialHelp": "Collect card details now, but don't charge until trial ends",
+      "startTrial": "Start Trial",
+      "proceedToPayment": "Proceed to Payment",
+      "info": {
+        "title": "Creating a subscription will:",
+        "trialTitle": "Starting a trial will:",
+        "event": "Generate a <strong>subscription.created</strong> event",
+        "invoice": "Create an <strong>invoice</strong> for the first period",
+        "payment": "Process the <strong>payment</strong> (simulated in Mock mode)",
+        "trialStart": "Start a <strong>{{days}}-day free trial</strong>",
+        "noPaymentNow": "<strong>No payment</strong> required now"
+      },
+      "createSubscription": "Create Subscription"
+    },
+    "payment": {
+      "title": "Complete Payment",
+      "titleCollect": "Add Payment Method",
+      "amount": "Amount Due",
+      "collectOnlyInfo": "Your card will be saved for future payments when the trial ends. No charge will be made today.",
+      "selectCard": "Select Test Card",
+      "customCard": "Custom card number",
+      "testCards": "Test Cards",
+      "cards": {
+        "success": "Success",
+        "declined": "Declined",
+        "noFunds": "No Funds",
+        "expired": "Expired",
+        "3ds": "3DS",
+        "attachFails": "Attach Fails"
+      },
+      "cardNumber": "Card Number",
+      "cardHelp": "Select a test card to simulate different payment outcomes",
+      "processing": "Processing...",
+      "saveCard": "Save Card",
+      "pay": "Pay {{amount}}",
+      "success": "Payment successful!",
+      "failed": "Payment failed",
+      "genericError": "Payment could not be processed",
+      "retry": "Try Again",
+      "firstPayment": "First payment",
+      "retryPayment": "Retry payment",
+      "backendConnected": "Connected to {{provider}} API via backend",
+      "backendFallback": "Backend unavailable - using simulated payments"
+    },
+    "changePlan": {
+      "title": "Change Plan",
+      "currentPlan": "Current Plan",
+      "selectNewPlan": "Select New Plan",
+      "noOtherPlans": "No other plans available",
+      "selectPrice": "Select Billing Period",
+      "prorationPreview": "Proration Preview",
+      "unusedCredit": "Unused credit",
+      "days": "days",
+      "newPlanCharge": "New plan charge",
+      "netAmount": "Net amount",
+      "applyWhen": "When to Apply",
+      "immediately": "Immediately",
+      "immediatelyDesc": "Change takes effect now with proration",
+      "atPeriodEnd": "At Period End",
+      "downgradeWarning": "Downgrading may result in losing access to some features. Make sure your usage is within the new plan limits.",
+      "error": "Failed to change plan",
+      "processing": "Changing...",
+      "confirmUpgrade": "Confirm Upgrade",
+      "confirmDowngrade": "Confirm Downgrade"
+    },
+    "confirmCancel": "Are you sure you want to cancel this subscription?"
+  },
+  "payments": {
+    "title": "Payments",
+    "description": "View payment history and transactions",
+    "helpTitle": "Understanding Payments",
+    "helpContent": "Payments are automatically created when subscriptions generate invoices. Each successful invoice payment appears here.",
+    "statuses": {
+      "succeeded": "Payment completed",
+      "pending": "Processing",
+      "failed": "Payment failed"
+    },
+    "loading": "Loading payments...",
+    "empty": {
+      "title": "No payments yet",
+      "description": "Payments are created automatically when subscriptions are billed."
+    },
+    "tips": {
+      "tip1": "Create a subscription to see payments",
+      "tip2": "In Mock mode, payments are processed instantly",
+      "tip3": "Each billing cycle generates a new payment"
+    },
+    "viewEvents": {
+      "title": "View payment events",
+      "description": "Check the Events section to see detailed payment.succeeded and payment.failed events."
+    }
+  },
+  "invoices": {
+    "title": "Invoices",
+    "description": "View invoices generated from subscriptions",
+    "helpTitle": "Understanding Invoices",
+    "helpContent": "Invoices are generated automatically for each billing period. They track what customers owe and link to payments.",
+    "statuses": {
+      "paid": "Fully paid",
+      "open": "Awaiting payment",
+      "void": "Canceled"
+    },
+    "loading": "Loading invoices...",
+    "empty": {
+      "title": "No invoices yet",
+      "description": "Invoices are created automatically when subscriptions are billed."
+    },
+    "tips": {
+      "tip1": "Create a subscription to generate invoices",
+      "tip2": "Each billing period creates a new invoice",
+      "tip3": "Invoices link subscriptions to payments"
+    },
+    "viewPayments": {
+      "title": "View related payments",
+      "description": "Check the Payments section to see the transactions for these invoices."
+    }
+  }
+}

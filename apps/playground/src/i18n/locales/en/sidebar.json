@@ -1,0 +1,58 @@
+{
+  "tabs": {
+    "reference": "Quick Ref",
+    "events": "Events",
+    "state": "State"
+  },
+  "expand": "Expand sidebar",
+  "collapse": "Collapse sidebar",
+  "testCards": {
+    "title": "Test Cards",
+    "success": "Success",
+    "declined": "Declined",
+    "insufficientFunds": "No funds",
+    "requires3ds": "3DS",
+    "expiredCard": "Expired"
+  },
+  "config": {
+    "title": "Current Config",
+    "mode": "Mode",
+    "currency": "Currency",
+    "defaultInterval": "Default Interval"
+  },
+  "stats": {
+    "title": "Quick Stats",
+    "plans": "Plans",
+    "prices": "Prices",
+    "customers": "Customers",
+    "subs": "Subs",
+    "addons": "Add-ons",
+    "promos": "Promos",
+    "entitlements": "Entitlements",
+    "limits": "Limits"
+  },
+  "contextual": {
+    "availablePlans": "Available Plans",
+    "noPlans": "No plans created yet",
+    "simulationSettings": "Simulation Settings",
+    "autoProcess": "Auto-process",
+    "failureRate": "Failure rate",
+    "webhookDelay": "Webhook delay",
+    "entitlementStats": "Entitlement Stats",
+    "limitStats": "Limit Stats",
+    "defined": "Defined",
+    "plansUsing": "Plans using"
+  },
+  "events": {
+    "count": "{{count}} events",
+    "clear": "Clear",
+    "empty": "No events yet",
+    "emptyHint": "Create subscriptions or payments to see events"
+  },
+  "state": {
+    "autoRefresh": "Auto",
+    "copyAll": "Copy all",
+    "refresh": "Refresh",
+    "noData": "No data available"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "hero": {
+    "badge": "Sandbox interactivo de facturación",
+    "title": "QZPay Playground",
+    "subtitle": "Explora, prueba y comprende la biblioteca de facturación QZPay en un entorno sandbox seguro. Sin configuración de backend, sin pagos reales, solo aprendizaje.",
+    "getStarted": "Comenzar"
+  },
+  "whatIsQzpay": {
+    "title": "¿Qué es QZPay?",
+    "description": "QZPay es una biblioteca universal de facturación y pagos que proporciona una API consistente para manejar suscripciones, pagos, facturas y más, a través de múltiples proveedores de pago como Stripe y MercadoPago.",
+    "features": {
+      "providerAgnostic": {
+        "title": "Agnóstico al proveedor",
+        "description": "Escribe una vez, despliega en cualquier lugar. Cambia entre Stripe y MercadoPago sin cambios en el código."
+      },
+      "typeSafe": {
+        "title": "Tipado seguro",
+        "description": "Soporte completo de TypeScript con tipos comprehensivos para todas las operaciones de facturación."
+      },
+      "eventDriven": {
+        "title": "Orientado a eventos",
+        "description": "Reacciona a eventos de facturación en tiempo real con un poderoso sistema de eventos."
+      }
+    }
+  },
+  "howItWorks": {
+    "title": "Cómo funciona este Playground",
+    "mockMode": {
+      "title": "Modo Mock",
+      "description": "Todas las operaciones se simulan localmente. No se necesitan claves API, no hay cargos reales, perfecto para aprender y probar tus flujos de facturación."
+    },
+    "localStorage": {
+      "title": "Persistencia en LocalStorage",
+      "description": "Tus datos se guardan en tu navegador. Regresa en cualquier momento para continuar donde lo dejaste, o reinicia para empezar de nuevo."
+    },
+    "realTimeEvents": {
+      "title": "Eventos en tiempo real",
+      "description": "Observa los eventos de facturación mientras suceden. Haz clic en cualquier evento para inspeccionar su payload y entender cómo funciona QZPay."
+    },
+    "exportReady": {
+      "title": "Listo para exportar",
+      "description": "Cuando estés satisfecho con tu configuración de facturación, expórtala como código listo para usar en tu aplicación de producción."
+    }
+  },
+  "workflow": {
+    "title": "Flujo de trabajo recomendado",
+    "step1": {
+      "label": "CONFIGURACIÓN",
+      "title": "1. Inicializa el Playground",
+      "description": "Elige el modo Mock (recomendado) o conecta claves API de prueba reales de Stripe o MercadoPago."
+    },
+    "step2": {
+      "label": "CATÁLOGO",
+      "title": "2. Define tu catálogo de facturación",
+      "description": "Crea los bloques de construcción de tu sistema de facturación:",
+      "items": {
+        "plans": "Planes - Tus niveles de suscripción (Básico, Pro, Enterprise)",
+        "prices": "Precios - Precios para cada plan (mensual, anual)",
+        "addons": "Add-ons - Extras opcionales que los clientes pueden comprar",
+        "promos": "Códigos promocionales - Descuentos y ofertas especiales"
+      }
+    },
+    "step3": {
+      "label": "SIMULAR",
+      "title": "3. Simula flujos de clientes",
+      "description": "Prueba escenarios del mundo real:",
+      "items": {
+        "createCustomers": "Crea clientes y suscríbelos a planes",
+        "processPayments": "Procesa pagos con tarjetas de prueba",
+        "manageSubscriptions": "Actualiza, degrada, pausa o cancela suscripciones",
+        "viewInvoices": "Ve facturas generadas e historial de pagos"
+      }
+    },
+    "step4": {
+      "label": "VER",
+      "title": "4. Inspecciona eventos y estado",
+      "description": "Observa los eventos fluir en tiempo real en la parte inferior de la pantalla. Haz clic en cualquier evento para ver su payload completo. Usa la vista de Estado para inspeccionar todos los datos almacenados."
+    }
+  },
+  "cta": {
+    "title": "¿Listo para explorar?",
+    "description": "Comienza inicializando el playground en modo Mock. Siempre puedes reiniciar y empezar de nuevo.",
+    "button": "Iniciar Playground"
+  },
+  "footer": {
+    "partOf": "Parte del proyecto",
+    "project": ""
+  }
+}

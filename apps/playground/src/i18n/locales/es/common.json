@@ -1,0 +1,52 @@
+{
+  "buttons": {
+    "add": "Agregar",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "confirm": "Confirmar",
+    "create": "Crear",
+    "clear": "Limpiar",
+    "refresh": "Actualizar"
+  },
+  "labels": {
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "loading": "Cargando...",
+    "name": "Nombre",
+    "description": "Descripción",
+    "email": "Correo electrónico",
+    "price": "Precio",
+    "currency": "Moneda",
+    "amount": "Monto",
+    "status": "Estado",
+    "date": "Fecha",
+    "type": "Tipo"
+  },
+  "errors": {
+    "generic": "Ocurrió un error",
+    "notFound": "No encontrado",
+    "required": "Este campo es obligatorio",
+    "invalidEmail": "Correo electrónico inválido"
+  },
+  "confirmations": {
+    "delete": "¿Estás seguro de que quieres eliminar esto? Esta acción no se puede deshacer.",
+    "reset": "¿Estás seguro de que quieres reiniciar todos los datos? Esto no se puede deshacer."
+  },
+  "status": {
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "pending": "Pendiente",
+    "succeeded": "Exitoso",
+    "failed": "Fallido",
+    "canceled": "Cancelado",
+    "paused": "Pausado"
+  },
+  "billingNotInitialized": {
+    "title": "Facturación no inicializada",
+    "description": "Por favor configura e inicializa la facturación desde la página de Configuración primero."
+  },
+  "tips": "CONSEJOS"
+}

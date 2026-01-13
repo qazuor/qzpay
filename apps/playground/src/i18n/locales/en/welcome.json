@@ -1,0 +1,89 @@
+{
+  "hero": {
+    "badge": "Interactive Billing Sandbox",
+    "title": "QZPay Playground",
+    "subtitle": "Explore, test, and understand the QZPay billing library in a safe sandbox environment. No backend setup, no real payments, just pure learning.",
+    "getStarted": "Get Started"
+  },
+  "whatIsQzpay": {
+    "title": "What is QZPay?",
+    "description": "QZPay is a universal billing and payments library that provides a consistent API for handling subscriptions, payments, invoices, and more across multiple payment providers like Stripe and MercadoPago.",
+    "features": {
+      "providerAgnostic": {
+        "title": "Provider Agnostic",
+        "description": "Write once, deploy anywhere. Switch between Stripe and MercadoPago without code changes."
+      },
+      "typeSafe": {
+        "title": "Type Safe",
+        "description": "Full TypeScript support with comprehensive types for all billing operations."
+      },
+      "eventDriven": {
+        "title": "Event Driven",
+        "description": "React to billing events in real-time with a powerful event system."
+      }
+    }
+  },
+  "howItWorks": {
+    "title": "How This Playground Works",
+    "mockMode": {
+      "title": "Mock Mode",
+      "description": "All operations are simulated locally. No API keys needed, no real charges, perfect for learning and testing your billing flows."
+    },
+    "localStorage": {
+      "title": "LocalStorage Persistence",
+      "description": "Your data is saved in your browser. Come back anytime to continue where you left off, or reset to start fresh."
+    },
+    "realTimeEvents": {
+      "title": "Real-time Events",
+      "description": "Watch billing events as they happen. Click any event to inspect its payload and understand how QZPay works."
+    },
+    "exportReady": {
+      "title": "Export Ready",
+      "description": "When you're happy with your billing setup, export it as code ready to use in your production application."
+    }
+  },
+  "workflow": {
+    "title": "Recommended Workflow",
+    "step1": {
+      "label": "SETUP",
+      "title": "1. Initialize the Playground",
+      "description": "Choose Mock mode (recommended) or connect real test API keys from Stripe or MercadoPago."
+    },
+    "step2": {
+      "label": "CATALOG",
+      "title": "2. Define Your Billing Catalog",
+      "description": "Create the building blocks of your billing system:",
+      "items": {
+        "plans": "Plans - Your subscription tiers (Basic, Pro, Enterprise)",
+        "prices": "Prices - Pricing for each plan (monthly, yearly)",
+        "addons": "Add-ons - Optional extras customers can purchase",
+        "promos": "Promo Codes - Discounts and special offers"
+      }
+    },
+    "step3": {
+      "label": "SIMULATE",
+      "title": "3. Simulate Customer Flows",
+      "description": "Test real-world scenarios:",
+      "items": {
+        "createCustomers": "Create customers and subscribe them to plans",
+        "processPayments": "Process payments with test cards",
+        "manageSubscriptions": "Upgrade, downgrade, pause, or cancel subscriptions",
+        "viewInvoices": "View generated invoices and payment history"
+      }
+    },
+    "step4": {
+      "label": "VIEW",
+      "title": "4. Inspect Events & State",
+      "description": "Watch events flow in real-time at the bottom of the screen. Click any event to see its full payload. Use the State view to inspect all stored data."
+    }
+  },
+  "cta": {
+    "title": "Ready to Explore?",
+    "description": "Start by initializing the playground in Mock mode. You can always reset and start over.",
+    "button": "Start Playground"
+  },
+  "footer": {
+    "partOf": "Part of the",
+    "project": "project"
+  }
+}

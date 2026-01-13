@@ -1,0 +1,265 @@
+{
+  "plans": {
+    "title": "Planes",
+    "description": "Niveles de suscripción a los que los clientes pueden registrarse",
+    "helpTitle": "¿Qué son los planes?",
+    "helpContent": "Los planes definen los diferentes niveles de suscripción que ofreces, como \"Starter\", \"Pro\" o \"Enterprise\". Cada plan representa un nivel de servicio con características específicas.",
+    "helpNextStep": "Después de crear planes, agrega <strong>Precios</strong> para establecer el costo y la frecuencia de facturación.",
+    "addPlan": "Agregar plan",
+    "noPrices": "Sin precios",
+    "priceCount": "{{count}} precio",
+    "priceCount_plural": "{{count}} precios",
+    "empty": {
+      "title": "Aún no hay planes",
+      "description": "Los planes son la base de tu sistema de facturación. Crea tu primer plan para comenzar.",
+      "createFirst": "Crea tu primer plan"
+    },
+    "tips": {
+      "tip1": "Comienza con 2-3 planes: Free, Pro y Enterprise es un patrón común",
+      "tip2": "Usa nombres descriptivos que los clientes entiendan",
+      "tip3": "Agrega características para ayudar a los clientes a comparar planes"
+    },
+    "nextStepHint": {
+      "title": "Siguiente: Agrega precios a tus planes",
+      "description": "Ve a <strong>Precios</strong> para establecer cuánto cuesta cada plan y la frecuencia de facturación."
+    },
+    "modal": {
+      "createTitle": "Crear plan",
+      "editTitle": "Editar plan",
+      "nameLabel": "Nombre del plan *",
+      "namePlaceholder": "ej., Pro, Enterprise, Starter",
+      "nameHelp": "Elige un nombre que los clientes reconozcan",
+      "descriptionLabel": "Descripción",
+      "descriptionPlaceholder": "Una breve descripción de este plan...",
+      "descriptionHelp": "Ayuda a los clientes a entender qué ofrece este plan",
+      "featuresLabel": "Características",
+      "featuresHelp": "Lista las características incluidas en este plan (presiona Enter para agregar)",
+      "featurePlaceholder": "ej., Proyectos ilimitados, Soporte prioritario...",
+      "addFeature": "Agregar",
+      "saveChanges": "Guardar cambios",
+      "createPlan": "Crear plan"
+    },
+    "confirmDelete": "¿Estás seguro de que quieres eliminar este plan? Los precios asociados también serán eliminados."
+  },
+  "prices": {
+    "title": "Precios",
+    "description": "Establece precios y frecuencia de facturación para tus planes",
+    "helpTitle": "¿Qué son los precios?",
+    "helpContent": "Los precios definen cuánto cuesta un plan y con qué frecuencia se factura a los clientes. Un solo plan puede tener múltiples precios (ej., opciones mensuales y anuales).",
+    "helpNextStep": "Una vez que tengas planes y precios, ve a <strong>Simular → Clientes</strong> para comenzar a probar.",
+    "addPrice": "Agregar precio",
+    "dayTrial": "{{count}} días de prueba",
+    "empty": {
+      "title": "Aún no hay precios",
+      "description": "Agrega precios para definir cuánto cuestan tus planes.",
+      "createFirst": "Crea tu primer precio",
+      "createPlanFirst": {
+        "title": "Primero crea un plan",
+        "description": "Necesitas al menos un plan antes de poder agregar precios."
+      }
+    },
+    "tips": {
+      "tip1": "Patrón común: ofrecer precios mensuales y anuales",
+      "tip2": "Los planes anuales a menudo incluyen un descuento (ej., 2 meses gratis)",
+      "tip3": "Puedes agregar períodos de prueba para incentivar registros",
+      "tip4": "Ve a Planes para crear tu primer nivel de suscripción",
+      "tip5": "Cada plan puede tener múltiples precios (mensual, anual, etc.)"
+    },
+    "catalogReady": {
+      "title": "¡Tu catálogo está listo!",
+      "description": "Ve a <strong>Simular → Clientes</strong> para crear clientes de prueba y suscribirlos a planes."
+    },
+    "modal": {
+      "createTitle": "Crear precio",
+      "editTitle": "Editar precio",
+      "planLabel": "Plan *",
+      "planHelp": "¿Para qué plan es este precio?",
+      "amountLabel": "Monto *",
+      "amountHelp": "Precio en unidades mayores (ej., 9.99)",
+      "currencyLabel": "Moneda",
+      "intervalLabel": "Intervalo de facturación",
+      "intervalHelp": "Con qué frecuencia facturar",
+      "intervalCountLabel": "Cantidad de intervalos",
+      "intervalCountHelp": "ej., 3 meses = trimestral",
+      "trialDaysLabel": "Días de prueba",
+      "trialDaysHelp": "Prueba gratuita antes del primer cargo (0 = sin prueba)",
+      "nicknameLabel": "Apodo",
+      "nicknamePlaceholder": "ej., Pro Mensual, Básico Anual",
+      "nicknameHelp": "Nombre interno opcional para identificar este precio",
+      "saveChanges": "Guardar cambios",
+      "createPrice": "Crear precio"
+    },
+    "intervals": {
+      "day": "Diario",
+      "week": "Semanal",
+      "month": "Mensual",
+      "year": "Anual"
+    },
+    "confirmDelete": "¿Estás seguro de que quieres eliminar este precio?"
+  },
+  "addons": {
+    "title": "Add-ons",
+    "description": "Configura add-ons que pueden adjuntarse a suscripciones",
+    "helpTitle": "¿Qué son los Add-ons?",
+    "helpContent": "Los add-ons son extras opcionales que los clientes pueden comprar junto con su suscripción. Pueden ser compras únicas o cargos recurrentes.",
+    "helpExamples": "<strong>Ejemplos:</strong> Almacenamiento extra, soporte premium, asientos adicionales de equipo, dominios personalizados.",
+    "addAddon": "Agregar Add-on",
+    "empty": {
+      "title": "Aún no hay add-ons",
+      "description": "Los add-ons permiten a los clientes mejorar sus suscripciones con características extra.",
+      "createFirst": "Crea tu primer Add-on"
+    },
+    "tips": {
+      "tip1": "Los add-ons pueden ser cargos únicos o recurrentes",
+      "tip2": "Add-ons comunes: almacenamiento extra, soporte premium, asientos de equipo",
+      "tip3": "Los clientes pueden agregar estos a cualquier suscripción activa"
+    },
+    "modal": {
+      "createTitle": "Crear Add-on",
+      "editTitle": "Editar Add-on",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "ej., Almacenamiento extra, Soporte prioritario",
+      "descriptionLabel": "Descripción",
+      "descriptionPlaceholder": "Una breve descripción de este add-on...",
+      "priceLabel": "Precio",
+      "currencyLabel": "Moneda",
+      "billingTypeLabel": "Tipo de facturación",
+      "saveChanges": "Guardar cambios",
+      "createAddon": "Crear Add-on"
+    },
+    "billingTypes": {
+      "one_time": "Único",
+      "month": "Mensual",
+      "year": "Anual"
+    },
+    "confirmDelete": "¿Estás seguro de que quieres eliminar este add-on?"
+  },
+  "promos": {
+    "title": "Códigos promocionales",
+    "description": "Crea códigos promocionales con descuentos",
+    "helpTitle": "¿Qué son los códigos promocionales?",
+    "helpContent": "Los códigos promocionales te permiten ofrecer descuentos a los clientes. Pueden ser basados en porcentaje (ej., 20% de descuento) o montos fijos (ej., $10 de descuento).",
+    "addPromoCode": "Agregar código promocional",
+    "off": "de descuento",
+    "used": "Usado: {{current}}",
+    "usedWithMax": "Usado: {{current}} / {{max}}",
+    "empty": {
+      "title": "Aún no hay códigos promocionales",
+      "description": "Crea códigos promocionales para ofrecer descuentos a tus clientes.",
+      "createFirst": "Crea tu primer código promocional"
+    },
+    "tips": {
+      "tip1": "Usa códigos memorables como VERANO20 o BIENVENIDO10",
+      "tip2": "Establece máximo de canjes para limitar el uso",
+      "tip3": "Descuentos por porcentaje o monto fijo disponibles"
+    },
+    "modal": {
+      "createTitle": "Crear código promocional",
+      "editTitle": "Editar código promocional",
+      "codeLabel": "Código",
+      "codePlaceholder": "ej., VERANO20, BIENVENIDO10",
+      "discountTypeLabel": "Tipo de descuento",
+      "discountTypes": {
+        "percentage": "Porcentaje",
+        "fixed_amount": "Monto fijo"
+      },
+      "percentageLabel": "Porcentaje (%)",
+      "amountLabel": "Monto ($)",
+      "maxRedemptionsLabel": "Máximo de canjes (opcional)",
+      "maxRedemptionsPlaceholder": "Ilimitado",
+      "saveChanges": "Guardar cambios",
+      "createPromoCode": "Crear código promocional"
+    },
+    "confirmDelete": "¿Estás seguro de que quieres eliminar este código promocional?"
+  },
+  "common": {
+    "billingNotInitialized": "Facturación no inicializada",
+    "billingNotInitializedDesc": "Por favor configura e inicializa la facturación desde la página de Configuración primero.",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "create": "Crear",
+    "edit": "Editar",
+    "delete": "Eliminar"
+  },
+  "entitlements": {
+    "title": "Entitlements",
+    "description": "Define entitlements de características para control de acceso",
+    "helpTitle": "¿Qué son los Entitlements?",
+    "helpContent": "Los entitlements son flags de características asignados a planes. Cuando un cliente se suscribe, automáticamente recibe los entitlements de ese plan.",
+    "helpNote": "Usa entitlements para controlar el acceso a características en tu aplicación.",
+    "addEntitlement": "Agregar Entitlement",
+    "usedInPlans": "Usado en {{count}} plan(es)",
+    "confirmDeleteUsed": "Este entitlement está en uso en los siguientes planes: {{plans}}. ¿Estás seguro de que quieres eliminarlo?",
+    "form": {
+      "addTitle": "Agregar Entitlement",
+      "editTitle": "Editar Entitlement",
+      "key": "Clave",
+      "keyHint": "Identificador único (minúsculas, guiones bajos permitidos). No se puede cambiar después.",
+      "keyError": "La clave debe comenzar con una letra minúscula y contener solo letras minúsculas, números y guiones bajos.",
+      "keyDuplicate": "Ya existe un entitlement con esta clave.",
+      "name": "Nombre para mostrar",
+      "description": "Descripción",
+      "descriptionPlaceholder": "Describe a qué da acceso este entitlement..."
+    },
+    "empty": {
+      "title": "Aún no hay entitlements",
+      "description": "Los entitlements definen acceso a características que pueden asignarse a planes."
+    },
+    "tips": {
+      "tip1": "Usa claves claras y descriptivas como 'api_access' o 'priority_support'",
+      "tip2": "Los entitlements pueden asignarse a múltiples planes",
+      "tip3": "Verifica los entitlements de un cliente para controlar características en tu app"
+    },
+    "about": {
+      "title": "Acerca de los Entitlements",
+      "description": "Los entitlements son flags de características que puedes asignar a planes. Cuando un cliente se suscribe a un plan, automáticamente recibe los entitlements asociados con ese plan.",
+      "examples": "Ejemplos comunes:",
+      "apiAccess": "Acceso a la API",
+      "prioritySupport": "Soporte prioritario al cliente",
+      "advancedAnalytics": "Características de análisis avanzado",
+      "customIntegrations": "Soporte para integraciones personalizadas"
+    }
+  },
+  "limits": {
+    "title": "Límites",
+    "description": "Configura límites de uso y cuotas",
+    "helpTitle": "¿Qué son los Límites?",
+    "helpContent": "Los límites definen cuotas de uso para planes. Rastrea y aplica límites en llamadas API, almacenamiento, miembros del equipo y más.",
+    "helpNote": "Los límites pueden reiniciarse mensualmente o ser asignaciones permanentes.",
+    "addLimit": "Agregar Límite",
+    "unlimited": "Ilimitado",
+    "usedInPlans": "Usado en {{count}} plan(es)",
+    "confirmDeleteUsed": "Este límite está en uso en los siguientes planes: {{plans}}. ¿Estás seguro de que quieres eliminarlo?",
+    "form": {
+      "addTitle": "Agregar Límite",
+      "editTitle": "Editar Límite",
+      "key": "Clave",
+      "keyHint": "Identificador único (minúsculas, guiones bajos permitidos). No se puede cambiar después.",
+      "keyError": "La clave debe comenzar con una letra minúscula y contener solo letras minúsculas, números y guiones bajos.",
+      "keyDuplicate": "Ya existe un límite con esta clave.",
+      "name": "Nombre para mostrar",
+      "unit": "Unidad",
+      "defaultValue": "Valor predeterminado",
+      "description": "Descripción",
+      "descriptionPlaceholder": "Describe qué controla este límite..."
+    },
+    "empty": {
+      "title": "Aún no hay límites",
+      "description": "Los límites definen cuotas de uso que pueden asignarse a planes."
+    },
+    "tips": {
+      "tip1": "Límites comunes: api_calls, storage_gb, team_members",
+      "tip2": "Establece valores predeterminados que tengan sentido para la mayoría de planes",
+      "tip3": "Usa -1 o marca 'ilimitado' para sin límite"
+    },
+    "about": {
+      "title": "Acerca de los Límites",
+      "description": "Los límites te permiten definir cuotas de uso para tus planes. Puedes rastrear y aplicar límites en llamadas API, almacenamiento, miembros del equipo y más.",
+      "examples": "Ejemplos comunes:",
+      "apiCalls": "Límite mensual de llamadas API (ej., 10,000)",
+      "storageGb": "Límite de almacenamiento en GB (ej., 100)",
+      "teamMembers": "Máximo de miembros del equipo (ej., 5)",
+      "projects": "Máximo de proyectos (ej., 10)"
+    }
+  }
+}

@@ -1,0 +1,207 @@
+{
+  "title": "Configuración",
+  "description": "Configura cómo el playground procesa las operaciones de facturación.",
+  "firstTime": {
+    "title": "¿Primera vez aquí?",
+    "description": "Comienza con el <strong>modo Mock</strong>: simula todas las operaciones de facturación localmente sin necesidad de claves API. Perfecto para aprender cómo funciona QZPay."
+  },
+  "status": {
+    "initialized": "Playground inicializado en modo {{mode}}",
+    "modes": {
+      "mock": "Mock",
+      "stripe": "Stripe Test",
+      "mercadopago": "MercadoPago Sandbox"
+    }
+  },
+  "paymentMode": {
+    "title": "Modo de pago",
+    "description": "Elige cómo se procesan las operaciones de facturación. Puedes cambiarlo en cualquier momento.",
+    "mock": {
+      "title": "Mock",
+      "description": "Simula todo localmente. No se necesitan claves API, respuestas instantáneas.",
+      "recommended": "Recomendado",
+      "features": {
+        "testCards": "Las tarjetas de prueba simulan diferentes resultados",
+        "browserStorage": "Todos los datos se almacenan en el navegador",
+        "perfectLearning": "Perfecto para aprender"
+      }
+    },
+    "stripe": {
+      "title": "Stripe Test",
+      "description": "Usa la API real de Stripe en modo de prueba. Requiere clave sk_test_*.",
+      "features": {
+        "realApi": "Respuestas reales de la API",
+        "testCharges": "Cargos en modo de prueba (sin dinero real)",
+        "fullIntegration": "Integración completa con Stripe"
+      }
+    },
+    "mercadopago": {
+      "title": "MercadoPago",
+      "description": "Usa el Sandbox de MercadoPago. Requiere token de acceso TEST.",
+      "features": {
+        "realApi": "Respuestas reales de la API",
+        "sandbox": "Entorno sandbox",
+        "latam": "Enfoque en pagos LATAM"
+      }
+    }
+  },
+  "apiKeys": {
+    "title": "Claves API",
+    "description": "Ingresa tus credenciales de prueba/sandbox. Se almacenan localmente en tu navegador.",
+    "stripe": {
+      "label": "Clave secreta de Stripe",
+      "placeholder": "sk_test_...",
+      "help": "Encuéntrala en tu <link>Dashboard de Stripe → Claves API</link> (asegúrate de estar en modo de prueba)"
+    },
+    "mercadopago": {
+      "label": "Token de acceso de MercadoPago",
+      "placeholder": "TEST-...",
+      "help": "Encuéntralo en tu <link>Panel de desarrolladores de MercadoPago</link> → Tu aplicación → Credenciales"
+    }
+  },
+  "buttons": {
+    "initialize": "Inicializar Playground",
+    "reinitialize": "Reinicializar con nueva configuración"
+  },
+  "testCards": {
+    "title": "Referencia de tarjetas de prueba",
+    "description": "Usa estos números de tarjeta al simular pagos. Cualquier fecha de vencimiento y CVC funcionará.",
+    "success": "Éxito",
+    "declined": "Rechazada",
+    "insufficientFunds": "Fondos insuficientes",
+    "expiredCard": "Tarjeta vencida",
+    "requires3ds": "Requiere 3DS",
+    "attachFails": "Falla al adjuntar",
+    "stripeDocsLink": "Más tarjetas de prueba en",
+    "mercadopagoDocsLink": "Más tarjetas de prueba en"
+  },
+  "nextSteps": {
+    "title": "Próximos pasos",
+    "createPlans": {
+      "title": "Crear planes",
+      "description": "Ve a Catálogo → Planes para definir tus niveles de suscripción"
+    },
+    "addPrices": {
+      "title": "Agregar precios",
+      "description": "Ve a Catálogo → Precios para establecer precios para tus planes"
+    },
+    "createCustomers": {
+      "title": "Crear clientes",
+      "description": "Ve a Simular → Clientes para crear clientes de prueba"
+    },
+    "subscribe": {
+      "title": "Suscribir",
+      "description": "Ve a Simular → Suscripciones para suscribir clientes a planes"
+    }
+  },
+  "templates": {
+    "title": "Plantillas de inicio rápido",
+    "description": "Carga una plantilla preconfigurada para explorar diferentes escenarios de facturación al instante.",
+    "plans": "plan",
+    "plans_plural": "planes",
+    "prices": "precio",
+    "prices_plural": "precios",
+    "addons": "addon",
+    "addons_plural": "addons",
+    "promos": "promo",
+    "promos_plural": "promos",
+    "customers": "cliente",
+    "customers_plural": "clientes",
+    "entitlements": "entitlement",
+    "entitlements_plural": "entitlements",
+    "limits": "límite",
+    "limits_plural": "límites",
+    "saasBasic": {
+      "name": "SaaS Básico",
+      "description": "SaaS B2B clásico con niveles Free, Pro y Enterprise"
+    },
+    "apiDeveloper": {
+      "name": "API / Desarrollador",
+      "description": "Precios de API basados en uso para productos de desarrollador"
+    },
+    "ecommerceBox": {
+      "name": "Caja de E-commerce",
+      "description": "Modelo de caja de suscripción con entregas mensuales"
+    },
+    "freemium": {
+      "name": "Freemium",
+      "description": "Nivel gratuito con actualizaciones de pago opcionales"
+    },
+    "loadButton": "Cargar plantilla",
+    "loaded": "¡Plantilla cargada exitosamente!"
+  },
+  "extendedConfig": {
+    "simulation": {
+      "title": "Comportamiento de Simulación",
+      "description": "Controla cómo el playground simula las operaciones de facturación.",
+      "autoProcessPayments": {
+        "label": "Procesar pagos automáticamente",
+        "help": "Cuando está habilitado, los pagos se procesan instantáneamente. Desactívalo para controlar manualmente el procesamiento de pagos."
+      },
+      "webhookDelay": {
+        "label": "Retardo de Webhook",
+        "help": "Agrega un retardo artificial a los eventos simulados para imitar el comportamiento real de webhooks."
+      },
+      "failureRate": {
+        "label": "Tasa de fallo de pagos",
+        "help": "Porcentaje de pagos que fallarán aleatoriamente. Útil para probar el manejo de errores."
+      },
+      "trialAutoConvert": {
+        "label": "Convertir pruebas automáticamente",
+        "help": "Convierte automáticamente las suscripciones de prueba a pagadas cuando termina el período de prueba."
+      }
+    },
+    "display": {
+      "title": "Preferencias de Visualización",
+      "description": "Personaliza cómo se muestran los datos en todo el playground.",
+      "showFullIds": {
+        "label": "Mostrar IDs completos",
+        "help": "Muestra los IDs completos en lugar de versiones truncadas."
+      },
+      "dateFormat": {
+        "label": "Formato de fecha",
+        "help": "Elige cómo se muestran las fechas.",
+        "options": {
+          "short": "Corto (15/1/25)",
+          "long": "Largo (15 de enero de 2025)",
+          "iso": "ISO (2025-01-15)"
+        }
+      },
+      "currencyDisplay": {
+        "label": "Visualización de moneda",
+        "help": "Elige cómo se muestran las monedas.",
+        "options": {
+          "symbol": "Símbolo ($, €, £)",
+          "code": "Código (USD, EUR, GBP)",
+          "name": "Nombre (Dólar estadounidense)"
+        }
+      }
+    },
+    "defaults": {
+      "title": "Valores Predeterminados",
+      "description": "Establece valores predeterminados para nuevas entidades creadas en el playground.",
+      "currency": {
+        "label": "Moneda predeterminada",
+        "help": "Moneda utilizada al crear nuevos precios."
+      },
+      "billingInterval": {
+        "label": "Intervalo de facturación predeterminado",
+        "help": "Ciclo de facturación predeterminado para nuevos precios.",
+        "options": {
+          "day": "Diario",
+          "week": "Semanal",
+          "month": "Mensual",
+          "year": "Anual"
+        }
+      },
+      "trialDays": {
+        "label": "Días de prueba predeterminados",
+        "help": "Período de prueba predeterminado para nuevos precios (0 = sin prueba)."
+      },
+      "invoiceDaysUntilDue": {
+        "label": "Días hasta vencimiento de factura",
+        "help": "Número predeterminado de días hasta que vencen las facturas."
+      }
+    }
+  }
+}
