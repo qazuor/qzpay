@@ -22,7 +22,12 @@ export {
     extractMPSubscriptionEventData,
     extractMPChargebackEventData,
     classifyMPEvent,
-    mpRequiresImmediateAction
+    mpRequiresImmediateAction,
+    // 3D Secure utilities
+    isPaymentEventRequires3DS,
+    extractMP3DSFromPaymentEvent,
+    getMP3DSChallengeUrl,
+    extractMP3DSPaymentInfo
 } from './adapters/index.js';
 
 // Types
@@ -63,6 +68,15 @@ export {
     mapMPPaymentStatus,
     getMPStatusDetailMessage
 } from './types.js';
+
+// Error handling utilities
+export {
+    QZPayMercadoPagoError,
+    QZPayErrorCode,
+    mapMercadoPagoError,
+    isCustomerExistsError,
+    wrapAdapterMethod
+} from './utils/error-mapper.js';
 
 // Re-export MercadoPago types for convenience
 export type { MercadoPagoConfig } from 'mercadopago';
