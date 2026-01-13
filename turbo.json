@@ -3,7 +3,7 @@
     "tasks": {
         "build": {
             "dependsOn": ["^build"],
-            "inputs": ["src/**", "package.json", "tsconfig.json", "tsup.config.ts"],
+            "inputs": ["src/**", "package.json", "tsconfig.json", "tsup.config.ts", "astro.config.mjs"],
             "outputs": ["dist/**"]
         },
         "dev": {

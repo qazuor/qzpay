@@ -11,6 +11,9 @@
     "scripts": {
         "build": "turbo run build",
         "dev": "turbo run dev",
+        "docs": "pnpm --filter @qazuor/qzpay-docs dev",
+        "docs:build": "pnpm --filter @qazuor/qzpay-docs build",
+        "docs:preview": "pnpm --filter @qazuor/qzpay-docs preview",
         "test": "turbo run test",
         "test:run": "turbo run test:run",
         "test:coverage": "vitest run --coverage",
