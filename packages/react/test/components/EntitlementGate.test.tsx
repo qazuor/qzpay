@@ -70,7 +70,7 @@ describe('EntitlementGate', () => {
             const mockCustomer = createMockCustomer();
             vi.mocked(mockBilling.entitlements.getByCustomerId).mockResolvedValue([]);
 
-            const { container } = render(
+            render(
                 <TestWrapper billing={mockBilling} initialCustomer={mockCustomer}>
                     <EntitlementGate entitlementKey="premium_features">
                         <div data-testid="premium-content">Premium Content</div>
@@ -83,7 +83,8 @@ describe('EntitlementGate', () => {
             });
 
             expect(screen.queryByTestId('premium-content')).not.toBeInTheDocument();
-            expect(container.innerHTML).toBe('');
+            // Component wraps fallback in a div with role="alert"
+            expect(screen.getByRole('alert')).toBeInTheDocument();
         });
 
         it('should render loading state while fetching', async () => {

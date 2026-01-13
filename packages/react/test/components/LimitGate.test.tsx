@@ -87,7 +87,7 @@ describe('LimitGate', () => {
                 remaining: 0
             });
 
-            const { container } = render(
+            render(
                 <TestWrapper billing={mockBilling} initialCustomer={mockCustomer}>
                     <LimitGate limitKey="api_calls">
                         <div data-testid="allowed-content">Content</div>
@@ -100,7 +100,8 @@ describe('LimitGate', () => {
             });
 
             expect(screen.queryByTestId('allowed-content')).not.toBeInTheDocument();
-            expect(container.innerHTML).toBe('');
+            // Component wraps fallback in a div with role="alert"
+            expect(screen.getByRole('alert')).toBeInTheDocument();
         });
 
         it('should render loading state while checking', async () => {

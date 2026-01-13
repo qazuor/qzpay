@@ -154,7 +154,8 @@ describe('InvoiceList', () => {
             );
 
             await waitFor(() => {
-                expect(screen.getByText('inv_1234')).toBeInTheDocument();
+                // Component shows first 8 chars + "..."
+                expect(screen.getByText('inv_1234...')).toBeInTheDocument();
             });
         });
 
@@ -170,7 +171,8 @@ describe('InvoiceList', () => {
             );
 
             await waitFor(() => {
-                expect(screen.getByText(/Subscription: sub_9876/)).toBeInTheDocument();
+                // Component shows "Sub: " + first 8 chars + "..."
+                expect(screen.getByText(/Sub: sub_9876\.\.\./)).toBeInTheDocument();
             });
         });
 

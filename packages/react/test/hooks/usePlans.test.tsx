@@ -28,7 +28,7 @@ describe('usePlans', () => {
         it('should fetch all plans when activeOnly is false', async () => {
             const mockBilling = createMockBilling();
             const mockPlans = [createMockPlan(), createMockPlan({ id: 'plan_456', active: false })];
-            vi.mocked(mockBilling.getPlans).mockReturnValue(mockPlans);
+            vi.mocked(mockBilling.plans.list).mockResolvedValue({ data: mockPlans, hasMore: false });
 
             const { result } = renderHook(() => usePlans(false), {
                 wrapper: createWrapper(mockBilling)
@@ -39,7 +39,7 @@ describe('usePlans', () => {
             });
 
             expect(result.current.data).toEqual(mockPlans);
-            expect(mockBilling.getPlans).toHaveBeenCalled();
+            expect(mockBilling.plans.list).toHaveBeenCalled();
         });
 
         it('should handle fetch error', async () => {

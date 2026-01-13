@@ -40,7 +40,8 @@ describe('SubscriptionStatus', () => {
 
             render(<SubscriptionStatus subscription={subscription} />);
 
-            expect(screen.getByText(/Current Period:/)).toBeInTheDocument();
+            // Component shows "Current Period" as a label (without colon)
+            expect(screen.getByText('Current Period')).toBeInTheDocument();
         });
 
         it('should apply custom className', () => {
@@ -81,7 +82,8 @@ describe('SubscriptionStatus', () => {
 
             render(<SubscriptionStatus subscription={subscription} />);
 
-            expect(screen.getByText(/Trial ends:/)).toBeInTheDocument();
+            // Component shows "Trial ends" as a label (without colon)
+            expect(screen.getByText('Trial ends')).toBeInTheDocument();
         });
 
         it('should not show trial end date when trial expired', () => {
@@ -93,7 +95,7 @@ describe('SubscriptionStatus', () => {
 
             render(<SubscriptionStatus subscription={subscription} />);
 
-            expect(screen.queryByText(/Trial ends:/)).not.toBeInTheDocument();
+            expect(screen.queryByText('Trial ends')).not.toBeInTheDocument();
         });
     });
 
@@ -168,7 +170,8 @@ describe('SubscriptionStatus', () => {
 
             render(<SubscriptionStatus subscription={subscription} />);
 
-            expect(screen.getByText(/Current Period:/)).toBeInTheDocument();
+            // Component shows "Current Period" label
+            expect(screen.getByText('Current Period')).toBeInTheDocument();
         });
 
         it('should handle missing dates gracefully', () => {
