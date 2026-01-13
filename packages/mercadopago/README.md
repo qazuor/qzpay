@@ -15,6 +15,7 @@ pnpm add @qazuor/qzpay-mercadopago mercadopago
 - **3D Secure Support**: Secure card payments with challenge flow
 - **Refunds**: Full and partial refunds
 - **Webhooks/IPN**: Event handling and HMAC signature verification
+- **Error Handling**: Comprehensive error mapping with QZPayMercadoPagoError
 - **Multiple Payment Methods**: Credit/debit cards, PIX, bank transfers
 
 ## Quick Start
@@ -375,29 +376,80 @@ const payment = await mpAdapter.payments.create(customerId, {
 
 ## Error Handling
 
+All MercadoPago adapters now include comprehensive error handling:
+
 ```typescript
-import { QZPayError } from '@qazuor/qzpay-core';
+import { QZPayMercadoPagoError, QZPayErrorCode } from '@qazuor/qzpay-mercadopago';
 
 try {
-  await mpAdapter.payments.create(customerId, options);
+  const payment = await mpAdapter.payments.create(customerId, {
+    amount: 10000,
+    currency: 'ARS',
+    paymentMethodId: 'visa'
+  });
 } catch (error) {
-  if (error instanceof QZPayError) {
+  if (error instanceof QZPayMercadoPagoError) {
+    console.log('Error code:', error.code);
+    console.log('Error message:', error.message);
+    console.log('Status detail:', error.statusDetail);
+    console.log('Original error:', error.originalError);
+
     switch (error.code) {
-      case 'PAYMENT_REJECTED':
-        // Handle card rejection
+      case QZPayErrorCode.CARD_DECLINED:
+        // Handle card declined
+        // Check error.statusDetail for specific reason
         break;
-      case 'INSUFFICIENT_FUNDS':
+      case QZPayErrorCode.INSUFFICIENT_FUNDS:
         // Handle insufficient funds
         break;
-      case 'RATE_LIMIT':
-        // Implement backoff
+      case QZPayErrorCode.INVALID_CARD:
+        // Handle invalid card details
+        break;
+      case QZPayErrorCode.AUTHENTICATION_ERROR:
+        // Handle API authentication issues
+        break;
+      case QZPayErrorCode.RATE_LIMIT_ERROR:
+        // Implement backoff strategy
+        break;
+      case QZPayErrorCode.RESOURCE_NOT_FOUND:
+        // Handle not found errors
         break;
       default:
-        // Log and handle generic error
+        // Handle other provider errors
     }
   }
 }
 ```
+
+### Error Mapping
+
+The adapter maps MercadoPago errors to standardized QZPay error codes:
+
+```typescript
+// MercadoPago status_detail -> QZPayErrorCode
+const errorMap = {
+  'cc_rejected_insufficient_amount': 'insufficient_funds',
+  'cc_rejected_bad_filled_card_number': 'invalid_card',
+  'cc_rejected_bad_filled_security_code': 'invalid_card',
+  'cc_rejected_blacklist': 'card_declined',
+  'cc_rejected_high_risk': 'card_declined',
+  'cc_rejected_duplicated_payment': 'duplicate_transaction',
+  // ... and many more
+};
+
+// All adapters wrap operations with error mapping
+try {
+  return await operation();
+} catch (error) {
+  throw mapMercadoPagoError(error, 'CustomerAdapter.create');
+}
+```
+
+### Fixed Issues
+
+1. **Payer Email in Subscriptions**: Now properly fetches and includes customer email when creating preapprovals.
+2. **Checkout Prices**: Fixed unit_price and currency_id extraction from price objects.
+3. **Try/Catch Coverage**: All adapter methods now have proper error handling.
 
 ## Common Error Codes
 

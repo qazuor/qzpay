@@ -16,6 +16,8 @@ pnpm add @qazuor/qzpay-core
 - **Metrics Service**: MRR, churn, and revenue calculations
 - **Health Service**: System health monitoring
 - **Logger**: Structured logging with customizable providers
+- **Input Validation**: Zod-based validation for all create operations
+- **Promo Code Validation**: Full validation with plan applicability and usage limits
 - **Utilities**: Date, money, validation, and hash helpers
 - **Runtime Agnostic**: Works in Node.js, Bun, Deno, and Edge runtimes (no direct `process.env` access)
 
@@ -238,6 +240,73 @@ isValidEmail('user@example.com'); // true
 isValidCurrency('USD'); // true
 isValidAmount(100); // true
 isValidAmount(-50); // false
+```
+
+### Input Validation
+
+All create operations now include comprehensive Zod validation:
+
+```typescript
+// Customer creation with validation
+try {
+  const customer = await billing.customers.create({
+    email: 'invalid-email', // Will throw validation error
+    name: 'John Doe'
+  });
+} catch (error) {
+  // error.code === 'VALIDATION_ERROR'
+  // error.details contains validation failure info
+}
+
+// Payment with validation
+await billing.payments.process({
+  customerId: 'cus_123',
+  amount: -100, // Will throw validation error (negative amount)
+  currency: 'INVALID' // Will throw validation error (invalid currency)
+});
+
+// Invoice creation with validation
+await billing.invoices.create({
+  customerId: 'cus_123',
+  items: [] // Will throw validation error (empty items array)
+});
+```
+
+### Promo Code Validation
+
+Promo codes are validated against multiple criteria:
+
+```typescript
+// The system automatically validates:
+// 1. Plan applicability
+const promoCode = await billing.promoCodes.create({
+  code: 'SUMMER2024',
+  discountType: 'percentage',
+  discountValue: 20,
+  applicablePlans: ['plan_premium', 'plan_enterprise'] // Only works for these plans
+});
+
+// 2. Per-customer usage limits
+await billing.promoCodes.validate({
+  code: 'SUMMER2024',
+  customerId: 'cus_123',
+  planId: 'plan_basic' // Will fail if not in applicablePlans
+});
+
+// 3. Date ranges
+await billing.promoCodes.create({
+  code: 'NEWYEAR2024',
+  validFrom: new Date('2024-01-01'),
+  validTo: new Date('2024-01-31') // Only valid in January
+});
+
+// 4. Max uses and active status
+await billing.promoCodes.create({
+  code: 'LIMITED',
+  maxUses: 100, // Can only be used 100 times total
+  maxUsesPerCustomer: 1, // Each customer can use it once
+  active: true // Must be active
+});
 ```
 
 ## Types

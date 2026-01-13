@@ -14,6 +14,8 @@ pnpm add @qazuor/qzpay-react react
 - **Data Hooks**: Fetch and manage billing data
 - **Mutation Hooks**: Create/update operations
 - **Theme System**: Customizable styling
+- **Accessibility**: WCAG 2.1 AA compliant with ARIA support
+- **Error Boundary**: Graceful error handling for components
 - **TypeScript**: Full type safety
 
 ## Usage
@@ -182,6 +184,116 @@ function App() {
   );
 }
 ```
+
+## Accessibility
+
+All components are WCAG 2.1 AA compliant with full accessibility support:
+
+```tsx
+import { PricingTable, SubscriptionStatus, PaymentForm } from '@qazuor/qzpay-react';
+
+// All components include:
+// - ARIA labels and descriptions
+// - Semantic HTML roles
+// - Keyboard navigation support
+// - Screen reader announcements
+// - Focus management
+
+function AccessibleBillingUI() {
+  return (
+    <div>
+      {/* PricingTable with ARIA attributes */}
+      <PricingTable
+        plans={plans}
+        onSelect={handleSelect}
+        // Automatically includes:
+        // - role="region"
+        // - aria-label="Pricing plans"
+        // - aria-describedby for plan descriptions
+      />
+
+      {/* SubscriptionStatus with live region */}
+      <SubscriptionStatus
+        subscription={subscription}
+        // Includes:
+        // - aria-live="polite" for status changes
+        // - Semantic status indicators
+      />
+
+      {/* PaymentForm with validation messages */}
+      <PaymentForm
+        onSubmit={handlePayment}
+        // Includes:
+        // - aria-invalid for validation
+        // - aria-describedby for error messages
+        // - Keyboard accessible buttons
+      />
+    </div>
+  );
+}
+```
+
+## Error Boundary
+
+Wrap components with ErrorBoundary for graceful error handling:
+
+```tsx
+import { QZPayErrorBoundary } from '@qazuor/qzpay-react';
+
+// Basic usage with default fallback
+function App() {
+  return (
+    <QZPayErrorBoundary>
+      <PricingTable plans={plans} onSelect={handleSelect} />
+    </QZPayErrorBoundary>
+  );
+}
+
+// Custom fallback UI
+function AppWithCustomFallback() {
+  return (
+    <QZPayErrorBoundary
+      fallback={
+        <div>
+          <h3>Oops! Something went wrong</h3>
+          <button onClick={() => window.location.reload()}>
+            Reload Page
+          </button>
+        </div>
+      }
+    >
+      <PaymentForm {...props} />
+    </QZPayErrorBoundary>
+  );
+}
+
+// Dynamic fallback based on error
+function AppWithDynamicFallback() {
+  return (
+    <QZPayErrorBoundary
+      fallback={(error) => (
+        <div>
+          <h3>Payment Error</h3>
+          <p>{error.message}</p>
+          <button onClick={retryPayment}>Try Again</button>
+        </div>
+      )}
+      onError={(error, errorInfo) => {
+        // Log to error tracking service
+        logErrorToSentry(error, errorInfo);
+      }}
+    >
+      <CheckoutFlow {...props} />
+    </QZPayErrorBoundary>
+  );
+}
+```
+
+## Fixed Issues
+
+1. **usePlans Hook**: Fixed API endpoint call and data fetching logic.
+2. **Accessibility**: All components now include proper ARIA attributes.
+3. **Error Handling**: Added ErrorBoundary component for robust error management.
 
 ## License
 
