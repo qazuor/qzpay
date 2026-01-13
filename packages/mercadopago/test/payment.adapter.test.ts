@@ -42,10 +42,14 @@ describe('QZPayMercadoPagoPaymentAdapter', () => {
             expect(mockPaymentApi.create).toHaveBeenCalledWith({
                 body: {
                     transaction_amount: 100, // Converted from cents
-                    payment_method_id: 'pix',
+                    description: 'QZPay Payment',
+                    payment_method_id: 'account_money',
                     payer: { id: 'cus_123' },
                     metadata: { qzpay_customer_id: 'cus_123' }
-                }
+                },
+                requestOptions: expect.objectContaining({
+                    idempotencyKey: expect.any(String)
+                })
             });
         });
 
@@ -58,11 +62,13 @@ describe('QZPayMercadoPagoPaymentAdapter', () => {
                 paymentMethodId: 'credit_card'
             });
 
-            expect(mockPaymentApi.create).toHaveBeenCalledWith({
-                body: expect.objectContaining({
-                    payment_method_id: 'credit_card'
+            expect(mockPaymentApi.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    body: expect.objectContaining({
+                        payment_method_id: 'credit_card'
+                    })
                 })
-            });
+            );
         });
 
         it('should map payment status correctly', async () => {

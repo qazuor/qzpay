@@ -3,24 +3,45 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QZPayMercadoPagoCheckoutAdapter } from '../src/adapters/checkout.adapter.js';
-import { createMockMPPreference, createMockPreferenceApi } from './helpers/mercadopago-mocks.js';
+import {
+    createMockMPPreapprovalPlan,
+    createMockMPPreference,
+    createMockPreApprovalPlanApi,
+    createMockPreferenceApi
+} from './helpers/mercadopago-mocks.js';
 
 // Mock the mercadopago module
 vi.mock('mercadopago', () => ({
     Preference: vi.fn(),
+    PreApprovalPlan: vi.fn(),
     MercadoPagoConfig: vi.fn()
 }));
 
 describe('QZPayMercadoPagoCheckoutAdapter', () => {
     let adapter: QZPayMercadoPagoCheckoutAdapter;
     let mockPreferenceApi: ReturnType<typeof createMockPreferenceApi>;
+    let mockPlanApi: ReturnType<typeof createMockPreApprovalPlanApi>;
 
     beforeEach(async () => {
         vi.clearAllMocks();
         mockPreferenceApi = createMockPreferenceApi();
+        mockPlanApi = createMockPreApprovalPlanApi();
 
-        const { Preference } = await import('mercadopago');
+        const { Preference, PreApprovalPlan } = await import('mercadopago');
         vi.mocked(Preference).mockImplementation(() => mockPreferenceApi as never);
+        vi.mocked(PreApprovalPlan).mockImplementation(() => mockPlanApi as never);
+
+        // Default mock: plan with price info
+        mockPlanApi.get.mockResolvedValue(
+            createMockMPPreapprovalPlan({
+                auto_recurring: {
+                    frequency: 1,
+                    frequency_type: 'months',
+                    transaction_amount: 29.99,
+                    currency_id: 'USD'
+                }
+            })
+        );
 
         adapter = new QZPayMercadoPagoCheckoutAdapter({} as never, false);
     });
@@ -40,9 +61,10 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             );
 
             expect(result.id).toBe('pref_new123');
+            expect(mockPlanApi.get).toHaveBeenCalledWith({ preApprovalPlanId: 'price_1' });
             expect(mockPreferenceApi.create).toHaveBeenCalledWith({
                 body: expect.objectContaining({
-                    items: [{ id: 'price_1', title: 'Test Item', quantity: 2, unit_price: 0, currency_id: 'USD' }],
+                    items: [{ id: 'price_1', title: 'Test Item', quantity: 2, unit_price: 29.99, currency_id: 'USD' }],
                     back_urls: {
                         success: 'https://example.com/success',
                         failure: 'https://example.com/cancel',
@@ -184,8 +206,8 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             expect(mockPreferenceApi.create).toHaveBeenCalledWith({
                 body: expect.objectContaining({
                     items: [
-                        { id: 'price_1', title: 'Item 1', quantity: 2, unit_price: 0, currency_id: 'USD' },
-                        { id: 'price_2', title: 'Item 2', quantity: 1, unit_price: 0, currency_id: 'USD' }
+                        { id: 'price_1', title: 'Item 1', quantity: 2, unit_price: 29.99, currency_id: 'USD' },
+                        { id: 'price_2', title: 'Item 2', quantity: 1, unit_price: 29.99, currency_id: 'USD' }
                     ]
                 })
             });

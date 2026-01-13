@@ -132,16 +132,16 @@ describe('MercadoPago Payment Adapter Resilience', () => {
         it('should propagate rate limit errors on create', async () => {
             mockPaymentApi.create.mockRejectedValue(new MPRateLimitError());
 
-            await expect(adapter.create('cus_123', { amount: 10000, currency: 'ARS' })).rejects.toThrow('Too many requests');
+            await expect(adapter.create('cus_123', { amount: 10000, currency: 'ARS' })).rejects.toThrow('Rate limit exceeded');
         });
 
         it('should propagate rate limit errors on retrieve', async () => {
             mockPaymentApi.get.mockRejectedValue(new MPRateLimitError());
 
-            await expect(adapter.retrieve('12345')).rejects.toThrow('Too many requests');
+            await expect(adapter.retrieve('12345')).rejects.toThrow('Rate limit exceeded');
         });
 
-        it('should include rate limit status code', async () => {
+        it('should include rate limit error code', async () => {
             const error = new MPRateLimitError();
             mockPaymentApi.create.mockRejectedValue(error);
 
@@ -149,7 +149,9 @@ describe('MercadoPago Payment Adapter Resilience', () => {
                 await adapter.create('cus_123', { amount: 10000, currency: 'ARS' });
                 expect.fail('Should have thrown');
             } catch (e) {
-                expect((e as MercadoPagoError).status).toBe(429);
+                // Error is now wrapped in QZPayMercadoPagoError with originalError
+                expect(e).toHaveProperty('code');
+                expect((e as { code: string }).code).toBe('provider_error');
             }
         });
     });
@@ -226,56 +228,41 @@ describe('MercadoPago Payment Adapter Resilience', () => {
         it('should handle rejected by card issuer', async () => {
             mockPaymentApi.create.mockRejectedValue(new MPPaymentError('Payment rejected by card issuer', 'cc_rejected_other_reason'));
 
-            try {
-                await adapter.create('cus_123', { amount: 10000, currency: 'ARS', paymentMethodId: 'visa' });
-                expect.fail('Should have thrown');
-            } catch (e) {
-                expect((e as MercadoPagoError).cause[0].code).toBe('cc_rejected_other_reason');
-            }
+            await expect(adapter.create('cus_123', { amount: 10000, currency: 'ARS', paymentMethodId: 'visa' })).rejects.toThrow(
+                'Payment rejected by card issuer'
+            );
         });
 
         it('should handle insufficient funds', async () => {
             mockPaymentApi.create.mockRejectedValue(new MPPaymentError('Insufficient funds', 'cc_rejected_insufficient_amount'));
 
-            try {
-                await adapter.create('cus_123', { amount: 100000, currency: 'ARS', paymentMethodId: 'visa' });
-                expect.fail('Should have thrown');
-            } catch (e) {
-                expect((e as MercadoPagoError).cause[0].code).toBe('cc_rejected_insufficient_amount');
-            }
+            await expect(adapter.create('cus_123', { amount: 100000, currency: 'ARS', paymentMethodId: 'visa' })).rejects.toThrow(
+                'Insufficient funds'
+            );
         });
 
         it('should handle invalid CVV', async () => {
             mockPaymentApi.create.mockRejectedValue(new MPPaymentError('Invalid security code', 'cc_rejected_bad_filled_security_code'));
 
-            try {
-                await adapter.create('cus_123', { amount: 10000, currency: 'ARS', paymentMethodId: 'visa' });
-                expect.fail('Should have thrown');
-            } catch (e) {
-                expect((e as MercadoPagoError).cause[0].code).toBe('cc_rejected_bad_filled_security_code');
-            }
+            await expect(adapter.create('cus_123', { amount: 10000, currency: 'ARS', paymentMethodId: 'visa' })).rejects.toThrow(
+                'Invalid security code'
+            );
         });
 
         it('should handle expired card', async () => {
             mockPaymentApi.create.mockRejectedValue(new MPPaymentError('Card expired', 'cc_rejected_card_expired'));
 
-            try {
-                await adapter.create('cus_123', { amount: 10000, currency: 'ARS', paymentMethodId: 'visa' });
-                expect.fail('Should have thrown');
-            } catch (e) {
-                expect((e as MercadoPagoError).cause[0].code).toBe('cc_rejected_card_expired');
-            }
+            await expect(adapter.create('cus_123', { amount: 10000, currency: 'ARS', paymentMethodId: 'visa' })).rejects.toThrow(
+                'Card expired'
+            );
         });
 
         it('should handle blacklisted card', async () => {
             mockPaymentApi.create.mockRejectedValue(new MPPaymentError('Card is blacklisted', 'cc_rejected_blacklist'));
 
-            try {
-                await adapter.create('cus_123', { amount: 10000, currency: 'ARS', paymentMethodId: 'visa' });
-                expect.fail('Should have thrown');
-            } catch (e) {
-                expect((e as MercadoPagoError).cause[0].code).toBe('cc_rejected_blacklist');
-            }
+            await expect(adapter.create('cus_123', { amount: 10000, currency: 'ARS', paymentMethodId: 'visa' })).rejects.toThrow(
+                'Card is blacklisted'
+            );
         });
     });
 
@@ -407,7 +394,7 @@ describe('MercadoPago Customer Adapter Resilience', () => {
         it('should propagate rate limits on retrieve', async () => {
             mockCustomerApi.get.mockRejectedValue(new MPRateLimitError());
 
-            await expect(adapter.retrieve('cust_123')).rejects.toThrow('Too many requests');
+            await expect(adapter.retrieve('cust_123')).rejects.toThrow('Rate limit exceeded');
         });
     });
 });
@@ -416,6 +403,7 @@ describe('MercadoPago Customer Adapter Resilience', () => {
 
 describe('MercadoPago Subscription Adapter Resilience', () => {
     let mockPreapprovalApi: ReturnType<typeof createMockPreapprovalApi>;
+    let mockSubscriptionCustomerApi: ReturnType<typeof createMockCustomerApi>;
     let adapter: QZPayMercadoPagoSubscriptionAdapter;
 
     const mockPreapproval = {
@@ -430,21 +418,32 @@ describe('MercadoPago Subscription Adapter Resilience', () => {
         }
     };
 
+    const mockCustomer = {
+        id: 'cust_123',
+        email: 'test@example.com',
+        first_name: 'John',
+        last_name: 'Doe'
+    };
+
     beforeEach(() => {
         vi.clearAllMocks();
 
         mockPreapprovalApi = createMockPreapprovalApi();
+        mockSubscriptionCustomerApi = createMockCustomerApi();
 
         mockPreapprovalApi.create.mockResolvedValue(mockPreapproval);
         mockPreapprovalApi.get.mockResolvedValue(mockPreapproval);
         mockPreapprovalApi.update.mockResolvedValue(mockPreapproval);
         mockPreapprovalApi.search.mockResolvedValue({ results: [mockPreapproval], paging: { total: 1 } });
+        mockSubscriptionCustomerApi.get.mockResolvedValue(mockCustomer);
 
         const mockClient = {} as MercadoPagoConfig;
         adapter = new QZPayMercadoPagoSubscriptionAdapter(mockClient);
 
         // biome-ignore lint/suspicious/noExplicitAny: Test mock injection
         (adapter as any).preapprovalApi = mockPreapprovalApi;
+        // biome-ignore lint/suspicious/noExplicitAny: Test mock injection
+        (adapter as any).customerApi = mockSubscriptionCustomerApi;
     });
 
     describe('Subscription State Errors', () => {

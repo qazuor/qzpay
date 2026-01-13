@@ -3,24 +3,36 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QZPayMercadoPagoSubscriptionAdapter } from '../src/adapters/subscription.adapter.js';
-import { createMockMPPreapproval, createMockPreApprovalApi } from './helpers/mercadopago-mocks.js';
+import {
+    createMockCustomerApi,
+    createMockMPCustomer,
+    createMockMPPreapproval,
+    createMockPreApprovalApi
+} from './helpers/mercadopago-mocks.js';
 
 // Mock the mercadopago module
 vi.mock('mercadopago', () => ({
     PreApproval: vi.fn(),
+    Customer: vi.fn(),
     MercadoPagoConfig: vi.fn()
 }));
 
 describe('QZPayMercadoPagoSubscriptionAdapter', () => {
     let adapter: QZPayMercadoPagoSubscriptionAdapter;
     let mockPreApprovalApi: ReturnType<typeof createMockPreApprovalApi>;
+    let mockCustomerApi: ReturnType<typeof createMockCustomerApi>;
 
     beforeEach(async () => {
         vi.clearAllMocks();
         mockPreApprovalApi = createMockPreApprovalApi();
+        mockCustomerApi = createMockCustomerApi();
 
-        const { PreApproval } = await import('mercadopago');
+        const { PreApproval, Customer } = await import('mercadopago');
         vi.mocked(PreApproval).mockImplementation(() => mockPreApprovalApi as never);
+        vi.mocked(Customer).mockImplementation(() => mockCustomerApi as never);
+
+        // Default mock: customer with email
+        mockCustomerApi.get.mockResolvedValue(createMockMPCustomer({ email: 'test@example.com' }));
 
         adapter = new QZPayMercadoPagoSubscriptionAdapter({} as never);
     });
@@ -32,13 +44,22 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
             const result = await adapter.create('cus_123', { planId: 'plan_123' }, 'price_mp_123');
 
             expect(result.id).toBe('sub_new123');
+            expect(mockCustomerApi.get).toHaveBeenCalledWith({ customerId: 'cus_123' });
             expect(mockPreApprovalApi.create).toHaveBeenCalledWith({
                 body: {
                     preapproval_plan_id: 'price_mp_123',
-                    payer_email: '',
+                    payer_email: 'test@example.com',
                     external_reference: 'cus_123'
                 }
             });
+        });
+
+        it('should throw error if customer email is missing', async () => {
+            mockCustomerApi.get.mockResolvedValue(createMockMPCustomer({ email: '' }));
+
+            await expect(adapter.create('cus_123', { planId: 'plan_123' }, 'price_123')).rejects.toThrow(
+                'Customer email is required for MercadoPago subscriptions'
+            );
         });
 
         it('should map authorized status to active', async () => {
