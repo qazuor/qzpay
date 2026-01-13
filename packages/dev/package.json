@@ -1,0 +1,67 @@
+{
+    "name": "@qazuor/qzpay-dev",
+    "version": "1.0.0",
+    "description": "Development and testing utilities for QZPay billing library",
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "sideEffects": false,
+    "scripts": {
+        "build": "tsup",
+        "dev": "tsup --watch",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest",
+        "test:run": "vitest run",
+        "clean": "rm -rf dist"
+    },
+    "keywords": [
+        "billing",
+        "payments",
+        "subscriptions",
+        "testing",
+        "mock",
+        "development",
+        "qzpay"
+    ],
+    "author": "qazuor@gmail.com",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/qazuor/qzpay",
+        "directory": "packages/dev"
+    },
+    "bugs": {
+        "url": "https://github.com/qazuor/qzpay/issues"
+    },
+    "homepage": "https://github.com/qazuor/qzpay/tree/main/packages/dev#readme",
+    "engines": {
+        "node": ">=22"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "dependencies": {
+        "@qazuor/qzpay-core": "workspace:*"
+    },
+    "devDependencies": {
+        "tsup": "^8.0.0",
+        "typescript": "^5.0.0",
+        "vitest": "^2.0.0"
+    }
+}
