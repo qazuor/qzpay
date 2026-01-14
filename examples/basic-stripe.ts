@@ -4,31 +4,28 @@
  * This example shows how to set up QZPay with Stripe
  * for a simple subscription-based billing system.
  */
-import { QZPayBilling } from '@qazuor/qzpay-core';
-import { QZPayDrizzleStorageAdapter } from '@qazuor/qzpay-drizzle';
-import { QZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import Stripe from 'stripe';
 
 // Database connection
 const client = postgres(process.env.DATABASE_URL!);
 const db = drizzle(client);
 
-// Stripe client
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: '2024-12-18.acacia'
+// Initialize adapters
+const storageAdapter = createQZPayDrizzleAdapter({ db });
+const stripeAdapter = createQZPayStripeAdapter({
+    secretKey: process.env.STRIPE_SECRET_KEY!,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
 });
 
-// Initialize adapters
-const storageAdapter = new QZPayDrizzleStorageAdapter({ db, livemode: true });
-const stripeAdapter = new QZPayStripeAdapter({ client: stripe, livemode: true });
-
 // Initialize billing
-const billing = new QZPayBilling({
+const billing = createQZPayBilling({
     storage: storageAdapter,
-    provider: stripeAdapter,
-    livemode: true
+    paymentAdapter: stripeAdapter,
+    livemode: true,
 });
 
 async function main() {

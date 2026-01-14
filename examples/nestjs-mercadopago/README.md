@@ -31,12 +31,9 @@ NODE_ENV=development
 ```
 nestjs-mercadopago/
 ├── README.md
-├── billing.module.ts      # QZPay billing module
-├── billing.service.ts     # Billing service with MercadoPago
+├── billing.module.ts      # QZPay billing module configuration
+├── billing.service.ts     # Billing service with MercadoPago operations
 ├── webhooks.controller.ts # IPN webhook handling
-├── customers.controller.ts
-├── subscriptions.controller.ts
-├── payments.controller.ts
 └── types.ts               # Type definitions
 ```
 
@@ -46,6 +43,7 @@ nestjs-mercadopago/
 
 ```typescript
 // app.module.ts
+import { Module } from '@nestjs/common';
 import { BillingModule } from './billing/billing.module';
 
 @Module({
@@ -63,6 +61,7 @@ export class AppModule {}
 
 ```typescript
 // any.service.ts
+import { Injectable } from '@nestjs/common';
 import { BillingService } from './billing/billing.service';
 
 @Injectable()
@@ -81,20 +80,21 @@ Set your MercadoPago webhook URL to: `https://yourdomain.com/webhooks/mercadopag
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | /customers | Create customer |
-| GET | /customers/:id | Get customer |
-| POST | /subscriptions | Create subscription |
-| GET | /subscriptions/:id | Get subscription |
-| DELETE | /subscriptions/:id | Cancel subscription |
-| POST | /payments | Create payment |
-| GET | /payments/:id | Get payment |
-| POST | /payments/:id/refund | Refund payment |
-| POST | /webhooks/mercadopago | Webhook endpoint |
+The `BillingService` provides methods for:
+
+| Method | Description |
+|--------|-------------|
+| `createCustomer()` | Create a new customer |
+| `getCustomer()` | Get customer by ID |
+| `createSubscription()` | Create a new subscription |
+| `getSubscription()` | Get subscription by ID |
+| `cancelSubscription()` | Cancel a subscription |
+| `createPayment()` | Process a one-time payment |
+| `getPayment()` | Get payment by ID |
+| `refundPayment()` | Refund a payment |
 
 ## Notes
 
 - This example uses in-memory storage. For production, use `@qazuor/qzpay-drizzle`.
-- MercadoPago has regional limitations. See the MercadoPago README for details.
+- MercadoPago has regional limitations. See the MercadoPago package documentation for details.
 - 3D Secure flows require frontend handling to redirect users.

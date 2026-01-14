@@ -4,31 +4,32 @@
  * This example shows how to set up a billing API
  * using Hono middleware and routes.
  */
-import { QZPayBilling } from '@qazuor/qzpay-core';
-import { QZPayDrizzleStorageAdapter } from '@qazuor/qzpay-drizzle';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
 import { createBillingRoutes, createRateLimitMiddleware, createWebhookRoutes } from '@qazuor/qzpay-hono';
-import { QZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import postgres from 'postgres';
-import Stripe from 'stripe';
 
 // Initialize database
 const client = postgres(process.env.DATABASE_URL!);
 const db = drizzle(client);
 
 // Initialize adapters
-const storageAdapter = new QZPayDrizzleStorageAdapter({ db, livemode: true });
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-12-18.acacia' });
-const stripeAdapter = new QZPayStripeAdapter({ client: stripe, livemode: true });
+const storageAdapter = createQZPayDrizzleAdapter({ db });
+const stripeAdapter = createQZPayStripeAdapter({
+    secretKey: process.env.STRIPE_SECRET_KEY!,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
+});
 
 // Initialize billing
-const billing = new QZPayBilling({
+const billing = createQZPayBilling({
     storage: storageAdapter,
-    provider: stripeAdapter,
-    livemode: true
+    paymentAdapter: stripeAdapter,
+    livemode: true,
 });
 
 // Create Hono app

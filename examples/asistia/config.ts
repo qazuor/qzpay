@@ -1,12 +1,11 @@
 /**
  * Asistia - QZPay Configuration
  */
-import { QZPayBilling } from '@qazuor/qzpay-core';
-import { QZPayDrizzleStorageAdapter } from '@qazuor/qzpay-drizzle';
-import { QZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import Stripe from 'stripe';
 
 // Environment
 function getEnvVar(name: string): string {
@@ -19,29 +18,21 @@ function getEnvVar(name: string): string {
 const client = postgres(getEnvVar('DATABASE_URL'));
 export const db = drizzle(client);
 
-// Stripe
-export const stripe = new Stripe(getEnvVar('STRIPE_SECRET_KEY'), {
-    apiVersion: '2024-12-18.acacia'
-});
-
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Adapters
-export const storageAdapter = new QZPayDrizzleStorageAdapter({
-    db,
-    livemode: isProduction
-});
+export const storageAdapter = createQZPayDrizzleAdapter({ db });
 
-export const stripeAdapter = new QZPayStripeAdapter({
-    client: stripe,
-    livemode: isProduction
+export const stripeAdapter = createQZPayStripeAdapter({
+    secretKey: getEnvVar('STRIPE_SECRET_KEY'),
+    webhookSecret: getEnvVar('STRIPE_WEBHOOK_SECRET'),
 });
 
 // QZPay Billing
-export const billing = new QZPayBilling({
+export const billing = createQZPayBilling({
     storage: storageAdapter,
-    provider: stripeAdapter,
-    livemode: isProduction
+    paymentAdapter: stripeAdapter,
+    livemode: isProduction,
 });
 
 export const stripeWebhookSecret = getEnvVar('STRIPE_WEBHOOK_SECRET');

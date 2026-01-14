@@ -4,9 +4,9 @@
  * Each vendor has their own Stripe account, so we need to
  * create adapters dynamically per vendor.
  */
-import { QZPayBilling } from '@qazuor/qzpay-core';
-import { QZPayDrizzleStorageAdapter } from '@qazuor/qzpay-drizzle';
-import { QZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayBilling, type QZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import Stripe from 'stripe';
@@ -47,29 +47,21 @@ export function getVendorBilling(vendor: GemFolioVendor): QZPayBilling {
 
     // Create vendor-specific storage adapter
     // Uses shared DB but scopes queries to vendor
-    const storageAdapter = new QZPayDrizzleStorageAdapter({
-        db,
-        livemode: isProduction
-        // In a real implementation, you'd scope all queries by vendorId
-    });
+    const storageAdapter = createQZPayDrizzleAdapter({ db });
 
-    // Create Stripe client for vendor's Connect account
-    // Using "on behalf of" to make requests as the connected account
-    const vendorStripe = new Stripe(getEnvVar('STRIPE_SECRET_KEY'), {
-        apiVersion: '2024-12-18.acacia',
-        stripeAccount: vendor.stripeAccountId // This is the key!
-    });
-
-    const stripeAdapter = new QZPayStripeAdapter({
-        client: vendorStripe,
-        livemode: isProduction
+    // Create Stripe adapter for vendor's Connect account
+    // Note: For multi-tenant with Connect, you may need custom configuration
+    const stripeAdapter = createQZPayStripeAdapter({
+        secretKey: getEnvVar('STRIPE_SECRET_KEY'),
+        webhookSecret: getEnvVar('STRIPE_WEBHOOK_SECRET'),
+        // For Connect accounts, additional configuration may be needed
     });
 
     // Create billing instance
-    const billing = new QZPayBilling({
+    const billing = createQZPayBilling({
         storage: storageAdapter,
-        provider: stripeAdapter,
-        livemode: isProduction
+        paymentAdapter: stripeAdapter,
+        livemode: isProduction,
     });
 
     // Cache it
@@ -97,7 +89,4 @@ export function getVendorStripe(vendor: GemFolioVendor): Stripe {
 }
 
 // Export platform storage for vendor management
-export const platformStorage = new QZPayDrizzleStorageAdapter({
-    db,
-    livemode: isProduction
-});
+export const platformStorage = createQZPayDrizzleAdapter({ db });
