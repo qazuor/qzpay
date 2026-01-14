@@ -23,28 +23,23 @@ pnpm add @qazuor/qzpay-stripe stripe
 ### Basic Setup
 
 ```typescript
-import { QZPayStripeAdapter } from '@qazuor/qzpay-stripe';
-import Stripe from 'stripe';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-12-18.acacia'
-});
-
-const stripeAdapter = new QZPayStripeAdapter({
-  client: stripe,
-  livemode: true
+const stripeAdapter = createQZPayStripeAdapter({
+  secretKey: process.env.STRIPE_SECRET_KEY!,
+  webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
 });
 ```
 
 ### With QZPayBilling
 
 ```typescript
-import { QZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
 
-const billing = new QZPayBilling({
+const billing = createQZPayBilling({
   storage: storageAdapter,
-  provider: stripeAdapter,
-  livemode: true
+  paymentAdapter: stripeAdapter,
+  livemode: true,
 });
 ```
 

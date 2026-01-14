@@ -23,14 +23,23 @@ pnpm add @qazuor/qzpay-nestjs @nestjs/common @nestjs/core
 ```typescript
 import { Module } from '@nestjs/common';
 import { QZPayModule } from '@qazuor/qzpay-nestjs';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+// Create billing instance first
+const billing = createQZPayBilling({
+  storage: createQZPayDrizzleAdapter({ db }),
+  paymentAdapter: createQZPayStripeAdapter({
+    secretKey: process.env.STRIPE_SECRET_KEY!,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
+  }),
+  livemode: true,
+});
 
 @Module({
   imports: [
-    QZPayModule.forRoot({
-      storage: storageAdapter,
-      provider: providerAdapter,
-      livemode: true
-    })
+    QZPayModule.forRoot({ billing })
   ]
 })
 export class AppModule {}
@@ -42,6 +51,9 @@ export class AppModule {}
 import { Module } from '@nestjs/common';
 import { QZPayModule } from '@qazuor/qzpay-nestjs';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
 
 @Module({
   imports: [
@@ -49,9 +61,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        storage: createStorageAdapter(config),
-        provider: createProviderAdapter(config),
-        livemode: config.get('NODE_ENV') === 'production'
+        billing: createQZPayBilling({
+          storage: createQZPayDrizzleAdapter({ db }),
+          paymentAdapter: createQZPayStripeAdapter({
+            secretKey: config.get('STRIPE_SECRET_KEY')!,
+            webhookSecret: config.get('STRIPE_WEBHOOK_SECRET')!,
+          }),
+          livemode: config.get('NODE_ENV') === 'production',
+        }),
       })
     })
   ]
@@ -148,14 +165,10 @@ export class BillingController {
 
 ```typescript
 interface QZPayModuleOptions {
-  storage: QZPayStorageAdapter;
-  provider: QZPayPaymentProviderAdapter;
-  livemode: boolean;
-  events?: {
-    onCustomerCreated?: (customer) => void;
-    onSubscriptionCreated?: (subscription) => void;
-    onPaymentSucceeded?: (payment) => void;
-  };
+  /**
+   * The QZPayBilling instance to use
+   */
+  billing: QZPayBilling;
 }
 ```
 
@@ -164,18 +177,21 @@ interface QZPayModuleOptions {
 ```typescript
 import { Test } from '@nestjs/testing';
 import { QZPayModule, QZPayService } from '@qazuor/qzpay-nestjs';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
 
 describe('BillingService', () => {
   let service: QZPayService;
 
   beforeEach(async () => {
+    const mockBilling = createQZPayBilling({
+      storage: mockStorageAdapter,
+      paymentAdapter: mockPaymentAdapter,
+      livemode: false,
+    });
+
     const module = await Test.createTestingModule({
       imports: [
-        QZPayModule.forRoot({
-          storage: mockStorageAdapter,
-          provider: mockProviderAdapter,
-          livemode: false
-        })
+        QZPayModule.forRoot({ billing: mockBilling })
       ]
     }).compile();
 

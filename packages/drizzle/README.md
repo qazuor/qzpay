@@ -21,28 +21,25 @@ pnpm add @qazuor/qzpay-drizzle drizzle-orm postgres
 ### Basic Setup
 
 ```typescript
-import { QZPayDrizzleStorageAdapter } from '@qazuor/qzpay-drizzle';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 
 const client = postgres(process.env.DATABASE_URL);
 const db = drizzle(client);
 
-const storageAdapter = new QZPayDrizzleStorageAdapter({
-  db,
-  livemode: true
-});
+const storageAdapter = createQZPayDrizzleAdapter({ db });
 ```
 
 ### With QZPayBilling
 
 ```typescript
-import { QZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayBilling } from '@qazuor/qzpay-core';
 
-const billing = new QZPayBilling({
+const billing = createQZPayBilling({
   storage: storageAdapter,
-  provider: providerAdapter,
-  livemode: true
+  paymentAdapter: stripeAdapter,
+  livemode: true,
 });
 ```
 
