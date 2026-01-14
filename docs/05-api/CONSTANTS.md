@@ -2,7 +2,7 @@
 
 ## Overview
 
-All status values, event types, and configuration options use exported constants with the `QZPay` prefix to avoid magic strings and enable TypeScript autocomplete.
+All status values, event types, and configuration options use exported constants with the `QZPAY_` prefix (uppercase) to avoid magic strings and enable TypeScript autocomplete.
 
 ---
 
@@ -10,20 +10,20 @@ All status values, event types, and configuration options use exported constants
 
 ```typescript
 import {
-  QZPaySubscriptionStatus,
-  QZPayPaymentStatus,
-  QZPayBillingEvent,
-  QZPayBillingInterval,
-  QZPayCurrency,
+  QZPAY_SUBSCRIPTION_STATUS,
+  QZPAY_PAYMENT_STATUS,
+  QZPAY_BILLING_EVENT,
+  QZPAY_BILLING_INTERVAL,
+  QZPAY_CURRENCY,
 } from '@qazuor/qzpay-core';
 
 // Type-safe comparisons
-if (subscription.status === QZPaySubscriptionStatus.ACTIVE) {
+if (subscription.status === QZPAY_SUBSCRIPTION_STATUS.ACTIVE) {
   // ...
 }
 
 // Event handlers
-billing.on(QZPayBillingEvent.PAYMENT_SUCCEEDED, handler);
+billing.on(QZPAY_BILLING_EVENT.PAYMENT_SUCCEEDED, handler);
 ```
 
 ---
@@ -31,19 +31,19 @@ billing.on(QZPayBillingEvent.PAYMENT_SUCCEEDED, handler);
 ## Subscription Status
 
 ```typescript
-export const QZPaySubscriptionStatus = {
+export const QZPAY_SUBSCRIPTION_STATUS = {
   ACTIVE: 'active',
   TRIALING: 'trialing',
   PAST_DUE: 'past_due',
+  PAUSED: 'paused',
   CANCELED: 'canceled',
   UNPAID: 'unpaid',
-  PAUSED: 'paused',
   INCOMPLETE: 'incomplete',
-  EXPIRED: 'expired',
+  INCOMPLETE_EXPIRED: 'incomplete_expired',
 } as const;
 
-export type QZPaySubscriptionStatusType =
-  typeof QZPaySubscriptionStatus[keyof typeof QZPaySubscriptionStatus];
+export type QZPaySubscriptionStatus =
+  (typeof QZPAY_SUBSCRIPTION_STATUS)[keyof typeof QZPAY_SUBSCRIPTION_STATUS];
 ```
 
 ---
@@ -51,30 +51,19 @@ export type QZPaySubscriptionStatusType =
 ## Payment Status
 
 ```typescript
-export const QZPayPaymentStatus = {
+export const QZPAY_PAYMENT_STATUS = {
   PENDING: 'pending',
   PROCESSING: 'processing',
   SUCCEEDED: 'succeeded',
   FAILED: 'failed',
+  CANCELED: 'canceled',
   REFUNDED: 'refunded',
   PARTIALLY_REFUNDED: 'partially_refunded',
   DISPUTED: 'disputed',
-  REQUIRES_ACTION: 'requires_action',
 } as const;
-```
 
----
-
-## Invoice Status
-
-```typescript
-export const QZPayInvoiceStatus = {
-  DRAFT: 'draft',
-  OPEN: 'open',
-  PAID: 'paid',
-  VOID: 'void',
-  UNCOLLECTIBLE: 'uncollectible',
-} as const;
+export type QZPayPaymentStatus =
+  (typeof QZPAY_PAYMENT_STATUS)[keyof typeof QZPAY_PAYMENT_STATUS];
 ```
 
 ---
@@ -82,31 +71,37 @@ export const QZPayInvoiceStatus = {
 ## Billing Interval
 
 ```typescript
-export const QZPayBillingInterval = {
+export const QZPAY_BILLING_INTERVAL = {
   DAY: 'day',
   WEEK: 'week',
   MONTH: 'month',
-  QUARTER: 'quarter',
   YEAR: 'year',
 } as const;
+
+export type QZPayBillingInterval =
+  (typeof QZPAY_BILLING_INTERVAL)[keyof typeof QZPAY_BILLING_INTERVAL];
 ```
 
 ---
 
-## Currency
+## Currency (ISO 4217)
 
 ```typescript
-export const QZPayCurrency = {
+export const QZPAY_CURRENCY = {
   USD: 'USD',
   EUR: 'EUR',
+  GBP: 'GBP',
   ARS: 'ARS',
   BRL: 'BRL',
   MXN: 'MXN',
   CLP: 'CLP',
   COP: 'COP',
   PEN: 'PEN',
-  GBP: 'GBP',
+  UYU: 'UYU',
 } as const;
+
+export type QZPayCurrency =
+  (typeof QZPAY_CURRENCY)[keyof typeof QZPAY_CURRENCY];
 ```
 
 ---
@@ -114,10 +109,14 @@ export const QZPayCurrency = {
 ## Checkout Mode
 
 ```typescript
-export const QZPayCheckoutMode = {
-  EMBEDDED: 'embedded',   // Embedded in page
-  HOSTED: 'hosted',       // Redirect to hosted page
+export const QZPAY_CHECKOUT_MODE = {
+  PAYMENT: 'payment',         // One-time payment
+  SUBSCRIPTION: 'subscription', // Recurring subscription
+  SETUP: 'setup',             // Save payment method
 } as const;
+
+export type QZPayCheckoutMode =
+  (typeof QZPAY_CHECKOUT_MODE)[keyof typeof QZPAY_CHECKOUT_MODE];
 ```
 
 ---
@@ -125,55 +124,28 @@ export const QZPayCheckoutMode = {
 ## Payment Provider
 
 ```typescript
-export const QZPayPaymentProvider = {
+export const QZPAY_PAYMENT_PROVIDER = {
   STRIPE: 'stripe',
   MERCADOPAGO: 'mercadopago',
-  BANK_TRANSFER: 'bank_transfer',
 } as const;
+
+export type QZPayPaymentProvider =
+  (typeof QZPAY_PAYMENT_PROVIDER)[keyof typeof QZPAY_PAYMENT_PROVIDER];
 ```
 
 ---
 
-## Discount Types
-
-### Base Types (shared)
+## Discount Type
 
 ```typescript
-export const QZPayDiscountTypeBase = {
+export const QZPAY_DISCOUNT_TYPE = {
   PERCENTAGE: 'percentage',
   FIXED_AMOUNT: 'fixed_amount',
-  FREE_PERIOD: 'free_period',
-  REDUCED_PERIOD: 'reduced_period',
+  FREE_TRIAL: 'free_trial',
 } as const;
-```
 
-### Promo Code Types
-
-```typescript
-export const QZPayPromoCodeType = {
-  ...QZPayDiscountTypeBase,
-  TRIAL_EXTENSION: 'trial_extension',
-} as const;
-```
-
-### Automatic Discount Types
-
-```typescript
-export const QZPayAutomaticDiscountType = {
-  ...QZPayDiscountTypeBase,
-  VOLUME: 'volume',
-  AMOUNT_THRESHOLD: 'amount_threshold',
-  FREE_SHIPPING: 'free_shipping',
-} as const;
-```
-
-### Unified Discount Type
-
-```typescript
-export const QZPayDiscountType = {
-  ...QZPayPromoCodeType,
-  ...QZPayAutomaticDiscountType,
-} as const;
+export type QZPayDiscountType =
+  (typeof QZPAY_DISCOUNT_TYPE)[keyof typeof QZPAY_DISCOUNT_TYPE];
 ```
 
 ---
@@ -181,23 +153,15 @@ export const QZPayDiscountType = {
 ## Discount Stacking Mode
 
 ```typescript
-export const QZPayDiscountStackingMode = {
-  BEST_DISCOUNT: 'best_discount',      // Only highest applies
-  ALL_STACKABLE: 'all_stackable',      // All stackable combine
-  AUTOMATIC_FIRST: 'automatic_first',  // Automatic first, then promo
+export const QZPAY_DISCOUNT_STACKING_MODE = {
+  NONE: 'none',               // No stacking
+  ADDITIVE: 'additive',       // Discounts add together
+  MULTIPLICATIVE: 'multiplicative', // Discounts multiply
+  BEST: 'best',               // Only best discount applies
 } as const;
-```
 
----
-
-## Proration Behavior
-
-```typescript
-export const QZPayProrationBehavior = {
-  IMMEDIATELY: 'immediately',   // Apply with prorated charges
-  NEXT_PERIOD: 'next_period',   // Apply at next billing
-  NONE: 'none',                 // No proration calculation
-} as const;
+export type QZPayDiscountStackingMode =
+  (typeof QZPAY_DISCOUNT_STACKING_MODE)[keyof typeof QZPAY_DISCOUNT_STACKING_MODE];
 ```
 
 ---
@@ -205,93 +169,51 @@ export const QZPayProrationBehavior = {
 ## Cancel At
 
 ```typescript
-export const QZPayCancelAt = {
+export const QZPAY_CANCEL_AT = {
   IMMEDIATELY: 'immediately',   // Cancel now, access ends
-  PERIOD_END: 'period_end',     // Cancel at period end
-  TRIAL_END: 'trial_end',       // Cancel at trial end
+  PERIOD_END: 'period_end',     // Cancel at billing period end
 } as const;
+
+export type QZPayCancelAt =
+  (typeof QZPAY_CANCEL_AT)[keyof typeof QZPAY_CANCEL_AT];
 ```
 
 ---
 
-## Vendor Status
+## All Available Constants
 
-```typescript
-export const QZPayVendorOnboardingStatus = {
-  PENDING: 'pending',
-  IN_PROGRESS: 'in_progress',
-  COMPLETED: 'completed',
-  FAILED: 'failed',
-} as const;
-
-export const QZPayVendorPaymentMode = {
-  AUTOMATIC: 'automatic',
-  MANUAL: 'manual',
-} as const;
-```
-
----
-
-## Notification Mode
-
-```typescript
-export const QZPayNotificationMode = {
-  PACKAGE_ONLY: 'package_only',   // Package sends all
-  EVENTS_ONLY: 'events_only',     // Only emit events
-  HYBRID: 'hybrid',               // Package sends, project can override
-} as const;
-```
+| Constant | Export Name | Values |
+|----------|-------------|--------|
+| Subscription Status | `QZPAY_SUBSCRIPTION_STATUS` | active, trialing, past_due, paused, canceled, unpaid, incomplete, incomplete_expired |
+| Payment Status | `QZPAY_PAYMENT_STATUS` | pending, processing, succeeded, failed, canceled, refunded, partially_refunded, disputed |
+| Billing Interval | `QZPAY_BILLING_INTERVAL` | day, week, month, year |
+| Currency | `QZPAY_CURRENCY` | USD, EUR, GBP, ARS, BRL, MXN, CLP, COP, PEN, UYU |
+| Checkout Mode | `QZPAY_CHECKOUT_MODE` | payment, subscription, setup |
+| Payment Provider | `QZPAY_PAYMENT_PROVIDER` | stripe, mercadopago |
+| Discount Type | `QZPAY_DISCOUNT_TYPE` | percentage, fixed_amount, free_trial |
+| Discount Stacking | `QZPAY_DISCOUNT_STACKING_MODE` | none, additive, multiplicative, best |
+| Cancel At | `QZPAY_CANCEL_AT` | immediately, period_end |
+| Billing Events | `QZPAY_BILLING_EVENT` | See [Events Reference](./EVENTS.md) |
 
 ---
 
-## Transaction Isolation
+## TypeScript Types
+
+Each constant exports a corresponding type:
 
 ```typescript
-export const QZPayTransactionIsolation = {
-  SERIALIZABLE: 'serializable',
-  REPEATABLE_READ: 'repeatable_read',
-  READ_COMMITTED: 'read_committed',
-} as const;
-```
-
----
-
-## Day of Week
-
-```typescript
-export const QZPayDayOfWeek = {
-  MONDAY: 'monday',
-  TUESDAY: 'tuesday',
-  WEDNESDAY: 'wednesday',
-  THURSDAY: 'thursday',
-  FRIDAY: 'friday',
-  SATURDAY: 'saturday',
-  SUNDAY: 'sunday',
-} as const;
-```
-
----
-
-## Discount Conditions
-
-```typescript
-export const QZPayDiscountCondition = {
-  MIN_PURCHASE_AMOUNT: 'minPurchaseAmount',
-  MAX_PURCHASE_AMOUNT: 'maxPurchaseAmount',
-  MIN_QUANTITY: 'minQuantity',
-  MIN_QUANTITY_PER_PRODUCT: 'minQuantityPerProduct',
-  IS_FIRST_PURCHASE: 'isFirstPurchase',
-  CUSTOMER_SEGMENTS: 'customerSegments',
-  REGISTERED_AFTER: 'registeredAfter',
-  CATEGORIES: 'categories',
-  PRODUCTS: 'products',
-  EXCLUDE_PRODUCTS: 'excludeProducts',
-  EXCLUDE_CATEGORIES: 'excludeCategories',
-  SCHEDULE: 'schedule',
-  VALID_FROM: 'validFrom',
-  VALID_UNTIL: 'validUntil',
-  MAX_REDEMPTIONS: 'maxRedemptions',
-} as const;
+import type {
+  QZPaySubscriptionStatus,
+  QZPayPaymentStatus,
+  QZPayBillingInterval,
+  QZPayCurrency,
+  QZPayCheckoutMode,
+  QZPayPaymentProvider,
+  QZPayDiscountType,
+  QZPayDiscountStackingMode,
+  QZPayCancelAt,
+  QZPayBillingEvent,
+} from '@qazuor/qzpay-core';
 ```
 
 ---
