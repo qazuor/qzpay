@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned for v1.1.0
+- Redis rate limiting store
+- Transaction context propagation
+- CLI tools for billing operations
+- Additional storage adapters (Prisma, TypeORM)
+
+### Planned for v2.0.0
+- MercadoPago split payments (marketplace)
+- Multi-tenant support
+- Advanced analytics and reporting
+
+## [1.0.1] - 2026-01-13
+
+### Fixed
+
+#### Documentation
+- **Adapter Specifications**: Rewrote ADAPTER-SPECIFICATIONS.md with correct modular structure
+  - Documented correct `QZPayPaymentAdapter` interface with sub-adapters
+  - Documented correct `QZPayStorageAdapter` interface with 12 collections
+  - Fixed method signatures to match actual implementation
+- **Data Model**: Added 10 missing database tables to TABLES.md
+  - Added `billing_plans` and `billing_prices` tables
+  - Added `billing_entitlements` and `billing_customer_entitlements` tables
+  - Added `billing_limits` and `billing_customer_limits` tables
+  - Added `billing_addons` and `billing_subscription_addons` tables
+  - Added `billing_usage_records` and `billing_webhook_events` tables
+- **Events Reference**: Rewrote EVENTS.md with accurate 29 events
+  - Fixed event constant names with `QZPAY_` prefix
+  - Added `QZPayEventPayload` structure documentation
+- **Constants Reference**: Fixed CONSTANTS.md with correct `QZPAY_` prefix
+  - Updated all constants to use uppercase prefix
+  - Added missing constants (checkout mode, discount stacking, cancel at)
+- **Package READMEs**: Fixed all package READMEs with correct API usage
+  - Fixed factory function names (`createQZPayDrizzleAdapter`, etc.)
+  - Fixed config property name (`paymentAdapter` instead of `provider`)
+  - Fixed `QZPayModuleOptions` interface in NestJS readme
+- **Examples**: Fixed all examples with correct imports and parameters
+  - Fixed `paymentAdapter` parameter name (was `provider`)
+  - Fixed `webhooks` property (was `webhook` singular)
+  - Fixed `payments.process` method (was `payments.create`)
+- **Main README**: Fixed quick start example with correct API usage
+
+## [1.0.0] - 2026-01-09
+
 ### Added
 
 #### Core Package (@qazuor/qzpay-core)
@@ -84,17 +128,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Mock storage adapter for development
   - No external dependencies required
   - Fast and predictable for testing
-
-### Planned for v1.1.0
-- Redis rate limiting store
-- Transaction context propagation
-- CLI tools for billing operations
-- Additional storage adapters (Prisma, TypeORM)
-
-### Planned for v2.0.0
-- MercadoPago split payments (marketplace)
-- Multi-tenant support
-- Advanced analytics and reporting
 
 ## [1.0.0] - 2026-01-09
 
@@ -270,6 +303,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rate limiting uses in-memory store (Redis interface prepared for v2)
 - Optimistic locking documented but not enforced in all operations
 
-[Unreleased]: https://github.com/qazuor/qzpay/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/qazuor/qzpay/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/qazuor/qzpay/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/qazuor/qzpay/compare/v0.0.1...v1.0.0
 [0.0.1]: https://github.com/qazuor/qzpay/releases/tag/v0.0.1
