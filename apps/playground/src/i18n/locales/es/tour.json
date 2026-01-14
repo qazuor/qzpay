@@ -1,0 +1,141 @@
+{
+  "tour": {
+    "buttons": {
+      "next": "Siguiente",
+      "prev": "Anterior",
+      "done": "Finalizar",
+      "skip": "Saltar Tour"
+    },
+
+    "welcome": {
+      "title": "Bienvenido al Playground de QZPay!",
+      "description": "Este es un entorno interactivo para probar todas las funcionalidades de QZPay.\n\nTe guiaremos a través de:\n• Configurar proveedores de pago\n• Crear planes y precios\n• Gestionar clientes y suscripciones\n• Ver eventos y estado\n\nComencemos!"
+    },
+
+    "sidebar": {
+      "title": "Navegación Principal",
+      "description": "La barra lateral está organizada en tres secciones:\n\n• Setup - Configura templates y proveedores\n• Catalog - Define planes, precios y features\n• Simulate - Crea clientes y prueba suscripciones\n\nHaz clic en cualquier item para navegar."
+    },
+
+    "sidebarSetup": {
+      "title": "Sección de Setup",
+      "description": "Comienza aquí para configurar tu playground:\n\n1. PRIMERO: Selecciona un proveedor de pagos y haz clic en Inicializar\n2. DESPUÉS: Elige un template para cargar datos de ejemplo\n\nDebes inicializar el playground antes de acceder a las demás funciones."
+    },
+
+    "providers": {
+      "title": "1. Proveedor de Pagos (Requerido Primero)",
+      "description": "PRIMER PASO: Selecciona e inicializa un proveedor de pagos.\n\n• Mock (Recomendado)\n  Prueba sin credenciales reales\n  Simula todos los flujos de pago\n\n• Stripe\n  Obtén API key: dashboard.stripe.com/apikeys\n  Usa la Secret key (sk_test_...)\n\n• MercadoPago\n  Obtén credenciales: mercadopago.com/developers\n  Tus Apps → Tu app → Credenciales\n\nHaz clic en 'Inicializar Playground' para continuar."
+    },
+
+    "templates": {
+      "title": "2. Templates (Después de Inicializar)",
+      "description": "DESPUÉS de inicializar, los templates aparecen aquí:\n\n• Template SaaS\n  3 planes (Free, Pro, Enterprise)\n  Precios mensuales/anuales\n  Entitlements y límites de uso\n\n• Template E-commerce\n  Catálogo de productos\n  Pagos únicos\n\n• Template API\n  Precios basados en uso\n  Facturación por consumo\n\nLos templates cargan datos de ejemplo personalizables."
+    },
+
+    "catalog": {
+      "title": "Sección de Catálogo",
+      "description": "Define tu catálogo de facturación:\n\n• Plans - Niveles de suscripción (Free, Pro, etc.)\n• Prices - Montos mensuales/anuales\n• Entitlements - Features que desbloquea cada plan\n• Limits - Cuotas de uso por plan\n• Promos - Códigos de descuento\n\nAquí configuras lo que vendes."
+    },
+
+    "plans": {
+      "title": "Planes",
+      "description": "Crea planes de suscripción para tus clientes.\n\nCada plan define:\n• Nombre y descripción\n• Features incluidos (entitlements)\n• Límites de uso\n• Intervalos de facturación disponibles"
+    },
+
+    "plansList": {
+      "title": "Tus Planes",
+      "description": "Aquí puedes ver todos tus planes.\n\nHaz clic en un plan para:\n• Editar sus detalles\n• Ver precios asociados\n• Ver entitlements y límites\n\nUsa el botón 'Agregar Plan' para crear nuevos."
+    },
+
+    "prices": {
+      "title": "Precios",
+      "description": "Configura precios para tus planes.\n\nPara cada plan puedes definir:\n• Precio mensual\n• Precio anual (generalmente con descuento)\n• Moneda\n\nLos clientes eligen su intervalo al suscribirse."
+    },
+
+    "entitlements": {
+      "title": "Entitlements",
+      "description": "Los entitlements son features que los planes desbloquean.\n\nEjemplos:\n• 'api_access' - Acceso a API\n• 'premium_support' - Soporte prioritario\n• 'advanced_analytics' - Acceso al dashboard\n\nUsa entitlements para controlar acceso a features en tu app."
+    },
+
+    "simulate": {
+      "title": "Sección de Simulación",
+      "description": "Prueba tu configuración con datos simulados:\n\n• Customers - Crea usuarios de prueba\n• Subscriptions - Suscribe clientes a planes\n• Payments - Procesa cargos y reembolsos\n• Invoices - Ver historial de facturación\n\nTodas las acciones generan eventos reales."
+    },
+
+    "customers": {
+      "title": "Clientes",
+      "description": "Crea clientes de prueba para simular suscripciones.\n\nCada cliente tiene:\n• Email y nombre\n• ID externo (el ID de usuario en tu sistema)\n• Metadata para datos personalizados\n\nLos clientes pueden tener múltiples suscripciones."
+    },
+
+    "subscriptions": {
+      "title": "Suscripciones",
+      "description": "Suscribe clientes a planes y prueba el ciclo de vida:\n\n• Crear - Inicia una nueva suscripción\n• Pausar - Suspende temporalmente\n• Reanudar - Reactiva una pausada\n• Cancelar - Termina la suscripción\n• Cambiar Plan - Upgrade o downgrade\n\nCada acción genera eventos y actualiza el estado."
+    },
+
+    "payments": {
+      "title": "Pagos",
+      "description": "Procesa pagos y reembolsos.\n\n• Ver historial de pagos\n• Procesar cargos manuales\n• Emitir reembolsos (totales o parciales)\n\nLos pagos están vinculados a clientes y suscripciones."
+    },
+
+    "header": {
+      "title": "Área del Header",
+      "description": "El header proporciona acceso rápido a:\n\n• Badge del modo de pago actual\n• Botones para mostrar/ocultar paneles\n• Acciones útiles (exportar, importar, resetear)\n\nUsa los botones de paneles para mostrar información."
+    },
+
+    "panels": {
+      "title": "Paneles de Información",
+      "description": "Activa estos paneles para ver diferente información:\n\n• Customers - Lista de clientes activos con detalles\n• Reference - Referencia rápida de API\n• Events - Timeline de actividad (webhooks)\n• State - Inspector de estado JSON\n\nPuedes tener hasta 4 paneles abiertos a la vez."
+    },
+
+    "timeline": {
+      "title": "Timeline de Eventos",
+      "description": "Cada acción genera eventos que se muestran aquí:\n\n• customer.created\n• subscription.created\n• subscription.paused\n• payment.processed\n• invoice.generated\n\nEstos son los mismos eventos que recibirías via webhooks en producción. Úsalos para entender el ciclo de facturación."
+    },
+
+    "actions": {
+      "title": "Acciones Útiles",
+      "description": "Acciones rápidas en el header:\n\n• Exportar - Guarda el estado actual en JSON\n• Importar - Carga un estado guardado\n• Resetear - Borra todo y empieza de nuevo\n• Ayuda - Abre la documentación\n\nUsa exportar/importar para guardar escenarios de prueba."
+    },
+
+    "components": {
+      "title": "Componentes React",
+      "description": "Previsualiza los componentes React incluidos:\n\n• PricingTable - Muestra planes y precios\n• SubscriptionStatus - Detalles de suscripción\n• InvoiceList - Historial de pagos\n• EntitlementGate - Control de features\n• LimitGate - Control de límites de uso\n\nEstos componentes funcionan con QZPay sin configuración adicional."
+    },
+
+    "complete": {
+      "title": "Estás Listo!",
+      "description": "Has completado el tour!\n\nAhora sabes cómo:\n✓ Configurar templates y proveedores\n✓ Crear planes, precios y entitlements\n✓ Gestionar clientes y suscripciones\n✓ Ver eventos e inspeccionar estado\n✓ Usar componentes React\n\nEmpieza a explorar! Haz clic en los iconos '?' para ayuda contextual."
+    },
+
+    "hints": {
+      "template": {
+        "saas": {
+          "title": "Template SaaS",
+          "content": "Incluye:\n• 3 planes (Free, Pro, Enterprise)\n• Precios mensuales y anuales\n• Feature entitlements\n• Límites de uso con cuotas\n• Códigos promocionales de ejemplo"
+        },
+        "ecommerce": {
+          "title": "Template E-commerce",
+          "content": "Incluye:\n• Configuración de catálogo\n• Productos de pago único\n• Flujo de carrito de compras\n• Gestión de pedidos"
+        },
+        "api": {
+          "title": "Template API",
+          "content": "Incluye:\n• Precios basados en uso\n• Medición de llamadas API\n• Límites de tasa por nivel\n• Facturación por exceso"
+        }
+      },
+      "provider": {
+        "stripe": {
+          "title": "Configuración de Stripe",
+          "content": "1. Ve a dashboard.stripe.com\n2. Click en Developers → API keys\n3. Copia la Secret key (sk_test_...)\n4. Pégala en el campo API Key\n\nUsa claves de test para desarrollo."
+        },
+        "mercadopago": {
+          "title": "Configuración de MercadoPago",
+          "content": "IMPORTANTE: Usa credenciales de PRODUCCIÓN (no TEST)\n\n1. Ve a mercadopago.com/developers/panel\n2. Selecciona tu aplicación\n3. Ve a 'Credenciales de producción'\n4. Copia el Access Token (APP_USR-...)\n5. Copia la Public Key (APP_USR-...)\n\nEl sandbox tiene limitaciones. Con credenciales de producción y tarjetas de prueba, los pagos no se cobran realmente.\n\nUsa 'APRO' como nombre del titular para aprobar pagos."
+        },
+        "mock": {
+          "title": "Proveedor Mock",
+          "content": "Simula el procesamiento de pagos sin credenciales reales.\n\nPerfecto para:\n• Probar flujos de facturación\n• Desarrollo y demos\n• Aprender QZPay\n\nTodas las operaciones de pago tienen éxito por defecto."
+        }
+      }
+    }
+  }
+}

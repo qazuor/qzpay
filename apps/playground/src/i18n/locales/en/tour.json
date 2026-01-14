@@ -1,0 +1,141 @@
+{
+  "tour": {
+    "buttons": {
+      "next": "Next",
+      "prev": "Back",
+      "done": "Finish",
+      "skip": "Skip Tour"
+    },
+
+    "welcome": {
+      "title": "Welcome to QZPay Playground!",
+      "description": "This is an interactive environment to test all QZPay features.\n\nWe'll guide you through:\n• Setting up payment providers\n• Creating plans and prices\n• Managing customers and subscriptions\n• Viewing events and state\n\nLet's get started!"
+    },
+
+    "sidebar": {
+      "title": "Main Navigation",
+      "description": "The sidebar is organized into three main sections:\n\n• Setup - Configure templates and payment providers\n• Catalog - Define plans, prices, entitlements and limits\n• Simulate - Create customers and test subscriptions\n\nClick any item to navigate to that section."
+    },
+
+    "sidebarSetup": {
+      "title": "Setup Section",
+      "description": "Start here to configure your playground:\n\n1. FIRST: Select a payment provider and click Initialize\n2. THEN: Choose a template to load sample data\n\nYou must initialize the playground before accessing other features."
+    },
+
+    "providers": {
+      "title": "1. Payment Provider (Required First)",
+      "description": "FIRST STEP: Select and initialize a payment provider.\n\n• Mock (Recommended)\n  Test without real credentials\n  Simulates all payment flows\n\n• Stripe\n  Get API key: dashboard.stripe.com/apikeys\n  Use Secret key (sk_test_...)\n\n• MercadoPago\n  Get credentials: mercadopago.com/developers\n  Your Apps → Select app → Credentials\n\nClick 'Initialize Playground' to continue."
+    },
+
+    "templates": {
+      "title": "2. Templates (After Initialization)",
+      "description": "AFTER initializing, templates appear here:\n\n• SaaS Template\n  3 plans (Free, Pro, Enterprise)\n  Monthly/yearly pricing\n  Feature entitlements & usage limits\n\n• E-commerce Template\n  Product catalog setup\n  One-time payments\n\n• API Template\n  Usage-based pricing\n  Metered billing\n\nTemplates load sample data you can customize."
+    },
+
+    "catalog": {
+      "title": "Catalog Section",
+      "description": "Define your billing catalog:\n\n• Plans - Subscription tiers (Free, Pro, etc.)\n• Prices - Monthly/yearly amounts\n• Entitlements - Features each plan unlocks\n• Limits - Usage quotas per plan\n• Promos - Discount codes\n\nThis is where you set up what you're selling."
+    },
+
+    "plans": {
+      "title": "Plans",
+      "description": "Create subscription plans that customers can subscribe to.\n\nEach plan defines:\n• Name and description\n• Features included (entitlements)\n• Usage limits\n• Available billing intervals"
+    },
+
+    "plansList": {
+      "title": "Your Plans",
+      "description": "Here you can see all your plans.\n\nClick on a plan to:\n• Edit its details\n• View associated prices\n• See entitlements and limits\n\nUse the 'Add Plan' button to create new plans."
+    },
+
+    "prices": {
+      "title": "Prices",
+      "description": "Set pricing for your plans.\n\nFor each plan, you can define:\n• Monthly price\n• Yearly price (usually with discount)\n• Currency\n\nCustomers choose their billing interval when subscribing."
+    },
+
+    "entitlements": {
+      "title": "Entitlements",
+      "description": "Entitlements are features that plans unlock.\n\nExamples:\n• 'api_access' - Access to API\n• 'premium_support' - Priority support\n• 'advanced_analytics' - Dashboard access\n\nUse entitlements to gate features in your app."
+    },
+
+    "simulate": {
+      "title": "Simulation Section",
+      "description": "Test your billing setup with simulated data:\n\n• Customers - Create test users\n• Subscriptions - Subscribe customers to plans\n• Payments - Process charges and refunds\n• Invoices - View billing history\n\nAll actions generate real events you can inspect."
+    },
+
+    "customers": {
+      "title": "Customers",
+      "description": "Create test customers to simulate subscriptions.\n\nEach customer has:\n• Email and name\n• External ID (your system's user ID)\n• Metadata for custom data\n\nCustomers can have multiple subscriptions."
+    },
+
+    "subscriptions": {
+      "title": "Subscriptions",
+      "description": "Subscribe customers to plans and test the lifecycle:\n\n• Create - Start a new subscription\n• Pause - Temporarily suspend\n• Resume - Reactivate paused subscription\n• Cancel - End the subscription\n• Change Plan - Upgrade or downgrade\n\nEach action generates events and updates state."
+    },
+
+    "payments": {
+      "title": "Payments",
+      "description": "Process payments and refunds.\n\n• View payment history\n• Process manual charges\n• Issue refunds (full or partial)\n\nPayments are linked to customers and subscriptions."
+    },
+
+    "header": {
+      "title": "Header Area",
+      "description": "The header provides quick access to:\n\n• Current payment mode badge\n• Panel toggle buttons\n• Utility actions (export, import, reset)\n\nUse the panel buttons to show/hide information panels."
+    },
+
+    "panels": {
+      "title": "Information Panels",
+      "description": "Toggle these panels to view different information:\n\n• Customers - Active customer list with details\n• Reference - Quick API reference\n• Events - Activity timeline (webhooks)\n• State - Full JSON state inspector\n\nYou can have up to 4 panels open at once."
+    },
+
+    "timeline": {
+      "title": "Event Timeline",
+      "description": "Every action generates events shown here:\n\n• customer.created\n• subscription.created\n• subscription.paused\n• payment.processed\n• invoice.generated\n\nThese are the same events you'd receive via webhooks in production. Use them to understand the billing lifecycle."
+    },
+
+    "actions": {
+      "title": "Utility Actions",
+      "description": "Quick actions in the header:\n\n• Export - Save current state to JSON file\n• Import - Load a previously saved state\n• Reset - Clear all data and start fresh\n• Help - Open documentation\n\nUse export/import to save and restore test scenarios."
+    },
+
+    "components": {
+      "title": "React Components",
+      "description": "Preview the pre-built React components:\n\n• PricingTable - Display plans and prices\n• SubscriptionStatus - Show subscription details\n• InvoiceList - Payment history\n• EntitlementGate - Feature gating\n• LimitGate - Usage limit checking\n\nThese components work with QZPay out of the box."
+    },
+
+    "complete": {
+      "title": "You're Ready!",
+      "description": "You've completed the tour!\n\nYou now know how to:\n✓ Set up templates and providers\n✓ Create plans, prices and entitlements\n✓ Manage customers and subscriptions\n✓ View events and inspect state\n✓ Use React components\n\nStart exploring! Click '?' icons for contextual help anytime."
+    },
+
+    "hints": {
+      "template": {
+        "saas": {
+          "title": "SaaS Template",
+          "content": "Includes:\n• 3 plans (Free, Pro, Enterprise)\n• Monthly and yearly pricing\n• Feature entitlements\n• Usage limits with quotas\n• Sample promo codes"
+        },
+        "ecommerce": {
+          "title": "E-commerce Template",
+          "content": "Includes:\n• Product catalog setup\n• One-time payment products\n• Shopping cart workflow\n• Order management"
+        },
+        "api": {
+          "title": "API Template",
+          "content": "Includes:\n• Usage-based pricing\n• API call metering\n• Tiered rate limits\n• Overage billing"
+        }
+      },
+      "provider": {
+        "stripe": {
+          "title": "Stripe Setup",
+          "content": "1. Go to dashboard.stripe.com\n2. Click Developers → API keys\n3. Copy the Secret key (sk_test_...)\n4. Paste it in the API Key field\n\nUse test mode keys for development."
+        },
+        "mercadopago": {
+          "title": "MercadoPago Setup",
+          "content": "IMPORTANT: Use PRODUCTION credentials (not TEST)\n\n1. Go to mercadopago.com/developers/panel\n2. Select your application\n3. Go to 'Production credentials'\n4. Copy the Access Token (APP_USR-...)\n5. Copy the Public Key (APP_USR-...)\n\nSandbox has limitations. With production credentials and test cards, payments are not actually charged.\n\nUse 'APRO' as cardholder name to approve payments."
+        },
+        "mock": {
+          "title": "Mock Provider",
+          "content": "Simulates payment processing without real credentials.\n\nPerfect for:\n• Testing billing flows\n• Development and demos\n• Learning QZPay\n\nAll payment operations succeed by default."
+        }
+      }
+    }
+  }
+}

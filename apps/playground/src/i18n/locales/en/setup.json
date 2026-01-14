@@ -10,7 +10,7 @@
     "modes": {
       "mock": "Mock",
       "stripe": "Stripe Test",
-      "mercadopago": "MercadoPago Sandbox"
+      "mercadopago": "MercadoPago"
     }
   },
   "paymentMode": {
@@ -37,17 +37,17 @@
     },
     "mercadopago": {
       "title": "MercadoPago",
-      "description": "Uses MercadoPago Sandbox. Requires TEST access token.",
+      "description": "Uses real MercadoPago API. Requires production credentials.",
       "features": {
         "realApi": "Real API responses",
-        "sandbox": "Sandbox environment",
+        "sandbox": "Test cards (no real charges)",
         "latam": "LATAM payments focus"
       }
     }
   },
   "apiKeys": {
     "title": "API Keys",
-    "description": "Enter your test/sandbox API credentials. These are stored locally in your browser.",
+    "description": "Enter your API credentials. These are stored locally in your browser.",
     "stripe": {
       "label": "Stripe Secret Key",
       "placeholder": "sk_test_...",
@@ -55,8 +55,8 @@
     },
     "mercadopago": {
       "label": "MercadoPago Access Token",
-      "placeholder": "TEST-...",
-      "help": "Find this in your <link>MercadoPago Developers Panel</link> → Your Application → Credentials"
+      "placeholder": "APP_USR-...",
+      "help": "Use PRODUCTION credentials. Find in <link>MercadoPago Developers Panel</link> → Production credentials. Sandbox has limitations."
     }
   },
   "buttons": {

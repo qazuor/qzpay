@@ -10,7 +10,7 @@
     "modes": {
       "mock": "Mock",
       "stripe": "Stripe Test",
-      "mercadopago": "MercadoPago Sandbox"
+      "mercadopago": "MercadoPago"
     }
   },
   "paymentMode": {
@@ -37,17 +37,17 @@
     },
     "mercadopago": {
       "title": "MercadoPago",
-      "description": "Usa el Sandbox de MercadoPago. Requiere token de acceso TEST.",
+      "description": "Usa la API real de MercadoPago. Requiere credenciales de producción.",
       "features": {
         "realApi": "Respuestas reales de la API",
-        "sandbox": "Entorno sandbox",
+        "sandbox": "Tarjetas de prueba (sin cobro real)",
         "latam": "Enfoque en pagos LATAM"
       }
     }
   },
   "apiKeys": {
     "title": "Claves API",
-    "description": "Ingresa tus credenciales de prueba/sandbox. Se almacenan localmente en tu navegador.",
+    "description": "Ingresa tus credenciales. Se almacenan localmente en tu navegador.",
     "stripe": {
       "label": "Clave secreta de Stripe",
       "placeholder": "sk_test_...",
@@ -55,8 +55,8 @@
     },
     "mercadopago": {
       "label": "Token de acceso de MercadoPago",
-      "placeholder": "TEST-...",
-      "help": "Encuéntralo en tu <link>Panel de desarrolladores de MercadoPago</link> → Tu aplicación → Credenciales"
+      "placeholder": "APP_USR-...",
+      "help": "Usa credenciales de PRODUCCIÓN. Encuéntralas en <link>Panel de desarrolladores de MercadoPago</link> → Credenciales de producción. El sandbox tiene limitaciones."
     }
   },
   "buttons": {
