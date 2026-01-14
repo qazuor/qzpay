@@ -124,11 +124,10 @@ const subscription = await billing.subscriptions.create({
 ### 5. Process a One-Time Payment
 
 ```typescript
-const payment = await billing.payments.create({
+const payment = await billing.payments.process({
   customerId: customer.id,
   amount: 9900, // $99.00 in cents
   currency: 'USD',
-  description: 'Premium upgrade',
 });
 ```
 
@@ -274,7 +273,7 @@ app.post('/webhooks/stripe', async (c) => {
   const payload = await c.req.text();
   const signature = c.req.header('stripe-signature')!;
 
-  const event = stripeAdapter.webhook.constructEvent(payload, signature);
+  const event = stripeAdapter.webhooks.constructEvent(payload, signature);
 
   switch (event.type) {
     case 'payment.succeeded':
@@ -293,7 +292,7 @@ app.post('/webhooks/mercadopago', async (c) => {
   const payload = await c.req.text();
   const signature = c.req.header('x-signature')!;
 
-  const event = mpAdapter.webhook.constructEvent(payload, signature);
+  const event = mpAdapter.webhooks.constructEvent(payload, signature);
 
   // Handle events with the same unified interface
   switch (event.type) {
