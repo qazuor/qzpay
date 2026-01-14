@@ -1,0 +1,280 @@
+---
+title: MercadoPago Testing
+description: Complete guide to configure and test payments with MercadoPago
+---
+
+import { Steps, Aside, Card } from '@astrojs/starlight/components';
+
+# MercadoPago Testing Guide
+
+This guide explains how to properly configure MercadoPago for testing, including the differences between production and sandbox credentials.
+
+<Aside type="caution" title="Important: Production Credentials">
+**Recommendation:** For functional testing, use **production** credentials (not TEST/sandbox). MercadoPago's sandbox has limitations that can cause unexpected errors. With production credentials and test cards, payments are not actually charged.
+</Aside>
+
+## Getting Credentials
+
+<Steps>
+
+1. **Access the Developer Panel**
+
+   Go to [mercadopago.com/developers/panel](https://www.mercadopago.com/developers/panel) and log in with your MercadoPago account.
+
+2. **Select or Create an Application**
+
+   - If you already have an application, select it
+   - If not, create a new one with the "Create application" button
+
+3. **Go to Production Credentials**
+
+   In the sidebar menu, select **Production credentials** (not test).
+
+4. **Copy the Credentials**
+
+   You need two credentials:
+
+   | Credential | Use | Format |
+   |------------|-----|--------|
+   | **Access Token** | Backend (API calls) | `APP_USR-xxxx-xxxx-xxxx` |
+   | **Public Key** | Frontend (tokenization) | `APP_USR-xxxx-xxxx-xxxx` |
+
+</Steps>
+
+## Difference Between Access Token and Public Key
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      YOUR APPLICATION                       │
+├─────────────────────────┬───────────────────────────────────┤
+│       FRONTEND          │           BACKEND                 │
+│  (Browser/React/etc)    │     (Node.js/Server)              │
+│                         │                                   │
+│  ┌─────────────────┐    │    ┌─────────────────┐            │
+│  │   Public Key    │    │    │  Access Token   │            │
+│  │  (tokenization) │    │    │  (API calls)    │            │
+│  └────────┬────────┘    │    └────────┬────────┘            │
+│           │             │             │                     │
+│           ▼             │             ▼                     │
+│  Create card token      │    Process payments               │
+│  (MercadoPago.js)       │    Create customers                │
+│                         │    Manage subscriptions            │
+└─────────────────────────┴───────────────────────────────────┘
+```
+
+### Public Key (Frontend)
+- Used in the browser to tokenize cards
+- Safe to expose in the frontend
+- Used with MercadoPago.js SDK
+
+### Access Token (Backend)
+- Used on the server for API calls
+- **NEVER** expose in the frontend
+- Used with `@qazuor/qzpay-mercadopago`
+
+## QZPay Configuration
+
+### Backend (Node.js)
+
+```typescript
+import { createQZPayBilling } from '@qazuor/qzpay-core';
+import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
+
+const billing = createQZPayBilling({
+  paymentAdapter: createQZPayMercadoPagoAdapter({
+    // PRODUCTION Access Token (not TEST)
+    accessToken: process.env.MP_ACCESS_TOKEN!
+  }),
+  storage: createQZPayDrizzleAdapter(db)
+});
+```
+
+### Frontend (React/Browser)
+
+```typescript
+// Card tokenization with MercadoPago.js
+const mp = new MercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY);
+
+const cardToken = await mp.createCardToken({
+  cardNumber: '5031755734530604',
+  cardExpirationMonth: '11',
+  cardExpirationYear: '2030',
+  securityCode: '123',
+  cardholderName: 'APRO',  // Special name to approve
+  identificationType: 'DNI',
+  identificationNumber: '12345678'
+});
+
+// Send cardToken.id to backend to process payment
+```
+
+## Test Cards
+
+<Aside type="tip">
+Test cards work with both production and sandbox credentials. The payment is not actually charged.
+</Aside>
+
+### Argentina (ARS)
+
+| Card | Number | CVV | Expiration | Result |
+|------|--------|-----|------------|--------|
+| Mastercard | `5031 7557 3453 0604` | `123` | `11/30` | **Approved** |
+| Visa | `4509 9535 6623 3704` | `123` | `11/30` | **Approved** |
+| Amex | `3711 803032 57522` | `1234` | `11/30` | **Approved** |
+
+### Special Names (Cardholder Name)
+
+The cardholder name controls the payment result:
+
+| Name | Result |
+|------|--------|
+| `APRO` | Payment approved |
+| `OTHE` | Rejected by general error |
+| `CONT` | Pending payment |
+| `CALL` | Rejected, call to authorize |
+| `FUND` | Rejected by insufficient funds |
+| `SECU` | Rejected by security code |
+| `EXPI` | Rejected by expiration date |
+| `FORM` | Rejected by form error |
+
+### Mexico (MXN)
+
+| Card | Number | CVV | Expiration |
+|------|--------|-----|------------|
+| Mastercard | `5474 9254 3267 0366` | `123` | `11/30` |
+| Visa | `4075 5957 1648 3764` | `123` | `11/30` |
+
+### Brazil (BRL)
+
+| Card | Number | CVV | Expiration |
+|------|--------|-----|------------|
+| Mastercard | `5031 4332 1540 6351` | `123` | `11/30` |
+| Visa | `4235 6477 2802 5682` | `123` | `11/30` |
+
+## Playground Configuration
+
+QZPay playground supports MercadoPago directly:
+
+<Steps>
+
+1. **Select MercadoPago** in the provider selector
+
+2. **Enter the Access Token**
+   - Use your **production** Access Token
+   - Format: `APP_USR-xxxx-xxxx-xxxx`
+
+3. **Enter the Public Key**
+   - Use your **production** Public Key
+   - Required to tokenize cards in the payment form
+
+4. **Initialize the Playground**
+   - Click "Initialize Playground"
+   - Verify it connects correctly
+
+5. **Use test cards**
+   - When creating payments, use the cards listed above
+   - Use `APRO` as the cardholder name to approve
+
+</Steps>
+
+## Common Errors
+
+### "Invalid access token"
+- **Cause:** Incorrect token or sandbox when production was expected
+- **Solution:** Verify you're using the production Access Token
+
+### "Invalid public key"
+- **Cause:** Incorrect Public Key or doesn't match Access Token
+- **Solution:** Both credentials must be from the same environment (production)
+
+### "Card token creation failed"
+- **Cause:** Incorrect Public Key or problem with card data
+- **Solution:** Verify the Public Key and use exact test card data
+
+### "Payment rejected"
+- **Cause:** Cardholder name is not `APRO` or card not valid for the country
+- **Solution:** Use `APRO` as name and the correct card for your country
+
+### "Sandbox limitations"
+- **Cause:** TEST credentials have restrictions
+- **Solution:** Use production credentials with test cards
+
+## Environment Variables
+
+```bash
+# .env
+# PRODUCTION credentials (recommended for testing)
+MP_ACCESS_TOKEN=APP_USR-1234567890123456-123456-abcdefghijklmnop-123456789
+MP_PUBLIC_KEY=APP_USR-abcdef12-3456-7890-abcd-ef1234567890
+
+# Optional: webhook secret for signature verification
+MP_WEBHOOK_SECRET=your_webhook_secret
+```
+
+## Configuration Verification
+
+You can verify your credentials work:
+
+```typescript
+import { createQZPayMercadoPagoAdapter } from '@qazuor/qzpay-mercadopago';
+
+const mpAdapter = createQZPayMercadoPagoAdapter({
+  accessToken: process.env.MP_ACCESS_TOKEN!
+});
+
+// Try to create a test customer
+try {
+  const customerId = await mpAdapter.customers.create({
+    email: 'test@test.com',
+    name: 'Test User'
+  });
+  console.log('✓ Valid credentials, customer created:', customerId);
+} catch (error) {
+  console.error('✗ Credential error:', error.message);
+}
+```
+
+## Complete Payment Flow
+
+```typescript
+// 1. Frontend: Tokenize card
+const mp = new MercadoPago(PUBLIC_KEY);
+const cardToken = await mp.createCardToken({
+  cardNumber: '5031755734530604',
+  cardExpirationMonth: '11',
+  cardExpirationYear: '2030',
+  securityCode: '123',
+  cardholderName: 'APRO',
+  identificationType: 'DNI',
+  identificationNumber: '12345678'
+});
+
+// 2. Send token to backend
+const response = await fetch('/api/payment', {
+  method: 'POST',
+  body: JSON.stringify({
+    customerId: 'cus_123',
+    amount: 1000,
+    currency: 'ARS',
+    cardToken: cardToken.id
+  })
+});
+
+// 3. Backend: Process payment
+const payment = await billing.payments.process({
+  customerId: 'cus_123',
+  amount: 1000,
+  currency: 'ARS',
+  paymentMethodId: 'master',  // visa, master, amex
+  token: cardToken
+});
+
+console.log('Payment:', payment.status); // 'succeeded'
+```
+
+## Additional Resources
+
+- [Official MercadoPago Documentation](https://www.mercadopago.com.ar/developers/en/docs)
+- [Test cards by country](https://www.mercadopago.com.ar/developers/en/docs/your-integrations/test/cards)
+- [Developer Panel](https://www.mercadopago.com/developers/panel)
