@@ -8,6 +8,7 @@
     "addCustomer": "Agregar cliente",
     "unnamed": "Sin nombre",
     "loading": "Cargando clientes...",
+    "deleteCustomer": "Eliminar cliente",
     "setupCatalogFirst": {
       "title": "Primero configura tu catálogo",
       "description": "Antes de crear clientes, necesitas al menos un <strong>Plan</strong> y un <strong>Precio</strong> en tu catálogo. Ve a la sección Catálogo para configurarlos."
