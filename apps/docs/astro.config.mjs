@@ -66,8 +66,11 @@ export default defineConfig({
                     items: [
                         { slug: 'guides/stripe-integration' },
                         { slug: 'guides/mercadopago-integration' },
+                        { slug: 'guides/mercadopago-testing' },
                         { slug: 'guides/subscription-lifecycle' },
                         { slug: 'guides/webhook-handling' },
+                        { slug: 'guides/payment-errors' },
+                        { slug: 'guides/promo-codes' },
                         { slug: 'guides/testing' },
                         { slug: 'guides/i18n' },
                         { slug: 'guides/styling-components' },
