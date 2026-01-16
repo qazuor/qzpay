@@ -42,6 +42,7 @@ import type {
     QZPayInvoice,
     QZPayLimit,
     QZPayListOptions,
+    QZPayMetadata,
     QZPayPaginatedResult,
     QZPayPayment,
     QZPayPaymentMethod,
@@ -921,7 +922,7 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                 quantity: number;
                 unitAmount: number;
                 currency: string;
-                metadata?: Record<string, unknown>;
+                metadata?: QZPayMetadata;
             }): Promise<QZPaySubscriptionAddOn> {
                 const now = getCurrentTime();
                 const subAddon: QZPaySubscriptionAddOn = {

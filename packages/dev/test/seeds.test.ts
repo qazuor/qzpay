@@ -1,5 +1,8 @@
 /**
  * Seed Templates Tests
+ *
+ * Note: This test file uses non-null assertions (!) for test data access
+ * where we've already verified the data exists via expect().toBeDefined()
  */
 import { describe, expect, it } from 'vitest';
 import { getSeedTemplateById, listSeedTemplates, seedTemplates } from '../src/seeds/index.js';
@@ -17,6 +20,7 @@ describe('seedTemplates', () => {
 
         it('should have entitlement definitions', () => {
             expect(template.data.entitlementDefinitions).toBeDefined();
+            // biome-ignore lint/style/noNonNullAssertion: Safe after toBeDefined() assertion
             const entitlements = template.data.entitlementDefinitions!;
 
             expect(entitlements.api_access).toBeDefined();
@@ -31,6 +35,7 @@ describe('seedTemplates', () => {
 
         it('should have limit definitions', () => {
             expect(template.data.limitDefinitions).toBeDefined();
+            // biome-ignore lint/style/noNonNullAssertion: Safe after toBeDefined() assertion
             const limits = template.data.limitDefinitions!;
 
             expect(limits.projects).toBeDefined();
@@ -44,6 +49,7 @@ describe('seedTemplates', () => {
 
         it('should have three plans (free, pro, enterprise)', () => {
             expect(template.data.plans).toBeDefined();
+            // biome-ignore lint/style/noNonNullAssertion: Safe after toBeDefined() assertion
             const plans = template.data.plans!;
 
             expect(plans.plan_free).toBeDefined();
@@ -59,6 +65,7 @@ describe('seedTemplates', () => {
 
         it('should have prices for each plan', () => {
             expect(template.data.prices).toBeDefined();
+            // biome-ignore lint/style/noNonNullAssertion: Safe after toBeDefined() assertion
             const prices = template.data.prices!;
 
             // Free plan pricing
@@ -78,7 +85,9 @@ describe('seedTemplates', () => {
         });
 
         it('should have valid price-plan relationships', () => {
+            // biome-ignore lint/style/noNonNullAssertion: Safe - data verified in previous tests
             const plans = template.data.plans!;
+            // biome-ignore lint/style/noNonNullAssertion: Safe - data verified in previous tests
             const prices = template.data.prices!;
 
             for (const price of Object.values(prices)) {
@@ -88,6 +97,7 @@ describe('seedTemplates', () => {
 
         it('should have sample customers', () => {
             expect(template.data.customers).toBeDefined();
+            // biome-ignore lint/style/noNonNullAssertion: Safe after toBeDefined() assertion
             const customers = template.data.customers!;
 
             expect(customers.cus_john).toBeDefined();
@@ -98,7 +108,9 @@ describe('seedTemplates', () => {
         });
 
         it('should have valid entitlement references in plans', () => {
+            // biome-ignore lint/style/noNonNullAssertion: Safe - data verified in previous tests
             const plans = template.data.plans!;
+            // biome-ignore lint/style/noNonNullAssertion: Safe - data verified in previous tests
             const entitlements = template.data.entitlementDefinitions!;
 
             for (const plan of Object.values(plans)) {
@@ -109,7 +121,9 @@ describe('seedTemplates', () => {
         });
 
         it('should have valid limit references in plans', () => {
+            // biome-ignore lint/style/noNonNullAssertion: Safe - data verified in previous tests
             const plans = template.data.plans!;
+            // biome-ignore lint/style/noNonNullAssertion: Safe - data verified in previous tests
             const limits = template.data.limitDefinitions!;
 
             for (const plan of Object.values(plans)) {
@@ -120,6 +134,7 @@ describe('seedTemplates', () => {
         });
 
         it('should have increasing prices for higher tiers', () => {
+            // biome-ignore lint/style/noNonNullAssertion: Safe - data verified in previous tests
             const prices = template.data.prices!;
 
             // Pro should be more expensive than Free
