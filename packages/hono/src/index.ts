@@ -78,6 +78,13 @@ export type {
 // Middleware
 export { createQZPayMiddleware, getQZPay } from './middleware/index.js';
 export { createWebhookMiddleware, createWebhookResponse, getWebhookEvent } from './middleware/index.js';
+export {
+    createErrorMiddleware,
+    notFoundMiddleware,
+    throwHttpError,
+    withErrorHandling,
+    createErrorResponse
+} from './middleware/error.middleware.js';
 
 // Routes
 export { createWebhookRouter, createSimpleWebhookHandler, createBillingRoutes } from './routes/index.js';
@@ -107,3 +114,35 @@ export type {
 
 // Validators (for extension by users)
 export * from './validators/index.js';
+
+// Extended validation schemas (schemas with additional fields beyond base validators)
+export {
+    CreateSubscriptionWithPromoSchema,
+    UpdateSubscriptionExtendedSchema,
+    type CreateSubscriptionWithPromoInput,
+    type UpdateSubscriptionExtendedInput
+} from './schemas/subscription.schema.js';
+export {
+    ValidatePromoCodeSchema,
+    type ValidatePromoCodeInput
+} from './schemas/promo-code.schema.js';
+export {
+    GrantEntitlementSchema,
+    type GrantEntitlementInput
+} from './schemas/entitlement.schema.js';
+export {
+    IncrementLimitSchema,
+    RecordUsageSchema,
+    type IncrementLimitInput,
+    type RecordUsageInput
+} from './schemas/limit.schema.js';
+
+// Error handling
+export { QZPayHttpError, HttpStatus, type HttpStatusCode } from './errors/http-error.js';
+export {
+    mapErrorToHttpStatus,
+    isNotFoundError,
+    isValidationError,
+    isConflictError,
+    type ErrorMappingResult
+} from './errors/error-mapper.js';

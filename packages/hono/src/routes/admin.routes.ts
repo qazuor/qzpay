@@ -7,6 +7,9 @@
 import type { QZPayBilling } from '@qazuor/qzpay-core';
 import type { MiddlewareHandler } from 'hono';
 import { Hono } from 'hono';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import { mapErrorToHttpStatus } from '../errors/error-mapper.js';
+import { HttpStatus } from '../errors/http-error.js';
 import { createQZPayMiddleware } from '../middleware/qzpay.middleware.js';
 import type { QZPayApiListResponse, QZPayApiResponse, QZPayHonoEnv } from '../types.js';
 
@@ -117,7 +120,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             const response: QZPayApiResponse<QZPayDashboardStats> = { success: true, data: stats };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -160,7 +164,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -178,7 +183,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             ]);
 
             if (!customer) {
-                return c.json(createErrorResponse('Customer not found', 'NOT_FOUND'), 404);
+                const [errorResponse, statusCode] = createErrorResponse('Customer not found', 'NOT_FOUND');
+                return c.json(errorResponse, statusCode as ContentfulStatusCode);
             }
 
             const response: QZPayApiResponse<{
@@ -201,7 +207,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -234,7 +241,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -249,7 +257,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             const response: QZPayApiResponse<typeof subscription> = { success: true, data: subscription };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -266,7 +275,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             const response: QZPayApiResponse<typeof result> = { success: true, data: result };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -301,7 +311,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -317,7 +328,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             const response: QZPayApiResponse<typeof payment> = { success: true, data: payment };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -349,7 +361,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -361,7 +374,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             const response: QZPayApiResponse<typeof invoice> = { success: true, data: invoice };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -372,7 +386,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             const response: QZPayApiResponse<typeof invoice> = { success: true, data: invoice };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -389,7 +404,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             const response: QZPayApiResponse<typeof entitlement> = { success: true, data: entitlement };
             return c.json(response, 201);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -400,7 +416,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             const response: QZPayApiResponse = { success: true };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -412,7 +429,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             const response: QZPayApiResponse<typeof limit> = { success: true, data: limit };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -429,7 +447,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -461,7 +480,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -492,7 +512,8 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             };
             return c.json(response);
         } catch (error) {
-            return c.json(createErrorResponse(error), 500);
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
         }
     });
 
@@ -500,15 +521,41 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
 }
 
 /**
- * Create an error response
+ * Create an error response with proper HTTP status code
+ *
+ * Maps errors to appropriate HTTP status codes based on error message patterns
+ *
+ * @param error - Error to convert to response
+ * @param code - Optional explicit error code (overrides automatic mapping)
+ * @returns Tuple of [response, statusCode]
  */
-function createErrorResponse(error: unknown, code?: string): QZPayApiResponse {
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-        success: false,
-        error: {
-            code: code ?? 'INTERNAL_ERROR',
-            message
-        }
-    };
+function createErrorResponse(error: unknown, code?: string): [QZPayApiResponse, ContentfulStatusCode] {
+    // If explicit code provided (legacy behavior for explicit 404s), use it
+    if (code) {
+        const message = error instanceof Error ? error.message : String(error);
+        const statusCode = code === 'NOT_FOUND' ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR;
+        return [
+            {
+                success: false,
+                error: {
+                    code,
+                    message
+                }
+            },
+            statusCode as ContentfulStatusCode
+        ];
+    }
+
+    // Otherwise, use automatic error mapping
+    const { status, code: errorCode, message } = mapErrorToHttpStatus(error);
+    return [
+        {
+            success: false,
+            error: {
+                code: errorCode,
+                message
+            }
+        },
+        status as ContentfulStatusCode
+    ];
 }

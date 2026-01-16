@@ -4,6 +4,16 @@
 export { createQZPayMiddleware, getQZPay } from './qzpay.middleware.js';
 export { createWebhookMiddleware, createWebhookResponse, getWebhookEvent } from './webhook.middleware.js';
 
+// Error handling
+export {
+    createErrorHandler,
+    createErrorMiddleware,
+    notFoundMiddleware,
+    throwHttpError,
+    withErrorHandling,
+    createErrorResponse
+} from './error.middleware.js';
+
 // Rate limiting
 export {
     // Middleware factories

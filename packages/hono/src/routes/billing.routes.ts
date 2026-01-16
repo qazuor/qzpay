@@ -1,26 +1,33 @@
-import { zValidator } from '@hono/zod-validator';
 /**
  * Billing API Routes
  *
  * REST API routes for billing operations
  */
 import { Hono } from 'hono';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { z } from 'zod';
+import { mapErrorToHttpStatus } from '../errors/error-mapper.js';
+import { HttpStatus } from '../errors/http-error.js';
 import { createQZPayMiddleware } from '../middleware/qzpay.middleware.js';
+import { GrantEntitlementSchema, IncrementLimitSchema, RecordUsageSchema, ValidatePromoCodeSchema } from '../schemas/index.js';
 import type { QZPayApiListResponse, QZPayApiResponse, QZPayBillingRoutesConfig, QZPayHonoEnv } from '../types.js';
 import {
     CancelSubscriptionSchema,
     CreateCustomerSchema,
     CreateInvoiceSchema,
+    CreateSubscriptionSchema,
     CustomerQuerySchema,
+    IdParamSchema,
     InvoiceQuerySchema,
     PaginationSchema,
     PaymentQuerySchema,
     ProcessPaymentSchema,
     RefundPaymentSchema,
     SubscriptionQuerySchema,
-    UpdateCustomerSchema
+    UpdateCustomerSchema,
+    UpdateSubscriptionSchema
 } from '../validators/schemas.js';
+import { zValidator } from '../validators/zod-validator.js';
 
 /**
  * Create billing API routes
@@ -83,20 +90,24 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.get(`${prefix}/customers/:id`, async (c) => {
+        router.get(`${prefix}/customers/:id`, zValidator('param', IdParamSchema), async (c) => {
             try {
-                const customer = await billing.customers.get(c.req.param('id'));
+                const { id } = c.req.valid('param');
+                const customer = await billing.customers.get(id);
                 if (!customer) {
-                    return c.json(createErrorResponse('Customer not found', 'NOT_FOUND'), 404);
+                    const [errorResponse, statusCode] = createErrorResponse('Customer not found', 'NOT_FOUND');
+                    return c.json(errorResponse, statusCode);
                 }
                 const response: QZPayApiResponse<typeof customer> = { success: true, data: customer };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
@@ -107,31 +118,37 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 const response: QZPayApiResponse<typeof customer> = { success: true, data: customer };
                 return c.json(response, 201);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.patch(`${prefix}/customers/:id`, zValidator('json', UpdateCustomerSchema), async (c) => {
+        router.patch(`${prefix}/customers/:id`, zValidator('param', IdParamSchema), zValidator('json', UpdateCustomerSchema), async (c) => {
             try {
+                const { id } = c.req.valid('param');
                 const body = c.req.valid('json');
-                const customer = await billing.customers.update(c.req.param('id'), stripUndefined(body));
+                const customer = await billing.customers.update(id, stripUndefined(body));
                 if (!customer) {
-                    return c.json(createErrorResponse('Customer not found', 'NOT_FOUND'), 404);
+                    const [errorResponse, statusCode] = createErrorResponse('Customer not found', 'NOT_FOUND');
+                    return c.json(errorResponse, statusCode);
                 }
                 const response: QZPayApiResponse<typeof customer> = { success: true, data: customer };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.delete(`${prefix}/customers/:id`, async (c) => {
+        router.delete(`${prefix}/customers/:id`, zValidator('param', IdParamSchema), async (c) => {
             try {
-                await billing.customers.delete(c.req.param('id'));
+                const { id } = c.req.valid('param');
+                await billing.customers.delete(id);
                 const response: QZPayApiResponse = { success: true };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
     }
@@ -161,73 +178,96 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.get(`${prefix}/subscriptions/:id`, async (c) => {
+        router.get(`${prefix}/subscriptions/:id`, zValidator('param', IdParamSchema), async (c) => {
             try {
-                const subscription = await billing.subscriptions.get(c.req.param('id'));
+                const { id } = c.req.valid('param');
+                const subscription = await billing.subscriptions.get(id);
                 if (!subscription) {
-                    return c.json(createErrorResponse('Subscription not found', 'NOT_FOUND'), 404);
+                    const [errorResponse, statusCode] = createErrorResponse('Subscription not found', 'NOT_FOUND');
+                    return c.json(errorResponse, statusCode);
                 }
                 const response: QZPayApiResponse<typeof subscription> = { success: true, data: subscription };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.post(`${prefix}/subscriptions`, async (c) => {
+        router.post(`${prefix}/subscriptions`, zValidator('json', CreateSubscriptionSchema), async (c) => {
             try {
-                const body = await c.req.json();
-                const subscription = await billing.subscriptions.create(body);
+                const body = c.req.valid('json');
+                const subscription = await billing.subscriptions.create(stripUndefined(body));
                 const response: QZPayApiResponse<typeof subscription> = { success: true, data: subscription };
                 return c.json(response, 201);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.patch(`${prefix}/subscriptions/:id`, async (c) => {
+        router.patch(
+            `${prefix}/subscriptions/:id`,
+            zValidator('param', IdParamSchema),
+            zValidator('json', UpdateSubscriptionSchema),
+            async (c) => {
+                try {
+                    const { id } = c.req.valid('param');
+                    const body = c.req.valid('json');
+                    const subscription = await billing.subscriptions.update(id, stripUndefined(body));
+                    const response: QZPayApiResponse<typeof subscription> = { success: true, data: subscription };
+                    return c.json(response);
+                } catch (error) {
+                    const [errorResponse, statusCode] = createErrorResponse(error);
+                    return c.json(errorResponse, statusCode);
+                }
+            }
+        );
+
+        router.post(
+            `${prefix}/subscriptions/:id/cancel`,
+            zValidator('param', IdParamSchema),
+            zValidator('json', CancelSubscriptionSchema),
+            async (c) => {
+                try {
+                    const { id } = c.req.valid('param');
+                    const body = c.req.valid('json');
+                    const subscription = await billing.subscriptions.cancel(id, stripUndefined(body));
+                    const response: QZPayApiResponse<typeof subscription> = { success: true, data: subscription };
+                    return c.json(response);
+                } catch (error) {
+                    const [errorResponse, statusCode] = createErrorResponse(error);
+                    return c.json(errorResponse, statusCode);
+                }
+            }
+        );
+
+        router.post(`${prefix}/subscriptions/:id/pause`, zValidator('param', IdParamSchema), async (c) => {
             try {
-                const body = await c.req.json();
-                const subscription = await billing.subscriptions.update(c.req.param('id'), body);
+                const { id } = c.req.valid('param');
+                const subscription = await billing.subscriptions.pause(id);
                 const response: QZPayApiResponse<typeof subscription> = { success: true, data: subscription };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.post(`${prefix}/subscriptions/:id/cancel`, zValidator('json', CancelSubscriptionSchema), async (c) => {
+        router.post(`${prefix}/subscriptions/:id/resume`, zValidator('param', IdParamSchema), async (c) => {
             try {
-                const body = c.req.valid('json');
-                const subscription = await billing.subscriptions.cancel(c.req.param('id'), stripUndefined(body));
+                const { id } = c.req.valid('param');
+                const subscription = await billing.subscriptions.resume(id);
                 const response: QZPayApiResponse<typeof subscription> = { success: true, data: subscription };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
-            }
-        });
-
-        router.post(`${prefix}/subscriptions/:id/pause`, async (c) => {
-            try {
-                const subscription = await billing.subscriptions.pause(c.req.param('id'));
-                const response: QZPayApiResponse<typeof subscription> = { success: true, data: subscription };
-                return c.json(response);
-            } catch (error) {
-                return c.json(createErrorResponse(error), 500);
-            }
-        });
-
-        router.post(`${prefix}/subscriptions/:id/resume`, async (c) => {
-            try {
-                const subscription = await billing.subscriptions.resume(c.req.param('id'));
-                const response: QZPayApiResponse<typeof subscription> = { success: true, data: subscription };
-                return c.json(response);
-            } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
     }
@@ -257,20 +297,24 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.get(`${prefix}/payments/:id`, async (c) => {
+        router.get(`${prefix}/payments/:id`, zValidator('param', IdParamSchema), async (c) => {
             try {
-                const payment = await billing.payments.get(c.req.param('id'));
+                const { id } = c.req.valid('param');
+                const payment = await billing.payments.get(id);
                 if (!payment) {
-                    return c.json(createErrorResponse('Payment not found', 'NOT_FOUND'), 404);
+                    const [errorResponse, statusCode] = createErrorResponse('Payment not found', 'NOT_FOUND');
+                    return c.json(errorResponse, statusCode);
                 }
                 const response: QZPayApiResponse<typeof payment> = { success: true, data: payment };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
@@ -281,20 +325,28 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 const response: QZPayApiResponse<typeof payment> = { success: true, data: payment };
                 return c.json(response, 201);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.post(`${prefix}/payments/:id/refund`, zValidator('json', RefundPaymentSchema), async (c) => {
-            try {
-                const body = c.req.valid('json');
-                const payment = await billing.payments.refund(stripUndefined({ paymentId: c.req.param('id'), ...body }));
-                const response: QZPayApiResponse<typeof payment> = { success: true, data: payment };
-                return c.json(response);
-            } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+        router.post(
+            `${prefix}/payments/:id/refund`,
+            zValidator('param', IdParamSchema),
+            zValidator('json', RefundPaymentSchema),
+            async (c) => {
+                try {
+                    const { id } = c.req.valid('param');
+                    const body = c.req.valid('json');
+                    const payment = await billing.payments.refund(stripUndefined({ paymentId: id, ...body }));
+                    const response: QZPayApiResponse<typeof payment> = { success: true, data: payment };
+                    return c.json(response);
+                } catch (error) {
+                    const [errorResponse, statusCode] = createErrorResponse(error);
+                    return c.json(errorResponse, statusCode);
+                }
             }
-        });
+        );
     }
 
     // Invoice routes
@@ -322,20 +374,24 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.get(`${prefix}/invoices/:id`, async (c) => {
+        router.get(`${prefix}/invoices/:id`, zValidator('param', IdParamSchema), async (c) => {
             try {
-                const invoice = await billing.invoices.get(c.req.param('id'));
+                const { id } = c.req.valid('param');
+                const invoice = await billing.invoices.get(id);
                 if (!invoice) {
-                    return c.json(createErrorResponse('Invoice not found', 'NOT_FOUND'), 404);
+                    const [errorResponse, statusCode] = createErrorResponse('Invoice not found', 'NOT_FOUND');
+                    return c.json(errorResponse, statusCode);
                 }
                 const response: QZPayApiResponse<typeof invoice> = { success: true, data: invoice };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
@@ -346,17 +402,20 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 const response: QZPayApiResponse<typeof invoice> = { success: true, data: invoice };
                 return c.json(response, 201);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.post(`${prefix}/invoices/:id/void`, async (c) => {
+        router.post(`${prefix}/invoices/:id/void`, zValidator('param', IdParamSchema), async (c) => {
             try {
-                const invoice = await billing.invoices.void(c.req.param('id'));
+                const { id } = c.req.valid('param');
+                const invoice = await billing.invoices.void(id);
                 const response: QZPayApiResponse<typeof invoice> = { success: true, data: invoice };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
     }
@@ -388,7 +447,8 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                     };
                     return c.json(response);
                 } catch (error) {
-                    return c.json(createErrorResponse(error), 500);
+                    const [errorResponse, statusCode] = createErrorResponse(error);
+                    return c.json(errorResponse, statusCode);
                 }
             }
         );
@@ -397,12 +457,14 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
             try {
                 const plan = await billing.plans.get(c.req.param('id'));
                 if (!plan) {
-                    return c.json(createErrorResponse('Plan not found', 'NOT_FOUND'), 404);
+                    const [errorResponse, statusCode] = createErrorResponse('Plan not found', 'NOT_FOUND');
+                    return c.json(errorResponse, statusCode);
                 }
                 const response: QZPayApiResponse<typeof plan> = { success: true, data: plan };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
@@ -412,7 +474,8 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 const response: QZPayApiResponse<typeof prices> = { success: true, data: prices };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
     }
@@ -436,7 +499,8 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
@@ -444,23 +508,26 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
             try {
                 const promoCode = await billing.promoCodes.getByCode(c.req.param('code'));
                 if (!promoCode) {
-                    return c.json(createErrorResponse('Promo code not found', 'NOT_FOUND'), 404);
+                    const [errorResponse, statusCode] = createErrorResponse('Promo code not found', 'NOT_FOUND');
+                    return c.json(errorResponse, statusCode);
                 }
                 const response: QZPayApiResponse<typeof promoCode> = { success: true, data: promoCode };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.post(`${prefix}/promo-codes/validate`, async (c) => {
+        router.post(`${prefix}/promo-codes/validate`, zValidator('json', ValidatePromoCodeSchema), async (c) => {
             try {
-                const body = await c.req.json();
+                const body = c.req.valid('json');
                 const result = await billing.promoCodes.validate(body.code, body.customerId, body.planId);
                 const response: QZPayApiResponse<typeof result> = { success: true, data: result };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
     }
@@ -473,7 +540,8 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 const response: QZPayApiResponse<typeof data> = { success: true, data };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
@@ -486,13 +554,14 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.post(`${prefix}/customers/:customerId/entitlements`, async (c) => {
+        router.post(`${prefix}/customers/:customerId/entitlements`, zValidator('json', GrantEntitlementSchema), async (c) => {
             try {
-                const body = await c.req.json();
+                const body = c.req.valid('json');
                 const entitlement = await billing.entitlements.grant(
                     c.req.param('customerId'),
                     body.entitlementKey,
@@ -502,7 +571,8 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 const response: QZPayApiResponse<typeof entitlement> = { success: true, data: entitlement };
                 return c.json(response, 201);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
@@ -512,7 +582,8 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 const response: QZPayApiResponse = { success: true };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
     }
@@ -525,7 +596,8 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 const response: QZPayApiResponse<typeof data> = { success: true, data };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
@@ -535,29 +607,32 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
                 const response: QZPayApiResponse<typeof result> = { success: true, data: result };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.post(`${prefix}/customers/:customerId/limits/:key/increment`, async (c) => {
+        router.post(`${prefix}/customers/:customerId/limits/:key/increment`, zValidator('json', IncrementLimitSchema), async (c) => {
             try {
-                const body = await c.req.json().catch(() => ({}));
+                const body = c.req.valid('json');
                 const limit = await billing.limits.increment(c.req.param('customerId'), c.req.param('key'), body.amount);
                 const response: QZPayApiResponse<typeof limit> = { success: true, data: limit };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
 
-        router.post(`${prefix}/customers/:customerId/limits/:key/usage`, async (c) => {
+        router.post(`${prefix}/customers/:customerId/limits/:key/usage`, zValidator('json', RecordUsageSchema), async (c) => {
             try {
-                const body = await c.req.json();
+                const body = c.req.valid('json');
                 await billing.limits.recordUsage(c.req.param('customerId'), c.req.param('key'), body.quantity, body.action);
                 const response: QZPayApiResponse = { success: true };
                 return c.json(response);
             } catch (error) {
-                return c.json(createErrorResponse(error), 500);
+                const [errorResponse, statusCode] = createErrorResponse(error);
+                return c.json(errorResponse, statusCode);
             }
         });
     }
@@ -566,17 +641,43 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
 }
 
 /**
- * Create an error response
+ * Create an error response with proper HTTP status code
+ *
+ * Maps errors to appropriate HTTP status codes based on error message patterns
+ *
+ * @param error - Error to convert to response
+ * @param code - Optional explicit error code (overrides automatic mapping)
+ * @returns Tuple of [response, statusCode]
  */
-function createErrorResponse(error: unknown, code?: string): QZPayApiResponse {
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-        success: false,
-        error: {
-            code: code ?? 'INTERNAL_ERROR',
-            message
-        }
-    };
+function createErrorResponse(error: unknown, code?: string): [QZPayApiResponse, ContentfulStatusCode] {
+    // If explicit code provided (legacy behavior for explicit 404s), use it
+    if (code) {
+        const message = error instanceof Error ? error.message : String(error);
+        const statusCode = code === 'NOT_FOUND' ? HttpStatus.NOT_FOUND : HttpStatus.INTERNAL_SERVER_ERROR;
+        return [
+            {
+                success: false,
+                error: {
+                    code,
+                    message
+                }
+            },
+            statusCode as ContentfulStatusCode
+        ];
+    }
+
+    // Otherwise, use automatic error mapping
+    const { status, code: errorCode, message } = mapErrorToHttpStatus(error);
+    return [
+        {
+            success: false,
+            error: {
+                code: errorCode,
+                message
+            }
+        },
+        status as ContentfulStatusCode
+    ];
 }
 
 /**

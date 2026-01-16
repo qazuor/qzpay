@@ -725,7 +725,8 @@ describe('Billing Routes', () => {
             const response = await routes.request('/billing/plans/plan_123/prices');
             const data = await response.json();
 
-            expect(response.status).toBe(500);
+            // Error message contains "not found" so it maps to 404
+            expect(response.status).toBe(404);
             expect(data.error.message).toBe('Prices not found');
         });
     });
@@ -798,18 +799,19 @@ describe('Billing Routes', () => {
 
         it('should handle validate errors', async () => {
             const mockBilling = createMockBilling();
-            vi.mocked(mockBilling.promoCodes.validate).mockRejectedValue(new Error('Invalid code'));
+            vi.mocked(mockBilling.promoCodes.validate).mockRejectedValue(new Error('Promo code validation failed'));
 
             const routes = createBillingRoutes({ billing: mockBilling });
             const response = await routes.request('/billing/promo-codes/validate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: 'INVALID', customerId: 'cus_123' })
+                body: JSON.stringify({ code: 'TESTCODE', customerId: 'cus_123' })
             });
             const data = await response.json();
 
-            expect(response.status).toBe(500);
-            expect(data.error.message).toBe('Invalid code');
+            // "validation" in message maps to 422
+            expect(response.status).toBe(422);
+            expect(data.error.message).toBe('Promo code validation failed');
         });
     });
 
@@ -847,7 +849,7 @@ describe('Billing Routes', () => {
             const response = await routes.request('/billing/customers/cus_123/entitlements', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ entitlementKey: 'feature_api', source: 'plan', sourceId: 'plan_123' })
+                body: JSON.stringify({ entitlementKey: 'feature_api', source: 'subscription', sourceId: 'sub_123' })
             });
 
             expect(response.status).toBe(201);
@@ -899,7 +901,7 @@ describe('Billing Routes', () => {
             const response = await routes.request('/billing/customers/cus_123/entitlements', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ entitlementKey: 'feature_api', source: 'plan', sourceId: 'plan_123' })
+                body: JSON.stringify({ entitlementKey: 'feature_api', source: 'subscription', sourceId: 'sub_123' })
             });
             const data = await response.json();
 
@@ -973,7 +975,8 @@ describe('Billing Routes', () => {
             const response = await routes.request('/billing/customers/cus_123/limits/api_calls/usage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ quantity: 10, action: 'api_request' })
+                // action must be 'increment' or 'set' per schema
+                body: JSON.stringify({ quantity: 10, action: 'increment' })
             });
             const data = await response.json();
 
@@ -1005,18 +1008,21 @@ describe('Billing Routes', () => {
             expect(data.error.message).toBe('Check failed');
         });
 
-        it('should handle increment without body', async () => {
+        it('should handle increment with empty body (uses default amount)', async () => {
             const mockBilling = createMockBilling();
             const limit = createMockLimit({ currentValue: 1 });
             vi.mocked(mockBilling.limits.increment).mockResolvedValue(limit);
 
             const routes = createBillingRoutes({ billing: mockBilling });
             const response = await routes.request('/billing/customers/cus_123/limits/api_calls/increment', {
-                method: 'POST'
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}) // Empty body uses default amount of 1
             });
 
             expect(response.status).toBe(200);
-            expect(mockBilling.limits.increment).toHaveBeenCalledWith('cus_123', 'api_calls', undefined);
+            // Schema defaults amount to 1 when not provided
+            expect(mockBilling.limits.increment).toHaveBeenCalledWith('cus_123', 'api_calls', 1);
         });
 
         it('should handle increment errors', async () => {
@@ -1041,7 +1047,7 @@ describe('Billing Routes', () => {
             const response = await routes.request('/billing/customers/cus_123/limits/api_calls/usage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ quantity: 10, action: 'api_request' })
+                body: JSON.stringify({ quantity: 10, action: 'increment' })
             });
             const data = await response.json();
 

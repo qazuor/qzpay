@@ -190,10 +190,66 @@ export const MetricsQuerySchema = z.object({
 // ==================== ID Parameter Schema ====================
 
 /**
- * Schema for ID path parameters
+ * UUID regex pattern for validation
+ * Matches standard UUID v4 format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+ */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Schema for validating UUID format
+ */
+export const UuidSchema = z.string().regex(UUID_REGEX, 'Invalid UUID format');
+
+/**
+ * Schema for ID path parameters (accepts UUID or string IDs)
+ * Use this when the ID can be any valid string identifier
  */
 export const IdParamSchema = z.object({
     id: z.string().min(1, 'ID is required')
+});
+
+/**
+ * Schema for UUID path parameters
+ * Use this when the ID must be a valid UUID
+ *
+ * @example
+ * ```typescript
+ * router.get('/customers/:id', zValidator('param', UuidParamSchema), async (c) => {
+ *     const { id } = c.req.valid('param');
+ *     // id is guaranteed to be a valid UUID
+ * });
+ * ```
+ */
+export const UuidParamSchema = z.object({
+    id: UuidSchema
+});
+
+/**
+ * Schema for customer ID path parameter
+ */
+export const CustomerIdParamSchema = z.object({
+    customerId: UuidSchema
+});
+
+/**
+ * Schema for subscription ID path parameter
+ */
+export const SubscriptionIdParamSchema = z.object({
+    subscriptionId: UuidSchema
+});
+
+/**
+ * Schema for payment ID path parameter
+ */
+export const PaymentIdParamSchema = z.object({
+    paymentId: UuidSchema
+});
+
+/**
+ * Schema for invoice ID path parameter
+ */
+export const InvoiceIdParamSchema = z.object({
+    invoiceId: UuidSchema
 });
 
 // ==================== Webhook Schemas ====================
@@ -230,3 +286,8 @@ export type PaymentQueryInput = z.infer<typeof PaymentQuerySchema>;
 export type InvoiceQueryInput = z.infer<typeof InvoiceQuerySchema>;
 export type MetricsQueryInput = z.infer<typeof MetricsQuerySchema>;
 export type IdParamInput = z.infer<typeof IdParamSchema>;
+export type UuidParamInput = z.infer<typeof UuidParamSchema>;
+export type CustomerIdParamInput = z.infer<typeof CustomerIdParamSchema>;
+export type SubscriptionIdParamInput = z.infer<typeof SubscriptionIdParamSchema>;
+export type PaymentIdParamInput = z.infer<typeof PaymentIdParamSchema>;
+export type InvoiceIdParamInput = z.infer<typeof InvoiceIdParamSchema>;
