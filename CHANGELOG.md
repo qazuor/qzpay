@@ -7,16 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for v1.1.0
+### Planned for v1.2.0
 - Redis rate limiting store
-- Transaction context propagation
-- CLI tools for billing operations
 - Additional storage adapters (Prisma, TypeORM)
 
 ### Planned for v2.0.0
 - MercadoPago split payments (marketplace)
 - Multi-tenant support
 - Advanced analytics and reporting
+
+## [1.1.0] - 2026-01-16
+
+### Added
+
+#### Core Package (@qazuor/qzpay-core)
+- **Saved Card Service**: New service for payment method management
+  - Store and retrieve customer payment methods
+  - Set default payment method
+  - Secure card-on-file functionality
+- **Subscription Lifecycle Service**: Automated billing cycle management
+  - Automatic renewal processing
+  - Grace period handling
+  - Dunning management for failed payments
+- **Error Handling**: Enhanced error sanitization utilities
+  - Automatic redaction of sensitive data in logs
+  - TypeScript-compatible biome ignore directives
+- **Type Improvements**: Enhanced type definitions for all billing entities
+
+#### Stripe Package (@qazuor/qzpay-stripe)
+- **Retry Utilities**: Automatic retry for transient API failures
+  - Configurable retry attempts and delays
+  - Exponential backoff support
+- **Invoice Adapter**: New adapter for invoice management
+- **Saved Card Service**: Stripe-specific card-on-file implementation
+- **Currency Utilities**: Helper functions for currency handling
+- **Metadata Utilities**: Improved metadata handling
+
+#### MercadoPago Package (@qazuor/qzpay-mercadopago)
+- **Card Token Adapter**: Secure card tokenization support
+- **Retry Utilities**: Automatic retry for transient API failures
+- **Sanitization Utilities**: Data security improvements
+- **Saved Card Service**: MercadoPago-specific card-on-file implementation
+
+#### Hono Package (@qazuor/qzpay-hono)
+- **HTTP Error Classes**: Structured error handling
+  - HttpError, NotFoundError, ValidationError, ConflictError
+- **Error Middleware**: Global error handling middleware
+- **Zod Validator**: Request validation with Zod schemas
+- **Error Mapper**: Map billing errors to HTTP status codes
+- **Flexible ID Validation**: Support for both UUID and prefixed IDs
+
+#### NestJS Package (@qazuor/qzpay-nestjs)
+- **Validation DTOs**: Comprehensive DTOs for all endpoints
+  - CreateCustomerDto, UpdateCustomerDto
+  - CreateSubscriptionDto, CancelSubscriptionDto
+  - ProcessPaymentDto, RefundPaymentDto
+  - CreateInvoiceDto, MarkPaidDto
+- **Exception Filter**: QZPay-specific exception handling
+- **Rate Limit Improvements**: Enhanced rate limiting guard
+
+#### React Package (@qazuor/qzpay-react)
+- **SSR Support**: Isomorphic layout effect for server-side rendering
+- **Race Condition Fixes**: Improved data fetching hooks
+- **Hook Improvements**: Better error handling in all hooks
+
+#### Drizzle Package (@qazuor/qzpay-drizzle)
+- **Transaction Utilities**: Database transactions with retry support
+  - `transactional` wrapper function
+  - `retryTransaction` for transient errors
+- **Performance Migrations**: Composite indexes for better query performance
+- **Schema Updates**: Missing core fields migration
+- **Optimistic Locking**: Documentation for concurrent updates
+
+#### Playground
+- **Saved Cards View**: Manage customer payment methods
+- **Card Form Components**: Stripe and MercadoPago card forms
+- **Improved UX**: Streamlined setup flow (removed wizard)
+- **Error Boundary**: Better error handling in UI
+- **Toast Notifications**: User feedback system
+- **i18n Updates**: New translations for all features
+
+#### Documentation
+- **New Guides**: Addons, Metrics, Saved Cards, Webhook Events
+- **Package Docs**: Updated all package READMEs
+- **Translations**: Spanish translations for all new content
+
+### Changed
+- Billing routes now use `IdParamSchema` instead of `UuidParamSchema` for more flexible ID handling
+- Improved error handling across all packages
+- Better TypeScript strict mode compatibility
+
+### Fixed
+- Race condition in React `useLimits` hook error handling
+- TypeScript index signature access in sanitization utilities
+- Test timing issues in async error assertions
 
 ## [1.0.1] - 2026-01-13
 
