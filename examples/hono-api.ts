@@ -22,14 +22,14 @@ const db = drizzle(client);
 const storageAdapter = createQZPayDrizzleAdapter({ db });
 const stripeAdapter = createQZPayStripeAdapter({
     secretKey: process.env.STRIPE_SECRET_KEY!,
-    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!
 });
 
 // Initialize billing
 const billing = createQZPayBilling({
     storage: storageAdapter,
     paymentAdapter: stripeAdapter,
-    livemode: true,
+    livemode: true
 });
 
 // Create Hono app

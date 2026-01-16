@@ -30,14 +30,14 @@ export const storageAdapter = createQZPayDrizzleAdapter({ db });
 // Initialize Stripe adapter
 export const stripeAdapter = createQZPayStripeAdapter({
     secretKey: getEnvVar('STRIPE_SECRET_KEY'),
-    webhookSecret: getEnvVar('STRIPE_WEBHOOK_SECRET'),
+    webhookSecret: getEnvVar('STRIPE_WEBHOOK_SECRET')
 });
 
 // Initialize QZPay Billing
 export const billing = createQZPayBilling({
     storage: storageAdapter,
     paymentAdapter: stripeAdapter,
-    livemode: isProduction,
+    livemode: isProduction
 });
 
 // Webhook secret (for direct Stripe webhook handling)

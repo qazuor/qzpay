@@ -4,7 +4,7 @@
  * Each vendor has their own Stripe account, so we need to
  * create adapters dynamically per vendor.
  */
-import { createQZPayBilling, type QZPayBilling } from '@qazuor/qzpay-core';
+import { type QZPayBilling, createQZPayBilling } from '@qazuor/qzpay-core';
 import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
 import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 import { drizzle } from 'drizzle-orm/postgres-js';
@@ -53,7 +53,7 @@ export function getVendorBilling(vendor: GemFolioVendor): QZPayBilling {
     // Note: For multi-tenant with Connect, you may need custom configuration
     const stripeAdapter = createQZPayStripeAdapter({
         secretKey: getEnvVar('STRIPE_SECRET_KEY'),
-        webhookSecret: getEnvVar('STRIPE_WEBHOOK_SECRET'),
+        webhookSecret: getEnvVar('STRIPE_WEBHOOK_SECRET')
         // For Connect accounts, additional configuration may be needed
     });
 
@@ -61,7 +61,7 @@ export function getVendorBilling(vendor: GemFolioVendor): QZPayBilling {
     const billing = createQZPayBilling({
         storage: storageAdapter,
         paymentAdapter: stripeAdapter,
-        livemode: isProduction,
+        livemode: isProduction
     });
 
     // Cache it
