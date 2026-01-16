@@ -153,10 +153,9 @@ describe('Stripe Payment Adapter Resilience', () => {
     });
 
     describe('Invalid Request Handling', () => {
-        it('should propagate invalid request errors', async () => {
-            mockStripeClient.paymentIntents.create.mockRejectedValue(new StripeInvalidRequestError('Invalid currency: xyz'));
-
-            await expect(adapter.create('cus_123', { amount: 1000, currency: 'XYZ' })).rejects.toThrow('Invalid currency');
+        it('should validate currency before calling Stripe', async () => {
+            // Currency validation now happens locally before calling Stripe API
+            await expect(adapter.create('cus_123', { amount: 1000, currency: 'XYZ' })).rejects.toThrow('is not supported by Stripe');
         });
 
         it('should handle invalid payment ID on retrieve', async () => {

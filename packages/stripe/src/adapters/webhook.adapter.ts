@@ -5,15 +5,22 @@ import type { QZPayPaymentWebhookAdapter, QZPayWebhookEvent } from '@qazuor/qzpa
  * Implements QZPayPaymentWebhookAdapter for Stripe webhooks
  */
 import type Stripe from 'stripe';
+import type { RetryConfig } from '../utils/retry.utils.js';
 
 export class QZPayStripeWebhookAdapter implements QZPayPaymentWebhookAdapter {
     constructor(
         private readonly stripe: Stripe,
-        private readonly webhookSecret: string
+        private readonly webhookSecret: string,
+        _retryConfig?: Partial<RetryConfig>
     ) {}
 
     /**
      * Construct and verify a webhook event from Stripe
+     *
+     * Note: This method does not use retry logic because:
+     * 1. Signature verification is deterministic (succeeds or fails immediately)
+     * 2. Webhook payloads should be processed exactly once
+     * 3. Stripe will retry failed webhooks automatically
      */
     constructEvent(payload: string | Buffer, signature: string): QZPayWebhookEvent {
         const event = this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
@@ -265,7 +272,6 @@ export function isPaymentRequires3DS(event: QZPayWebhookEvent): boolean {
 /**
  * Extract 3DS authentication details from payment intent event
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: 3DS event extraction requires parsing multiple nested webhook data fields
 export function extract3DSDetails(event: QZPayWebhookEvent): QZPayStripe3DSResult {
     const data = event.data as Record<string, unknown>;
     // biome-ignore lint/complexity/useLiteralKeys: index signature requires bracket notation

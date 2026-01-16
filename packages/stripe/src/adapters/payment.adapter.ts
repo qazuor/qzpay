@@ -11,96 +11,137 @@ import type {
  * Implements QZPayPaymentPaymentAdapter for Stripe
  */
 import type Stripe from 'stripe';
+import { validateStripeCurrency } from '../utils/currency.utils.js';
+import { toStripeMetadata } from '../utils/metadata.utils.js';
+import { type RetryConfig, withRetry } from '../utils/retry.utils.js';
 
 export class QZPayStripePaymentAdapter implements QZPayPaymentPaymentAdapter {
-    constructor(private readonly stripe: Stripe) {}
+    constructor(
+        private readonly stripe: Stripe,
+        private readonly retryConfig?: Partial<RetryConfig>
+    ) {}
 
     /**
      * Create a payment (PaymentIntent) in Stripe
      */
     async create(providerCustomerId: string, input: QZPayCreatePaymentInput): Promise<QZPayProviderPayment> {
-        const params: Stripe.PaymentIntentCreateParams = {
-            customer: providerCustomerId,
-            amount: input.amount,
-            currency: input.currency.toLowerCase(),
-            metadata: input.metadata ? this.toStripeMetadata(input.metadata) : {}
-        };
+        return withRetry(
+            async () => {
+                // Validate currency is supported by Stripe
+                validateStripeCurrency(input.currency);
 
-        // Set payment method if provided
-        if (input.paymentMethodId) {
-            params.payment_method = input.paymentMethodId;
-            params.confirm = true;
+                const params: Stripe.PaymentIntentCreateParams = {
+                    customer: providerCustomerId,
+                    amount: input.amount,
+                    currency: input.currency.toLowerCase(),
+                    metadata: input.metadata ? toStripeMetadata(input.metadata) : {}
+                };
 
-            // Configure 3DS behavior
-            params.payment_method_options = {
-                card: {
-                    request_three_d_secure: 'automatic'
+                // Set payment method if provided
+                if (input.paymentMethodId) {
+                    params.payment_method = input.paymentMethodId;
+                    params.confirm = true;
+
+                    // Explicitly set payment method types to card only
+                    // This prevents Stripe from using automatic_payment_methods which may include redirect-based methods
+                    params.payment_method_types = ['card'];
+
+                    // Configure 3DS behavior
+                    params.payment_method_options = {
+                        card: {
+                            request_three_d_secure: 'automatic'
+                        }
+                    };
+
+                    // Return URL for 3DS redirect (if needed for hosted 3DS)
+                    // biome-ignore lint/complexity/useLiteralKeys: Index signature requires bracket notation
+                    if (input.metadata?.['return_url']) {
+                        // biome-ignore lint/complexity/useLiteralKeys: Index signature requires bracket notation
+                        params.return_url = input.metadata['return_url'] as string;
+                    }
                 }
-            };
 
-            // Return URL for 3DS redirect (if needed for hosted 3DS)
-            // biome-ignore lint/complexity/useLiteralKeys: Index signature requires bracket notation
-            if (input.metadata?.['return_url']) {
-                // biome-ignore lint/complexity/useLiteralKeys: Index signature requires bracket notation
-                params.return_url = input.metadata['return_url'] as string;
-            }
-        }
+                const paymentIntent = await this.stripe.paymentIntents.create(params);
 
-        const paymentIntent = await this.stripe.paymentIntents.create(params);
-
-        return this.mapPaymentIntent(paymentIntent);
+                return this.mapPaymentIntent(paymentIntent);
+            },
+            this.retryConfig,
+            'Create payment'
+        );
     }
 
     /**
      * Capture a payment in Stripe
      */
     async capture(providerPaymentId: string): Promise<QZPayProviderPayment> {
-        const paymentIntent = await this.stripe.paymentIntents.capture(providerPaymentId);
-
-        return this.mapPaymentIntent(paymentIntent);
+        return withRetry(
+            async () => {
+                const paymentIntent = await this.stripe.paymentIntents.capture(providerPaymentId);
+                return this.mapPaymentIntent(paymentIntent);
+            },
+            this.retryConfig,
+            'Capture payment'
+        );
     }
 
     /**
      * Cancel a payment in Stripe
      */
     async cancel(providerPaymentId: string): Promise<void> {
-        await this.stripe.paymentIntents.cancel(providerPaymentId);
+        return withRetry(
+            async () => {
+                await this.stripe.paymentIntents.cancel(providerPaymentId);
+            },
+            this.retryConfig,
+            'Cancel payment'
+        );
     }
 
     /**
      * Create a refund in Stripe
      */
     async refund(input: QZPayRefundInput, providerPaymentId: string): Promise<QZPayProviderRefund> {
-        const params: Stripe.RefundCreateParams = {
-            payment_intent: providerPaymentId
-        };
+        return withRetry(
+            async () => {
+                const params: Stripe.RefundCreateParams = {
+                    payment_intent: providerPaymentId
+                };
 
-        // Set refund amount if partial
-        if (input.amount !== undefined) {
-            params.amount = input.amount;
-        }
+                // Set refund amount if partial
+                if (input.amount !== undefined) {
+                    params.amount = input.amount;
+                }
 
-        // Set reason if provided
-        if (input.reason) {
-            params.reason = this.mapRefundReason(input.reason);
-        }
+                // Set reason if provided
+                if (input.reason) {
+                    params.reason = this.mapRefundReason(input.reason);
+                }
 
-        const refund = await this.stripe.refunds.create(params);
+                const refund = await this.stripe.refunds.create(params);
 
-        return {
-            id: refund.id,
-            status: refund.status ?? 'pending',
-            amount: refund.amount
-        };
+                return {
+                    id: refund.id,
+                    status: refund.status ?? 'pending',
+                    amount: refund.amount
+                };
+            },
+            this.retryConfig,
+            'Refund payment'
+        );
     }
 
     /**
      * Retrieve a payment from Stripe
      */
     async retrieve(providerPaymentId: string): Promise<QZPayProviderPayment> {
-        const paymentIntent = await this.stripe.paymentIntents.retrieve(providerPaymentId);
-
-        return this.mapPaymentIntent(paymentIntent);
+        return withRetry(
+            async () => {
+                const paymentIntent = await this.stripe.paymentIntents.retrieve(providerPaymentId);
+                return this.mapPaymentIntent(paymentIntent);
+            },
+            this.retryConfig,
+            'Retrieve payment'
+        );
     }
 
     /**
@@ -167,18 +208,5 @@ export class QZPayStripePaymentAdapter implements QZPayPaymentPaymentAdapter {
         };
 
         return reasonMap[reason] ?? 'requested_by_customer';
-    }
-
-    /**
-     * Convert metadata to Stripe-compatible format
-     */
-    private toStripeMetadata(metadata: Record<string, unknown>): Record<string, string> {
-        const result: Record<string, string> = {};
-        for (const [key, value] of Object.entries(metadata)) {
-            if (value !== undefined && value !== null) {
-                result[key] = String(value);
-            }
-        }
-        return result;
     }
 }

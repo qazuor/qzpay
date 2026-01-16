@@ -60,6 +60,16 @@ export class QZPayStripeAdapter implements QZPayPaymentAdapter {
     private readonly stripe: Stripe;
 
     constructor(config: QZPayStripeConfig, connectConfig?: QZPayStripeConnectConfig) {
+        // Validate secret key format
+        if (!config.secretKey.startsWith('sk_')) {
+            throw new Error("Invalid Stripe secret key format. Expected key starting with 'sk_'");
+        }
+
+        // Validate webhook secret format if provided
+        if (config.webhookSecret && !config.webhookSecret.startsWith('whsec_')) {
+            throw new Error("Invalid Stripe webhook secret format. Expected secret starting with 'whsec_'");
+        }
+
         // Initialize Stripe client with optional API version override
         const stripeConfig: Stripe.StripeConfig = {
             ...config.stripeOptions
@@ -72,13 +82,14 @@ export class QZPayStripeAdapter implements QZPayPaymentAdapter {
 
         this.stripe = new Stripe(config.secretKey, stripeConfig);
 
-        // Initialize sub-adapters
-        this.customers = new QZPayStripeCustomerAdapter(this.stripe);
-        this.subscriptions = new QZPayStripeSubscriptionAdapter(this.stripe);
-        this.payments = new QZPayStripePaymentAdapter(this.stripe);
+        // Initialize sub-adapters with retry configuration
+        const retryConfig = config.retry;
+        this.customers = new QZPayStripeCustomerAdapter(this.stripe, retryConfig);
+        this.subscriptions = new QZPayStripeSubscriptionAdapter(this.stripe, retryConfig);
+        this.payments = new QZPayStripePaymentAdapter(this.stripe, retryConfig);
         this.checkout = new QZPayStripeCheckoutAdapter(this.stripe);
         this.prices = new QZPayStripePriceAdapter(this.stripe);
-        this.webhooks = new QZPayStripeWebhookAdapter(this.stripe, config.webhookSecret);
+        this.webhooks = new QZPayStripeWebhookAdapter(this.stripe, config.webhookSecret, retryConfig);
         this.setupIntents = new QZPayStripeSetupIntentAdapter(this.stripe);
 
         // Initialize vendor adapter if Connect is configured

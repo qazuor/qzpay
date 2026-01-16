@@ -50,6 +50,42 @@ describe('QZPayStripeAdapter', () => {
             expect(adapter.webhooks).toBeInstanceOf(QZPayStripeWebhookAdapter);
         });
 
+        it('should throw error when secret key does not start with sk_', () => {
+            expect(() => {
+                new QZPayStripeAdapter({
+                    secretKey: 'invalid_key',
+                    webhookSecret: 'whsec_test123'
+                });
+            }).toThrow("Invalid Stripe secret key format. Expected key starting with 'sk_'");
+        });
+
+        it('should throw error when webhook secret does not start with whsec_', () => {
+            expect(() => {
+                new QZPayStripeAdapter({
+                    secretKey: 'sk_test_123',
+                    webhookSecret: 'invalid_secret'
+                });
+            }).toThrow("Invalid Stripe webhook secret format. Expected secret starting with 'whsec_'");
+        });
+
+        it('should accept valid live secret key', () => {
+            const adapter = new QZPayStripeAdapter({
+                secretKey: 'sk_live_123',
+                webhookSecret: 'whsec_test123'
+            });
+
+            expect(adapter.provider).toBe('stripe');
+        });
+
+        it('should accept valid test secret key', () => {
+            const adapter = new QZPayStripeAdapter({
+                secretKey: 'sk_test_123',
+                webhookSecret: 'whsec_test123'
+            });
+
+            expect(adapter.provider).toBe('stripe');
+        });
+
         it('should not create vendor adapter without connect config', () => {
             const adapter = new QZPayStripeAdapter(config);
 

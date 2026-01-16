@@ -64,5 +64,31 @@ export type {
 // Error utilities
 export { QZPayError, QZPayErrorCode, mapStripeError, withErrorMapping } from './utils/error.utils.js';
 
+// Retry utilities
+export {
+    type RetryConfig,
+    DEFAULT_RETRY_CONFIG,
+    isRetriableError,
+    withRetry,
+    createRetryWrapper
+} from './utils/retry.utils.js';
+
+// Currency utilities
+export {
+    STRIPE_SUPPORTED_CURRENCIES,
+    isValidStripeCurrency,
+    validateStripeCurrency
+} from './utils/currency.utils.js';
+
+// Metadata utilities
+export {
+    STRIPE_METADATA_LIMITS,
+    toStripeMetadata,
+    validateStripeMetadata
+} from './utils/metadata.utils.js';
+
+// Saved card service
+export { createSavedCardService, StripeSavedCardService } from './services/saved-card.service.js';
+
 // Re-export Stripe types that consumers might need
 export type { Stripe } from 'stripe';

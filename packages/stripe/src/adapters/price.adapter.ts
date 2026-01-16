@@ -5,6 +5,8 @@ import type { QZPayCreatePriceInput, QZPayPaymentPriceAdapter, QZPayProviderPric
  * Implements QZPayPaymentPriceAdapter for Stripe Products and Prices
  */
 import type Stripe from 'stripe';
+import { validateStripeCurrency } from '../utils/currency.utils.js';
+import { toStripeMetadata } from '../utils/metadata.utils.js';
 
 export class QZPayStripePriceAdapter implements QZPayPaymentPriceAdapter {
     constructor(private readonly stripe: Stripe) {}
@@ -13,11 +15,14 @@ export class QZPayStripePriceAdapter implements QZPayPaymentPriceAdapter {
      * Create a price in Stripe
      */
     async create(input: QZPayCreatePriceInput, providerProductId: string): Promise<string> {
+        // Validate currency is supported by Stripe
+        validateStripeCurrency(input.currency);
+
         const params: Stripe.PriceCreateParams = {
             product: providerProductId,
             unit_amount: input.unitAmount,
             currency: input.currency.toLowerCase(),
-            metadata: input.metadata ? this.toStripeMetadata(input.metadata) : {}
+            metadata: input.metadata ? toStripeMetadata(input.metadata) : {}
         };
 
         // Set recurring based on billing interval
@@ -101,18 +106,5 @@ export class QZPayStripePriceAdapter implements QZPayPaymentPriceAdapter {
         };
 
         return intervalMap[interval] ?? 'month';
-    }
-
-    /**
-     * Convert metadata to Stripe-compatible format
-     */
-    private toStripeMetadata(metadata: Record<string, unknown>): Record<string, string> {
-        const result: Record<string, string> = {};
-        for (const [key, value] of Object.entries(metadata)) {
-            if (value !== undefined && value !== null) {
-                result[key] = String(value);
-            }
-        }
-        return result;
     }
 }

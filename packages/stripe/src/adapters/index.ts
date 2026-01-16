@@ -40,3 +40,5 @@ export type {
 } from './webhook.adapter.js';
 export { QZPayStripeVendorAdapter } from './vendor.adapter.js';
 export { QZPayStripeSetupIntentAdapter, createStripeSetupIntentAdapter } from './setup-intent.adapter.js';
+export { QZPayStripeInvoiceAdapter } from './invoice.adapter.js';
+export type { QZPayProviderInvoice, QZPayListInvoicesOptions } from './invoice.adapter.js';

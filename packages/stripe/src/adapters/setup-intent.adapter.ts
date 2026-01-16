@@ -11,6 +11,7 @@ import type {
     QZPaySetupIntentAdapter
 } from '@qazuor/qzpay-core';
 import type Stripe from 'stripe';
+import { toStripeMetadata } from '../utils/metadata.utils.js';
 
 export class QZPayStripeSetupIntentAdapter implements QZPaySetupIntentAdapter {
     constructor(private readonly stripe: Stripe) {}
@@ -22,7 +23,7 @@ export class QZPayStripeSetupIntentAdapter implements QZPaySetupIntentAdapter {
         const params: Stripe.SetupIntentCreateParams = {
             customer: input.customerId,
             usage: input.usage ?? 'off_session',
-            metadata: input.metadata ?? {}
+            metadata: input.metadata ? toStripeMetadata(input.metadata) : {}
         };
 
         // Set payment method types if provided
@@ -90,7 +91,7 @@ export class QZPayStripeSetupIntentAdapter implements QZPaySetupIntentAdapter {
         const params: Stripe.SetupIntentUpdateParams = {};
 
         if (updates.metadata) {
-            params.metadata = updates.metadata;
+            params.metadata = toStripeMetadata(updates.metadata);
         }
 
         if (updates.description) {

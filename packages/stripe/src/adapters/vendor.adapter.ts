@@ -5,6 +5,8 @@ import type { QZPayPaymentVendorAdapter, QZPayProviderPayout, QZPayVendor } from
  * Implements QZPayPaymentVendorAdapter for Stripe Connect
  */
 import type Stripe from 'stripe';
+import { validateStripeCurrency } from '../utils/currency.utils.js';
+import { toStripeMetadata } from '../utils/metadata.utils.js';
 
 export class QZPayStripeVendorAdapter implements QZPayPaymentVendorAdapter {
     constructor(private readonly stripe: Stripe) {}
@@ -18,7 +20,7 @@ export class QZPayStripeVendorAdapter implements QZPayPaymentVendorAdapter {
             email: vendor.email,
             metadata: {
                 qzpay_vendor_id: vendor.id,
-                ...this.toStripeMetadata(vendor.metadata)
+                ...toStripeMetadata(vendor.metadata)
             },
             capabilities: {
                 card_payments: { requested: true },
@@ -55,7 +57,7 @@ export class QZPayStripeVendorAdapter implements QZPayPaymentVendorAdapter {
         }
 
         if (vendor.metadata !== undefined) {
-            params.metadata = this.toStripeMetadata(vendor.metadata);
+            params.metadata = toStripeMetadata(vendor.metadata);
         }
 
         await this.stripe.accounts.update(providerAccountId, params);
@@ -72,6 +74,9 @@ export class QZPayStripeVendorAdapter implements QZPayPaymentVendorAdapter {
      * Create a payout to a Connect account
      */
     async createPayout(providerAccountId: string, amount: number, currency: string): Promise<string> {
+        // Validate currency is supported by Stripe
+        validateStripeCurrency(currency);
+
         const payout = await this.stripe.payouts.create(
             {
                 amount,
@@ -104,6 +109,9 @@ export class QZPayStripeVendorAdapter implements QZPayPaymentVendorAdapter {
      * Create a transfer to a Connect account
      */
     async createTransfer(providerAccountId: string, amount: number, currency: string, paymentId: string): Promise<string> {
+        // Validate currency is supported by Stripe
+        validateStripeCurrency(currency);
+
         const transfer = await this.stripe.transfers.create({
             amount,
             currency: currency.toLowerCase(),
@@ -159,18 +167,5 @@ export class QZPayStripeVendorAdapter implements QZPayPaymentVendorAdapter {
             payoutsEnabled: account.payouts_enabled ?? false,
             detailsSubmitted: account.details_submitted ?? false
         };
-    }
-
-    /**
-     * Convert metadata to Stripe-compatible format
-     */
-    private toStripeMetadata(metadata: Record<string, unknown>): Record<string, string> {
-        const result: Record<string, string> = {};
-        for (const [key, value] of Object.entries(metadata)) {
-            if (value !== undefined && value !== null) {
-                result[key] = String(value);
-            }
-        }
-        return result;
     }
 }

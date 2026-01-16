@@ -2,6 +2,7 @@
  * Stripe adapter configuration types
  */
 import type Stripe from 'stripe';
+import type { RetryConfig } from './utils/retry.utils.js';
 
 /**
  * Configuration options for the Stripe adapter
@@ -9,11 +10,21 @@ import type Stripe from 'stripe';
 export interface QZPayStripeConfig {
     /**
      * Stripe secret key (sk_live_* or sk_test_*)
+     *
+     * @remarks
+     * Must start with 'sk_' prefix. Validated at adapter initialization.
+     *
+     * @throws {Error} If key does not start with 'sk_'
      */
     secretKey: string;
 
     /**
      * Webhook signing secret (whsec_*)
+     *
+     * @remarks
+     * Must start with 'whsec_' prefix. Validated at adapter initialization.
+     *
+     * @throws {Error} If secret does not start with 'whsec_'
      */
     webhookSecret: string;
 
@@ -26,6 +37,25 @@ export interface QZPayStripeConfig {
      * Additional Stripe client options
      */
     stripeOptions?: Stripe.StripeConfig;
+
+    /**
+     * Retry configuration for transient errors
+     *
+     * @remarks
+     * Automatically retries operations that fail due to:
+     * - Network errors / timeouts
+     * - Rate limiting (429)
+     * - Server errors (5xx)
+     *
+     * Does NOT retry:
+     * - Validation errors (400)
+     * - Authentication errors (401, 403)
+     * - Not found errors (404)
+     * - Card errors
+     *
+     * @default { enabled: true, maxAttempts: 3, initialDelayMs: 1000 }
+     */
+    retry?: Partial<RetryConfig>;
 }
 
 /**

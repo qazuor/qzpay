@@ -65,6 +65,14 @@ export function createMockStripeClient(): Stripe {
         },
         webhooks: {
             constructEvent: vi.fn()
+        },
+        invoices: {
+            list: vi.fn(),
+            retrieve: vi.fn(),
+            pay: vi.fn(),
+            finalizeInvoice: vi.fn(),
+            voidInvoice: vi.fn(),
+            sendInvoice: vi.fn()
         }
     } as unknown as Stripe;
 }
@@ -282,4 +290,38 @@ export function createMockStripeEvent(type: string, data: Record<string, unknown
         livemode: false,
         api_version: '2024-06-20'
     } as unknown as Stripe.Event;
+}
+
+/**
+ * Create a mock Stripe invoice
+ */
+export function createMockStripeInvoice(overrides: Partial<Stripe.Invoice> = {}): Stripe.Invoice {
+    const now = Math.floor(Date.now() / 1000);
+    return {
+        id: 'in_test123',
+        object: 'invoice',
+        customer: 'cus_test123',
+        subscription: null,
+        status: 'paid',
+        currency: 'usd',
+        subtotal: 1000,
+        tax: 0,
+        total: 1000,
+        total_discount_amounts: [],
+        amount_paid: 1000,
+        amount_due: 0,
+        due_date: null,
+        period_start: now,
+        period_end: now + 2592000,
+        hosted_invoice_url: 'https://invoice.stripe.com/i/acct_test/in_test123',
+        invoice_pdf: 'https://pay.stripe.com/invoice/acct_test/in_test123/pdf',
+        metadata: {},
+        status_transitions: {
+            paid_at: now,
+            finalized_at: now,
+            marked_uncollectible_at: null,
+            voided_at: null
+        },
+        ...overrides
+    } as unknown as Stripe.Invoice;
 }

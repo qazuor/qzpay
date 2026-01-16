@@ -5,6 +5,7 @@ import type { QZPayCreateCheckoutInput, QZPayPaymentCheckoutAdapter, QZPayProvid
  * Implements QZPayPaymentCheckoutAdapter for Stripe Checkout Sessions
  */
 import type Stripe from 'stripe';
+import { toStripeMetadata } from '../utils/metadata.utils.js';
 
 export class QZPayStripeCheckoutAdapter implements QZPayPaymentCheckoutAdapter {
     constructor(private readonly stripe: Stripe) {}
@@ -23,7 +24,7 @@ export class QZPayStripeCheckoutAdapter implements QZPayPaymentCheckoutAdapter {
             mode: input.mode === 'subscription' ? 'subscription' : 'payment',
             success_url: input.successUrl,
             cancel_url: input.cancelUrl,
-            metadata: input.metadata ? this.toStripeMetadata(input.metadata) : {}
+            metadata: input.metadata ? toStripeMetadata(input.metadata) : {}
         };
 
         // Set customer if provided
@@ -91,18 +92,5 @@ export class QZPayStripeCheckoutAdapter implements QZPayPaymentCheckoutAdapter {
             customerId: typeof session.customer === 'string' ? session.customer : (session.customer?.id ?? null),
             metadata: (session.metadata as Record<string, string>) ?? {}
         };
-    }
-
-    /**
-     * Convert metadata to Stripe-compatible format
-     */
-    private toStripeMetadata(metadata: Record<string, unknown>): Record<string, string> {
-        const result: Record<string, string> = {};
-        for (const [key, value] of Object.entries(metadata)) {
-            if (value !== undefined && value !== null) {
-                result[key] = String(value);
-            }
-        }
-        return result;
     }
 }
