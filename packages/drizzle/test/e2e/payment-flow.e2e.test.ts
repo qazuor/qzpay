@@ -109,10 +109,11 @@ describe('Payment Flow E2E', () => {
 
             // Step 3: Mark as succeeded (simulating successful payment)
             const succeededPayment = await paymentsRepo.updateStatus(payment.id, 'succeeded', {
-                providerPaymentId: 'pi_test_succeeded_123'
+                providerPaymentIds: { stripe: 'pi_test_succeeded_123' }
             });
             expect(succeededPayment.status).toBe('succeeded');
-            expect(succeededPayment.providerPaymentId).toBe('pi_test_succeeded_123');
+            const providerIds = succeededPayment.providerPaymentIds as Record<string, string>;
+            expect(providerIds.stripe).toBe('pi_test_succeeded_123');
 
             // Verify payment can be found by customer
             const customerPayments = await paymentsRepo.findByCustomerId(testCustomerId);
@@ -358,7 +359,7 @@ describe('Payment Flow E2E', () => {
                 currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
-                providerPaymentId: 'pi_stripe_123',
+                providerPaymentIds: { stripe: 'pi_stripe_123' },
                 livemode: true
             });
 
@@ -369,7 +370,7 @@ describe('Payment Flow E2E', () => {
                 currency: 'ars',
                 status: 'succeeded',
                 provider: 'mercadopago',
-                providerPaymentId: 'mp_payment_456',
+                providerPaymentIds: { mercadopago: 'mp_payment_456' },
                 livemode: true
             });
 

@@ -115,6 +115,7 @@ import {
     QZPayUsageRecordsRepository,
     QZPayVendorsRepository
 } from '../repositories/index.js';
+import type { QZPayDatabase } from '../utils/connection.js';
 
 /**
  * Drizzle storage adapter configuration
@@ -185,12 +186,14 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
         this.livemode = config.livemode ?? true;
 
         // Initialize repositories
+        // Some repositories require QZPayDatabase for typed query builder access
+        const typedDb = this.db as unknown as QZPayDatabase;
         this.addonsRepo = new QZPayAddonsRepository(this.db);
-        this.customersRepo = new QZPayCustomersRepository(this.db);
-        this.subscriptionsRepo = new QZPaySubscriptionsRepository(this.db);
+        this.customersRepo = new QZPayCustomersRepository(typedDb);
+        this.subscriptionsRepo = new QZPaySubscriptionsRepository(typedDb);
         this.paymentsRepo = new QZPayPaymentsRepository(this.db);
         this.paymentMethodsRepo = new QZPayPaymentMethodsRepository(this.db);
-        this.invoicesRepo = new QZPayInvoicesRepository(this.db);
+        this.invoicesRepo = new QZPayInvoicesRepository(typedDb);
         this.plansRepo = new QZPayPlansRepository(this.db);
         this.pricesRepo = new QZPayPricesRepository(this.db);
         this.promoCodesRepo = new QZPayPromoCodesRepository(this.db);

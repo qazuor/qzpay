@@ -210,3 +210,76 @@ export {
  * Schema version for tracking migrations
  */
 export const QZPAY_DRIZZLE_SCHEMA_VERSION = '0.0.1';
+
+/**
+ * Complete schema object with all tables and relations
+ * Required for Drizzle query API (db.query) to work with TypeScript
+ */
+import * as addonSchema from './addons.schema.js';
+import * as auditLogSchema from './audit-logs.schema.js';
+import * as customerSchema from './customers.schema.js';
+import * as entitlementSchema from './entitlements.schema.js';
+import * as idempotencySchema from './idempotency.schema.js';
+import * as invoiceSchema from './invoices.schema.js';
+import * as limitSchema from './limits.schema.js';
+import * as paymentMethodSchema from './payment-methods.schema.js';
+import * as paymentSchema from './payments.schema.js';
+import * as planSchema from './plans.schema.js';
+import * as priceSchema from './prices.schema.js';
+import * as promoCodeSchema from './promo-codes.schema.js';
+import * as relationSchema from './relations.js';
+import * as subscriptionSchema from './subscriptions.schema.js';
+import * as usageRecordSchema from './usage-records.schema.js';
+import * as vendorSchema from './vendors.schema.js';
+import * as webhookSchema from './webhook-events.schema.js';
+
+export const qzpaySchema = {
+    // Tables
+    billingAddons: addonSchema.billingAddons,
+    billingSubscriptionAddons: addonSchema.billingSubscriptionAddons,
+    billingAuditLogs: auditLogSchema.billingAuditLogs,
+    billingCustomers: customerSchema.billingCustomers,
+    billingCustomerEntitlements: entitlementSchema.billingCustomerEntitlements,
+    billingEntitlements: entitlementSchema.billingEntitlements,
+    billingIdempotencyKeys: idempotencySchema.billingIdempotencyKeys,
+    billingInvoices: invoiceSchema.billingInvoices,
+    billingInvoiceLines: invoiceSchema.billingInvoiceLines,
+    billingInvoicePayments: invoiceSchema.billingInvoicePayments,
+    billingCustomerLimits: limitSchema.billingCustomerLimits,
+    billingLimits: limitSchema.billingLimits,
+    billingPaymentMethods: paymentMethodSchema.billingPaymentMethods,
+    billingPayments: paymentSchema.billingPayments,
+    billingRefunds: paymentSchema.billingRefunds,
+    billingPlans: planSchema.billingPlans,
+    billingPrices: priceSchema.billingPrices,
+    billingPromoCodes: promoCodeSchema.billingPromoCodes,
+    billingPromoCodeUsage: promoCodeSchema.billingPromoCodeUsage,
+    billingSubscriptions: subscriptionSchema.billingSubscriptions,
+    billingUsageRecords: usageRecordSchema.billingUsageRecords,
+    billingVendors: vendorSchema.billingVendors,
+    billingVendorPayouts: vendorSchema.billingVendorPayouts,
+    billingWebhookEvents: webhookSchema.billingWebhookEvents,
+    billingWebhookDeadLetter: webhookSchema.billingWebhookDeadLetter,
+    // Relations
+    billingAddonsRelations: relationSchema.billingAddonsRelations,
+    billingSubscriptionAddonsRelations: relationSchema.billingSubscriptionAddonsRelations,
+    billingCustomersRelations: relationSchema.billingCustomersRelations,
+    billingCustomerEntitlementsRelations: relationSchema.billingCustomerEntitlementsRelations,
+    billingEntitlementsRelations: relationSchema.billingEntitlementsRelations,
+    billingInvoicesRelations: relationSchema.billingInvoicesRelations,
+    billingInvoiceLinesRelations: relationSchema.billingInvoiceLinesRelations,
+    billingInvoicePaymentsRelations: relationSchema.billingInvoicePaymentsRelations,
+    billingCustomerLimitsRelations: relationSchema.billingCustomerLimitsRelations,
+    billingLimitsRelations: relationSchema.billingLimitsRelations,
+    billingPaymentMethodsRelations: relationSchema.billingPaymentMethodsRelations,
+    billingPaymentsRelations: relationSchema.billingPaymentsRelations,
+    billingRefundsRelations: relationSchema.billingRefundsRelations,
+    billingPlansRelations: relationSchema.billingPlansRelations,
+    billingPricesRelations: relationSchema.billingPricesRelations,
+    billingPromoCodesRelations: relationSchema.billingPromoCodesRelations,
+    billingPromoCodeUsageRelations: relationSchema.billingPromoCodeUsageRelations,
+    billingSubscriptionsRelations: relationSchema.billingSubscriptionsRelations,
+    billingUsageRecordsRelations: relationSchema.billingUsageRecordsRelations,
+    billingVendorsRelations: relationSchema.billingVendorsRelations,
+    billingVendorPayoutsRelations: relationSchema.billingVendorPayoutsRelations
+} as const;

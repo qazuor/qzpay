@@ -8,6 +8,7 @@ import type {
     QZPayCurrency,
     QZPayDiscountStackingMode,
     QZPayDiscountType,
+    QZPayMetadata,
     QZPayPromoCode,
     QZPayPromoCodeCondition
 } from '@qazuor/qzpay-core';
@@ -46,7 +47,7 @@ export function mapDrizzlePromoCodeToCore(drizzle: QZPayBillingPromoCode): QZPay
         applicablePlanIds: drizzle.validPlans ?? [],
         applicableProductIds: config.applicableProductIds ?? [],
         active: drizzle.active ?? true,
-        metadata: config.metadata ?? {},
+        metadata: (config.metadata as QZPayMetadata) ?? {},
         createdAt: drizzle.createdAt,
         updatedAt: drizzle.createdAt, // Schema doesn't have updatedAt, use createdAt
         deletedAt: null // Schema doesn't support soft deletes
@@ -105,7 +106,6 @@ export function mapCorePromoCodeCreateToDrizzle(
 /**
  * Map Core promo code partial update to Drizzle
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex mapping logic required for promo code updates
 export function mapCorePromoCodeUpdateToDrizzle(update: Partial<QZPayPromoCode>): Partial<QZPayBillingPromoCodeInsert> {
     const result: Partial<QZPayBillingPromoCodeInsert> = {};
 

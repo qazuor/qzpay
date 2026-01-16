@@ -3,7 +3,7 @@
  *
  * Maps between Drizzle schema types and Core domain types.
  */
-import type { QZPayCustomerLimit, QZPayLimit, QZPaySetLimitInput, QZPayUsageRecord } from '@qazuor/qzpay-core';
+import type { QZPayCustomerLimit, QZPayLimit, QZPayMetadata, QZPaySetLimitInput, QZPayUsageRecord } from '@qazuor/qzpay-core';
 import type {
     QZPayBillingCustomerLimit,
     QZPayBillingCustomerLimitInsert,
@@ -107,7 +107,7 @@ export function mapDrizzleUsageRecordToCore(drizzle: QZPayBillingUsageRecord): Q
         quantity: drizzle.quantity,
         action: drizzle.action as QZPayUsageRecord['action'],
         timestamp: drizzle.timestamp,
-        metadata: (drizzle.metadata as Record<string, unknown>) ?? {}
+        metadata: (drizzle.metadata as QZPayMetadata) ?? {}
     };
 }
 

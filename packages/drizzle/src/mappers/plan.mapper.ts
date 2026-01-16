@@ -3,7 +3,7 @@
  *
  * Maps between Drizzle schema types and Core domain types.
  */
-import type { QZPayCreatePlanInput, QZPayPlan, QZPayPlanFeature } from '@qazuor/qzpay-core';
+import type { QZPayCreatePlanInput, QZPayMetadata, QZPayPlan, QZPayPlanFeature } from '@qazuor/qzpay-core';
 import type { QZPayBillingPlan, QZPayBillingPlanInsert, QZPayBillingPrice } from '../schema/index.js';
 import { mapDrizzlePriceToCore } from './price.mapper.js';
 
@@ -20,7 +20,7 @@ export function mapDrizzlePlanToCore(drizzle: QZPayBillingPlan, prices: QZPayBil
         features: (drizzle.features as QZPayPlanFeature[]) ?? [],
         entitlements: drizzle.entitlements ?? [],
         limits: (drizzle.limits as Record<string, number>) ?? {},
-        metadata: (drizzle.metadata as Record<string, unknown>) ?? {},
+        metadata: (drizzle.metadata as QZPayMetadata) ?? {},
         createdAt: drizzle.createdAt,
         updatedAt: drizzle.updatedAt,
         deletedAt: drizzle.deletedAt ?? null

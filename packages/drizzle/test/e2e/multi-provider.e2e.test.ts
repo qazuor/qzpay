@@ -148,7 +148,7 @@ describe('Multi-Provider E2E', () => {
                 currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
-                providerPaymentId: 'pi_stripe_success',
+                providerPaymentIds: { stripe: 'pi_stripe_success' },
                 metadata: { source: 'website' },
                 livemode: true
             });
@@ -167,7 +167,7 @@ describe('Multi-Provider E2E', () => {
                 currency: 'ars',
                 status: 'succeeded',
                 provider: 'mercadopago',
-                providerPaymentId: 'mp_payment_12345',
+                providerPaymentIds: { mercadopago: 'mp_payment_12345' },
                 metadata: { source: 'mobile_app' },
                 livemode: true
             });

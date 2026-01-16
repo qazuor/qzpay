@@ -34,6 +34,7 @@ export const billingSubscriptions = pgTable(
         trialConvertedAt: timestamp('trial_converted_at', { withTimezone: true }),
         cancelAt: timestamp('cancel_at', { withTimezone: true }),
         canceledAt: timestamp('canceled_at', { withTimezone: true }),
+        cancelAtPeriodEnd: boolean('cancel_at_period_end').default(false),
         endedAt: timestamp('ended_at', { withTimezone: true }),
         promoCodeId: uuid('promo_code_id').references(() => billingPromoCodes.id),
         defaultPaymentMethodId: uuid('default_payment_method_id'),
@@ -50,11 +51,30 @@ export const billingSubscriptions = pgTable(
         deletedAt: timestamp('deleted_at', { withTimezone: true })
     },
     (table) => ({
+        // Basic indexes
         customerIdx: index('idx_subscriptions_customer').on(table.customerId),
         statusIdx: index('idx_subscriptions_status').on(table.status),
+        customerStatusIdx: index('idx_subscriptions_customer_status').on(table.customerId, table.status),
         stripeIdIdx: index('idx_subscriptions_stripe_id').on(table.stripeSubscriptionId),
         mpIdIdx: index('idx_subscriptions_mp_id').on(table.mpSubscriptionId),
-        renewalIdx: index('idx_subscriptions_renewal').on(table.currentPeriodEnd)
+        renewalIdx: index('idx_subscriptions_renewal').on(table.currentPeriodEnd),
+
+        // Lifecycle optimization indexes
+        // Supports findNeedingRenewal() query
+        lifecycleRenewalIdx: index('idx_subscriptions_lifecycle_renewal').on(
+            table.status,
+            table.livemode,
+            table.currentPeriodEnd,
+            table.cancelAtPeriodEnd
+        ),
+        // Supports findNeedingRetry() query
+        lifecycleRetryIdx: index('idx_subscriptions_lifecycle_retry').on(table.status, table.nextRetryAt, table.gracePeriodEndsAt),
+        // Supports findWithExpiredGracePeriod() query
+        lifecycleGraceIdx: index('idx_subscriptions_lifecycle_grace').on(table.status, table.gracePeriodEndsAt),
+        // Supports findTrialsEndingSoon() query
+        lifecycleTrialIdx: index('idx_subscriptions_lifecycle_trial').on(table.status, table.trialEnd),
+        // Supports findScheduledForCancellation() query
+        lifecycleCancelIdx: index('idx_subscriptions_lifecycle_cancel').on(table.cancelAtPeriodEnd, table.status, table.currentPeriodEnd)
     })
 );
 

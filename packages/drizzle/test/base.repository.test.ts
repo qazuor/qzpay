@@ -3,14 +3,17 @@
  *
  * Tests for error classes and helper functions
  */
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
     QZPayEntityNotFoundError,
     QZPayOptimisticLockError,
     assertExists,
     firstOrNull,
-    firstOrThrow
+    firstOrThrow,
+    updateWithVersionHelper
 } from '../src/repositories/base.repository.js';
+import { QZPayCustomersRepository } from '../src/repositories/customers.repository.js';
+import { clearTestData, startTestDatabase, stopTestDatabase } from './helpers/db-helpers.js';
 
 describe('Base Repository', () => {
     describe('QZPayOptimisticLockError', () => {
@@ -154,6 +157,449 @@ describe('Base Repository', () => {
             const result = firstOrThrow(results, 'Result', 'only');
 
             expect(result).toEqual({ id: 'only', value: 42 });
+        });
+    });
+
+    describe('updateWithVersionHelper', () => {
+        // biome-ignore lint/suspicious/noExplicitAny: Test database type varies
+        let db: any;
+        let customersRepo: QZPayCustomersRepository;
+
+        beforeAll(async () => {
+            const testDb = await startTestDatabase();
+            db = testDb.db;
+            customersRepo = new QZPayCustomersRepository(db);
+        });
+
+        afterAll(async () => {
+            await stopTestDatabase();
+        });
+
+        beforeEach(async () => {
+            await clearTestData();
+        });
+
+        describe('successful updates', () => {
+            it('should update record with correct version', async () => {
+                // Create a customer
+                const customer = await customersRepo.create({
+                    externalId: 'test-001',
+                    email: 'test@example.com',
+                    name: 'Original Name',
+                    livemode: true
+                });
+
+                const originalVersion = customer.version;
+
+                // Import schema for table reference
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                // Update with version check
+                const updated = await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    originalVersion,
+                    { name: 'Updated Name' },
+                    { entityType: 'Customer', entityId: customer.id }
+                );
+
+                expect(updated.name).toBe('Updated Name');
+                expect(updated.version).not.toBe(originalVersion);
+                expect(updated.version).toBeDefined();
+                expect(updated.id).toBe(customer.id);
+            });
+
+            it('should update multiple fields at once', async () => {
+                const customer = await customersRepo.create({
+                    externalId: 'test-002',
+                    email: 'multi@example.com',
+                    name: 'Original',
+                    livemode: true
+                });
+
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                const updated = await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    customer.version,
+                    {
+                        name: 'New Name',
+                        email: 'newemail@example.com'
+                    },
+                    { entityType: 'Customer', entityId: customer.id }
+                );
+
+                expect(updated.name).toBe('New Name');
+                expect(updated.email).toBe('newemail@example.com');
+                expect(updated.version).not.toBe(customer.version);
+            });
+
+            it('should allow sequential updates with refreshed version', async () => {
+                const customer = await customersRepo.create({
+                    externalId: 'test-003',
+                    email: 'sequential@example.com',
+                    name: 'Version 1',
+                    livemode: true
+                });
+
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                // First update
+                const update1 = await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    customer.version,
+                    { name: 'Version 2' },
+                    { entityType: 'Customer', entityId: customer.id }
+                );
+
+                // Second update with new version
+                const update2 = await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    update1.version,
+                    { name: 'Version 3' },
+                    { entityType: 'Customer', entityId: customer.id }
+                );
+
+                expect(update1.version).not.toBe(customer.version);
+                expect(update2.version).not.toBe(update1.version);
+                expect(update2.name).toBe('Version 3');
+            });
+
+            it('should automatically update the updatedAt timestamp', async () => {
+                const customer = await customersRepo.create({
+                    externalId: 'test-004',
+                    email: 'timestamp@example.com',
+                    name: 'Test',
+                    livemode: true
+                });
+
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                // Wait a bit to ensure timestamp difference
+                await new Promise((resolve) => setTimeout(resolve, 10));
+
+                const updated = await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    customer.version,
+                    { name: 'Updated' },
+                    { entityType: 'Customer', entityId: customer.id }
+                );
+
+                expect(updated.updatedAt.getTime()).toBeGreaterThan(customer.updatedAt.getTime());
+            });
+        });
+
+        describe('optimistic locking errors', () => {
+            it('should throw QZPayOptimisticLockError when version mismatch', async () => {
+                const customer = await customersRepo.create({
+                    externalId: 'test-005',
+                    email: 'conflict@example.com',
+                    name: 'Original',
+                    livemode: true
+                });
+
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                // First update changes the version
+                await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    customer.version,
+                    { name: 'First Update' },
+                    { entityType: 'Customer', entityId: customer.id }
+                );
+
+                // Second update with old version should fail
+                await expect(
+                    updateWithVersionHelper(
+                        db,
+                        billingCustomers,
+                        customer.id,
+                        customer.version, // Old version
+                        { name: 'Second Update' },
+                        { entityType: 'Customer', entityId: customer.id }
+                    )
+                ).rejects.toThrow(QZPayOptimisticLockError);
+            });
+
+            it('should include entity type and ID in error', async () => {
+                const customer = await customersRepo.create({
+                    externalId: 'test-006',
+                    email: 'error-details@example.com',
+                    name: 'Test',
+                    livemode: true
+                });
+
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                // Update to change version
+                await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    customer.version,
+                    { name: 'Changed' },
+                    { entityType: 'Customer', entityId: customer.id }
+                );
+
+                // Try updating with stale version
+                try {
+                    await updateWithVersionHelper(
+                        db,
+                        billingCustomers,
+                        customer.id,
+                        customer.version,
+                        { name: 'Fail' },
+                        { entityType: 'Customer', entityId: customer.id }
+                    );
+                    expect.fail('Should have thrown QZPayOptimisticLockError');
+                } catch (error) {
+                    expect(error).toBeInstanceOf(QZPayOptimisticLockError);
+                    expect((error as QZPayOptimisticLockError).entityType).toBe('Customer');
+                    expect((error as QZPayOptimisticLockError).entityId).toBe(customer.id);
+                }
+            });
+
+            it('should simulate real-world race condition', async () => {
+                const customer = await customersRepo.create({
+                    externalId: 'test-007',
+                    email: 'race@example.com',
+                    name: 'Original',
+                    livemode: true
+                });
+
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                // Simulate two processes reading the same version
+                const version = customer.version;
+
+                // Process 1 succeeds
+                const update1 = await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    version,
+                    { name: 'Process 1' },
+                    { entityType: 'Customer', entityId: customer.id }
+                );
+
+                expect(update1.name).toBe('Process 1');
+
+                // Process 2 fails with optimistic lock error
+                await expect(
+                    updateWithVersionHelper(
+                        db,
+                        billingCustomers,
+                        customer.id,
+                        version, // Same version as process 1
+                        { name: 'Process 2' },
+                        { entityType: 'Customer', entityId: customer.id }
+                    )
+                ).rejects.toThrow(QZPayOptimisticLockError);
+
+                // Verify process 1's update persisted
+                const final = await customersRepo.findById(customer.id);
+                expect(final?.name).toBe('Process 1');
+            });
+        });
+
+        describe('entity not found errors', () => {
+            it('should throw QZPayEntityNotFoundError for non-existent ID', async () => {
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                await expect(
+                    updateWithVersionHelper(
+                        db,
+                        billingCustomers,
+                        'non-existent-id',
+                        'some-version',
+                        { name: 'Test' },
+                        { entityType: 'Customer', entityId: 'non-existent-id' }
+                    )
+                ).rejects.toThrow(QZPayEntityNotFoundError);
+            });
+
+            it('should not update soft-deleted records by default', async () => {
+                const customer = await customersRepo.create({
+                    externalId: 'test-008',
+                    email: 'deleted@example.com',
+                    name: 'To Delete',
+                    livemode: true
+                });
+
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                // Soft delete the customer
+                await customersRepo.softDelete(customer.id);
+
+                // Try to update the deleted customer
+                await expect(
+                    updateWithVersionHelper(
+                        db,
+                        billingCustomers,
+                        customer.id,
+                        customer.version,
+                        { name: 'Should Fail' },
+                        { entityType: 'Customer', entityId: customer.id }
+                    )
+                ).rejects.toThrow(QZPayEntityNotFoundError);
+            });
+        });
+
+        describe('options', () => {
+            it('should update soft-deleted records when includeSoftDeleted is true', async () => {
+                const customer = await customersRepo.create({
+                    externalId: 'test-009',
+                    email: 'include-deleted@example.com',
+                    name: 'Original',
+                    livemode: true
+                });
+
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                // Soft delete
+                await customersRepo.softDelete(customer.id);
+
+                // Update with includeSoftDeleted option
+                const updated = await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    customer.version,
+                    { name: 'Updated Deleted' },
+                    {
+                        entityType: 'Customer',
+                        entityId: customer.id,
+                        includeSoftDeleted: true
+                    }
+                );
+
+                expect(updated.name).toBe('Updated Deleted');
+                expect(updated.deletedAt).not.toBeNull();
+            });
+
+            it('should apply custom transform function', async () => {
+                const customer = await customersRepo.create({
+                    externalId: 'test-010',
+                    email: 'transform@example.com',
+                    name: 'test name',
+                    livemode: true
+                });
+
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                const updated = await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    customer.version,
+                    { name: 'new name' },
+                    {
+                        entityType: 'Customer',
+                        entityId: customer.id,
+                        transform: (record) => ({
+                            ...record,
+                            name: record.name.toUpperCase()
+                        })
+                    }
+                );
+
+                expect(updated.name).toBe('NEW NAME');
+            });
+
+            it('should support async transform function', async () => {
+                const customer = await customersRepo.create({
+                    externalId: 'test-011',
+                    email: 'async-transform@example.com',
+                    name: 'test',
+                    livemode: true
+                });
+
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                const updated = await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    customer.version,
+                    { name: 'value' },
+                    {
+                        entityType: 'Customer',
+                        entityId: customer.id,
+                        transform: async (record) => {
+                            // Simulate async operation
+                            await new Promise((resolve) => setTimeout(resolve, 10));
+                            return {
+                                ...record,
+                                name: `[ASYNC] ${record.name}`
+                            };
+                        }
+                    }
+                );
+
+                expect(updated.name).toBe('[ASYNC] value');
+            });
+        });
+
+        describe('edge cases', () => {
+            it('should handle empty update data object', async () => {
+                const customer = await customersRepo.create({
+                    externalId: 'test-012',
+                    email: 'empty-update@example.com',
+                    name: 'Original',
+                    livemode: true
+                });
+
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                const updated = await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    customer.version,
+                    {}, // Empty update
+                    { entityType: 'Customer', entityId: customer.id }
+                );
+
+                // Version should still change
+                expect(updated.version).not.toBe(customer.version);
+                // Data should remain the same
+                expect(updated.name).toBe('Original');
+            });
+
+            it('should handle null values in update data', async () => {
+                const customer = await customersRepo.create({
+                    externalId: 'test-013',
+                    email: 'null-update@example.com',
+                    name: 'Original',
+                    segment: 'premium',
+                    livemode: true
+                });
+
+                const { billingCustomers } = await import('../src/schema/customers.schema.js');
+
+                const updated = await updateWithVersionHelper(
+                    db,
+                    billingCustomers,
+                    customer.id,
+                    customer.version,
+                    { segment: null },
+                    { entityType: 'Customer', entityId: customer.id }
+                );
+
+                expect(updated.segment).toBeNull();
+                expect(updated.version).not.toBe(customer.version);
+            });
         });
     });
 });

@@ -25,11 +25,17 @@ export {
     assertExists,
     firstOrNull,
     firstOrThrow,
+    QZPAY_DEFAULT_LIMIT,
+    QZPAY_MAX_LIMIT,
+    QZPAY_MAX_OFFSET,
     QZPayEntityNotFoundError,
     type QZPayFindManyOptions,
     QZPayOptimisticLockError,
     type QZPayOrderBy,
-    type QZPayPaginatedResult
+    type QZPayPaginatedResult,
+    type QZPayPaginationValidationOptions,
+    qzpayValidatePagination,
+    type QZPayValidatedPagination
 } from './base.repository.js';
 // Entity repositories
 export { type QZPayCustomerSearchOptions, QZPayCustomersRepository } from './customers.repository.js';

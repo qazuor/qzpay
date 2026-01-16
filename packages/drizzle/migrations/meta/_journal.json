@@ -8,6 +8,20 @@
       "when": 1767359355185,
       "tag": "0000_safe_spirit",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1737000000000,
+      "tag": "0001_add_composite_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1737000000001,
+      "tag": "0002_add_missing_core_fields",
+      "breakpoints": true
     }
   ]
 }

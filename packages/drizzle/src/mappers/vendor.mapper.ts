@@ -6,6 +6,8 @@
 import type {
     QZPayCreateVendorInput,
     QZPayCurrency,
+    QZPayMetadata,
+    QZPayPayoutSchedule,
     QZPayUpdateVendorInput,
     QZPayVendor,
     QZPayVendorPayout,
@@ -33,6 +35,9 @@ export function mapDrizzleVendorToCore(drizzle: QZPayBillingVendor): QZPayVendor
         providerAccountIds['mercadopago'] = drizzle.mpMerchantId;
     }
 
+    // Parse payoutSchedule from JSONB
+    const payoutSchedule = drizzle.payoutSchedule as QZPayPayoutSchedule | null;
+
     return {
         id: drizzle.id,
         externalId: drizzle.externalId,
@@ -40,12 +45,12 @@ export function mapDrizzleVendorToCore(drizzle: QZPayBillingVendor): QZPayVendor
         email: drizzle.email,
         status: drizzle.onboardingStatus as QZPayVendorStatus,
         commissionRate: Number(drizzle.commissionRate),
-        payoutSchedule: {
+        payoutSchedule: payoutSchedule ?? {
             interval: 'weekly',
             dayOfWeek: 1
         },
         providerAccountIds,
-        metadata: (drizzle.metadata as Record<string, unknown>) ?? {},
+        metadata: (drizzle.metadata as QZPayMetadata) ?? {},
         livemode: drizzle.livemode,
         createdAt: drizzle.createdAt,
         updatedAt: drizzle.updatedAt,
@@ -64,6 +69,7 @@ export function mapCoreVendorCreateToDrizzle(input: QZPayCreateVendorInput & { i
         email: input.email,
         onboardingStatus: 'pending',
         commissionRate: String(input.commissionRate ?? 0),
+        payoutSchedule: input.payoutSchedule ?? null,
         canReceivePayments: false,
         metadata: input.metadata ?? {},
         livemode
@@ -84,6 +90,9 @@ export function mapCoreVendorUpdateToDrizzle(input: QZPayUpdateVendorInput): Par
     }
     if (input.commissionRate !== undefined) {
         result.commissionRate = String(input.commissionRate);
+    }
+    if (input.payoutSchedule !== undefined) {
+        result.payoutSchedule = input.payoutSchedule;
     }
     if (input.metadata !== undefined) {
         result.metadata = input.metadata;

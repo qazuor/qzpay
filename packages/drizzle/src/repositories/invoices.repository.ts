@@ -4,7 +4,6 @@
  * Provides invoice and invoice line database operations.
  */
 import { and, count, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
-import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
     type QZPayBillingInvoice,
     type QZPayBillingInvoiceInsert,
@@ -16,6 +15,7 @@ import {
     billingInvoicePayments,
     billingInvoices
 } from '../schema/index.js';
+import type { QZPayDatabase } from '../utils/connection.js';
 import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
 
 /**
@@ -38,10 +38,17 @@ export interface QZPayInvoiceSearchOptions {
 }
 
 /**
+ * Invoice with lines loaded
+ */
+export interface QZPayInvoiceWithLines extends QZPayBillingInvoice {
+    lines: QZPayBillingInvoiceLine[];
+}
+
+/**
  * Invoices repository
  */
 export class QZPayInvoicesRepository {
-    constructor(private readonly db: PostgresJsDatabase) {}
+    constructor(private readonly db: QZPayDatabase) {}
 
     /**
      * Find invoice by ID
@@ -421,6 +428,8 @@ export class QZPayInvoicesRepository {
 
     /**
      * Get invoice with lines
+     *
+     * @deprecated Use findByIdWithLines instead for better performance with eager loading
      */
     async findWithLines(id: string): Promise<{ invoice: QZPayBillingInvoice; lines: QZPayBillingInvoiceLine[] } | null> {
         const invoice = await this.findById(id);
@@ -429,5 +438,93 @@ export class QZPayInvoicesRepository {
         const lines = await this.findLinesByInvoiceId(id);
 
         return { invoice, lines };
+    }
+
+    // ==================== Eager Loading Methods ====================
+
+    /**
+     * Find invoice by ID with lines preloaded
+     *
+     * Prevents N+1 queries by eagerly loading invoice lines.
+     * This is more efficient than findWithLines as it uses a single JOIN query
+     * instead of two separate queries.
+     *
+     * @param id - Invoice ID
+     * @returns Invoice with lines or null if not found
+     *
+     * @example
+     * ```typescript
+     * const invoice = await repo.findByIdWithLines('inv_123');
+     * if (invoice) {
+     *   console.log(`Invoice has ${invoice.lines.length} line items`);
+     *   const total = invoice.lines.reduce((sum, line) => sum + line.amount, 0);
+     * }
+     * ```
+     */
+    async findByIdWithLines(id: string): Promise<QZPayInvoiceWithLines | null> {
+        const result = await this.db.query?.billingInvoices.findFirst({
+            where: and(eq(billingInvoices.id, id), isNull(billingInvoices.deletedAt)),
+            with: {
+                lines: true
+            }
+        });
+
+        return (result ?? null) as QZPayInvoiceWithLines | null;
+    }
+
+    /**
+     * Find invoices by customer ID with lines preloaded
+     *
+     * Prevents N+1 queries by eagerly loading lines for all invoices at once.
+     * This is useful when displaying a customer's invoice history with line items.
+     *
+     * @param customerId - Customer ID
+     * @param pagination - Pagination options (limit and offset)
+     * @returns Paginated result with invoices including their lines
+     *
+     * @example
+     * ```typescript
+     * const result = await repo.findByCustomerIdWithLines('cust_123', {
+     *   limit: 10,
+     *   offset: 0
+     * });
+     *
+     * console.log(`Found ${result.total} invoices`);
+     * for (const invoice of result.data) {
+     *   console.log(`Invoice ${invoice.number}: ${invoice.lines.length} lines`);
+     * }
+     * ```
+     */
+    async findByCustomerIdWithLines(
+        customerId: string,
+        pagination: { limit?: number; offset?: number } = {}
+    ): Promise<QZPayPaginatedResult<QZPayInvoiceWithLines>> {
+        const { limit = 100, offset = 0 } = pagination;
+
+        const conditions = [eq(billingInvoices.customerId, customerId), isNull(billingInvoices.deletedAt)];
+
+        // Get total count
+        const countResult = await this.db
+            .select({ count: count() })
+            .from(billingInvoices)
+            .where(and(...conditions));
+
+        const total = countResult[0]?.count ?? 0;
+
+        // Get invoices with lines
+        const data = await this.db.query?.billingInvoices.findMany({
+            where: and(...conditions),
+            with: {
+                lines: true
+            },
+            orderBy: sql`${billingInvoices.createdAt} DESC`,
+            limit,
+            offset
+        });
+
+        return {
+            data: (data ?? []) as QZPayInvoiceWithLines[],
+            total
+        };
     }
 }

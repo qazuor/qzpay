@@ -3,7 +3,7 @@
  *
  * Maps between Drizzle schema types and Core domain types.
  */
-import type { QZPayBillingInterval, QZPayCreatePriceInput, QZPayCurrency, QZPayPrice } from '@qazuor/qzpay-core';
+import type { QZPayBillingInterval, QZPayCreatePriceInput, QZPayCurrency, QZPayMetadata, QZPayPrice } from '@qazuor/qzpay-core';
 import type { QZPayBillingPrice, QZPayBillingPriceInsert } from '../schema/index.js';
 
 /**
@@ -32,7 +32,7 @@ export function mapDrizzlePriceToCore(drizzle: QZPayBillingPrice): QZPayPrice {
         trialDays: drizzle.trialDays ?? null,
         active: drizzle.active,
         providerPriceIds,
-        metadata: (drizzle.metadata as Record<string, unknown>) ?? {},
+        metadata: (drizzle.metadata as QZPayMetadata) ?? {},
         createdAt: drizzle.createdAt,
         updatedAt: drizzle.updatedAt
     };

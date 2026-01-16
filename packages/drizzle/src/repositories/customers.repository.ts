@@ -4,9 +4,22 @@
  * Provides customer-specific database operations.
  */
 import { and, count, eq, ilike, isNull, or, sql } from 'drizzle-orm';
-import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { type QZPayBillingCustomer, type QZPayBillingCustomerInsert, billingCustomers } from '../schema/index.js';
-import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
+import {
+    type QZPayBillingCustomer,
+    type QZPayBillingCustomerEntitlement,
+    type QZPayBillingCustomerInsert,
+    type QZPayBillingPaymentMethod,
+    type QZPayBillingSubscription,
+    billingCustomers
+} from '../schema/index.js';
+import type { QZPayDatabase } from '../utils/connection.js';
+import {
+    type QZPayPaginatedResult,
+    firstOrNull,
+    firstOrThrow,
+    qzpayValidatePagination,
+    updateWithVersionHelper
+} from './base.repository.js';
 
 /**
  * Customer search options
@@ -19,10 +32,28 @@ export interface QZPayCustomerSearchOptions {
 }
 
 /**
+ * Options for loading customer relations
+ */
+export interface QZPayCustomerRelationsOptions {
+    subscriptions?: boolean;
+    paymentMethods?: boolean;
+    entitlements?: boolean;
+}
+
+/**
+ * Customer with all relations loaded
+ */
+export interface QZPayCustomerWithRelations extends QZPayBillingCustomer {
+    subscriptions?: QZPayBillingSubscription[];
+    paymentMethods?: QZPayBillingPaymentMethod[];
+    entitlements?: QZPayBillingCustomerEntitlement[];
+}
+
+/**
  * Customers repository
  */
 export class QZPayCustomersRepository {
-    constructor(private readonly db: PostgresJsDatabase) {}
+    constructor(private readonly db: QZPayDatabase) {}
 
     /**
      * Find customer by ID
@@ -130,6 +161,48 @@ export class QZPayCustomersRepository {
     }
 
     /**
+     * Update a customer with optimistic locking
+     *
+     * Uses version-based optimistic locking to prevent concurrent modifications.
+     * The version field is automatically incremented on successful updates.
+     *
+     * @param id - Customer ID
+     * @param expectedVersion - The expected current version UUID
+     * @param input - Partial customer data to update
+     *
+     * @returns The updated customer with new version
+     *
+     * @throws {QZPayOptimisticLockError} When the version doesn't match (concurrent modification detected)
+     * @throws {QZPayEntityNotFoundError} When the customer is not found
+     *
+     * @example
+     * ```typescript
+     * // Read customer with current version
+     * const customer = await customerRepo.findById('cust-123');
+     *
+     * // Update with version check
+     * const updated = await customerRepo.updateWithVersion(
+     *   'cust-123',
+     *   customer.version,
+     *   { name: 'New Name' }
+     * );
+     *
+     * // If another process updates the customer between read and update,
+     * // QZPayOptimisticLockError will be thrown
+     * ```
+     */
+    async updateWithVersion(
+        id: string,
+        expectedVersion: string,
+        input: Partial<QZPayBillingCustomerInsert>
+    ): Promise<QZPayBillingCustomer> {
+        return updateWithVersionHelper(this.db, billingCustomers, id, expectedVersion, input, {
+            entityType: 'Customer',
+            entityId: id
+        });
+    }
+
+    /**
      * Update Stripe customer ID
      */
     async updateStripeCustomerId(id: string, stripeCustomerId: string): Promise<QZPayBillingCustomer> {
@@ -188,7 +261,8 @@ export class QZPayCustomersRepository {
      * Search customers by query (email, name, external ID)
      */
     async search(options: QZPayCustomerSearchOptions): Promise<QZPayPaginatedResult<QZPayBillingCustomer>> {
-        const { query, livemode, limit = 100, offset = 0 } = options;
+        const { query, livemode } = options;
+        const { limit, offset } = qzpayValidatePagination(options.limit, options.offset);
 
         const conditions = [isNull(billingCustomers.deletedAt)];
 
@@ -275,5 +349,103 @@ export class QZPayCustomersRepository {
             .limit(1);
 
         return result.length > 0;
+    }
+
+    // ==================== Eager Loading Methods ====================
+
+    /**
+     * Find customer by ID with subscriptions preloaded
+     *
+     * Prevents N+1 queries by eagerly loading subscriptions.
+     *
+     * @param id - Customer ID
+     * @returns Customer with subscriptions or null if not found
+     */
+    async findByIdWithSubscriptions(id: string): Promise<QZPayCustomerWithRelations | null> {
+        const result = await this.db.query?.billingCustomers.findFirst({
+            where: and(eq(billingCustomers.id, id), isNull(billingCustomers.deletedAt)),
+            with: {
+                subscriptions: {
+                    where: isNull(billingCustomers.deletedAt)
+                }
+            }
+        });
+
+        return (result ?? null) as QZPayCustomerWithRelations | null;
+    }
+
+    /**
+     * Find customer by ID with payment methods preloaded
+     *
+     * Prevents N+1 queries by eagerly loading payment methods.
+     *
+     * @param id - Customer ID
+     * @returns Customer with payment methods or null if not found
+     */
+    async findByIdWithPaymentMethods(id: string): Promise<QZPayCustomerWithRelations | null> {
+        const result = await this.db.query?.billingCustomers.findFirst({
+            where: and(eq(billingCustomers.id, id), isNull(billingCustomers.deletedAt)),
+            with: {
+                paymentMethods: {
+                    where: isNull(billingCustomers.deletedAt)
+                }
+            }
+        });
+
+        return (result ?? null) as QZPayCustomerWithRelations | null;
+    }
+
+    /**
+     * Find customer by ID with flexible relation preloading
+     *
+     * Prevents N+1 queries by eagerly loading specified relations.
+     * Use this method when you need to load multiple relations or customize which relations to load.
+     *
+     * @param id - Customer ID
+     * @param options - Relations to preload (subscriptions, paymentMethods, entitlements)
+     * @returns Customer with requested relations or null if not found
+     *
+     * @example
+     * ```typescript
+     * // Load customer with subscriptions and payment methods
+     * const customer = await repo.findByIdWithRelations('cust_123', {
+     *   subscriptions: true,
+     *   paymentMethods: true
+     * });
+     *
+     * // Load only entitlements
+     * const customer = await repo.findByIdWithRelations('cust_123', {
+     *   entitlements: true
+     * });
+     * ```
+     */
+    async findByIdWithRelations(id: string, options: QZPayCustomerRelationsOptions = {}): Promise<QZPayCustomerWithRelations | null> {
+        const withClause: Record<string, unknown> = {};
+
+        if (options.subscriptions) {
+            // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+            withClause['subscriptions'] = {
+                where: isNull(billingCustomers.deletedAt)
+            };
+        }
+
+        if (options.paymentMethods) {
+            // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+            withClause['paymentMethods'] = {
+                where: isNull(billingCustomers.deletedAt)
+            };
+        }
+
+        if (options.entitlements) {
+            // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+            withClause['entitlements'] = true;
+        }
+
+        const result = await this.db.query?.billingCustomers.findFirst({
+            where: and(eq(billingCustomers.id, id), isNull(billingCustomers.deletedAt)),
+            with: withClause
+        });
+
+        return (result ?? null) as QZPayCustomerWithRelations | null;
     }
 }

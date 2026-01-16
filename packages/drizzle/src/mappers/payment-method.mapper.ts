@@ -8,6 +8,7 @@ import type {
     QZPayCardBrand,
     QZPayCardDetails,
     QZPayCreatePaymentMethodInput,
+    QZPayMetadata,
     QZPayPaymentMethod,
     QZPayPaymentMethodStatus,
     QZPayPaymentMethodType,
@@ -60,9 +61,15 @@ function mapDrizzleBrandToCore(brand: string | null): QZPayCardBrand {
 }
 
 /**
- * Determine payment method status based on expiration
+ * Determine payment method status based on expiration and stored status
  */
 function determinePaymentMethodStatus(drizzle: QZPayBillingPaymentMethod): QZPayPaymentMethodStatus {
+    // Use stored status if available
+    if (drizzle.status) {
+        return drizzle.status as QZPayPaymentMethodStatus;
+    }
+
+    // Fallback: determine based on expiration
     if (drizzle.type === 'card' && drizzle.expMonth && drizzle.expYear) {
         const now = new Date();
         const expDate = new Date(drizzle.expYear, drizzle.expMonth, 0, 23, 59, 59, 999);
@@ -112,7 +119,7 @@ export function mapDrizzlePaymentMethodToCore(drizzle: QZPayBillingPaymentMethod
         bankAccount: null, // Bank account details not stored in current schema
         billingDetails,
         providerPaymentMethodIds,
-        metadata: (drizzle.metadata as Record<string, unknown>) ?? {},
+        metadata: (drizzle.metadata as QZPayMetadata) ?? {},
         livemode: drizzle.livemode,
         createdAt: drizzle.createdAt,
         updatedAt: drizzle.createdAt // Schema doesn't have updatedAt, using createdAt
@@ -133,6 +140,7 @@ export function mapCorePaymentMethodCreateToDrizzle(
         provider: input.provider,
         providerPaymentMethodId: input.providerPaymentMethodId,
         type: input.type,
+        status: 'active',
         lastFour: cardDetails?.last4 ?? null,
         brand: cardDetails?.brand ?? null,
         expMonth: cardDetails?.expMonth ?? null,

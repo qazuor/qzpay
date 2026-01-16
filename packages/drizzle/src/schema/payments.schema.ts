@@ -31,7 +31,7 @@ export const billingPayments = pgTable(
         exchangeRate: numeric('exchange_rate', { precision: 18, scale: 8 }),
         status: varchar('status', { length: 50 }).notNull(),
         provider: varchar('provider', { length: 50 }).notNull(),
-        providerPaymentId: varchar('provider_payment_id', { length: 255 }),
+        providerPaymentIds: jsonb('provider_payment_ids').default({}),
         paymentMethodId: uuid('payment_method_id'),
         refundedAmount: integer('refunded_amount').default(0),
         failureCode: varchar('failure_code', { length: 100 }),
@@ -48,7 +48,6 @@ export const billingPayments = pgTable(
         customerIdx: index('idx_payments_customer').on(table.customerId),
         subscriptionIdx: index('idx_payments_subscription').on(table.subscriptionId),
         statusIdx: index('idx_payments_status').on(table.status),
-        providerIdIdx: index('idx_payments_provider_id').on(table.providerPaymentId),
         idempotencyIdx: index('idx_payments_idempotency').on(table.idempotencyKey)
     })
 );

@@ -99,15 +99,173 @@ await storageAdapter.transaction(async () => {
 
 ## Repositories
 
-- `QZPayCustomersRepository`
-- `QZPaySubscriptionsRepository`
-- `QZPayPaymentsRepository`
-- `QZPayInvoicesRepository`
-- `QZPayPlansRepository`
-- `QZPayPricesRepository`
-- `QZPayLimitsRepository`
-- `QZPayEntitlementsRepository`
-- `QZPayEventsRepository`
+### QZPayCustomersRepository
+
+```typescript
+// Methods
+findById(id: string): Promise<Customer | null>
+findByExternalId(externalId: string): Promise<Customer | null>
+findByEmail(email: string): Promise<Customer | null>
+create(data: CreateCustomerInput): Promise<Customer>
+update(id: string, data: UpdateCustomerInput): Promise<Customer | null>
+delete(id: string): Promise<void>
+list(options?: ListOptions): Promise<PaginatedResult<Customer>>
+```
+
+### QZPaySubscriptionsRepository
+
+```typescript
+// Methods
+findById(id: string): Promise<Subscription | null>
+findByCustomerId(customerId: string): Promise<Subscription[]>
+findActiveByCustomerId(customerId: string): Promise<Subscription | null>
+create(data: CreateSubscriptionInput): Promise<Subscription>
+update(id: string, data: UpdateSubscriptionInput): Promise<Subscription>
+list(options?: ListOptions): Promise<PaginatedResult<Subscription>>
+
+// Lifecycle query methods (for automated processing)
+findExpiringSoon(beforeDate: Date, options?): Promise<Subscription[]>
+findInTrialEndingSoon(beforeDate: Date, options?): Promise<Subscription[]>
+findPastDueInGracePeriod(now: Date, options?): Promise<Subscription[]>
+findNeedingPaymentRetry(beforeDate: Date, options?): Promise<Subscription[]>
+findPendingCancellationAtPeriodEnd(beforeDate: Date, options?): Promise<Subscription[]>
+```
+
+### QZPayPaymentsRepository
+
+```typescript
+// Methods
+findById(id: string): Promise<Payment | null>
+findByCustomerId(customerId: string): Promise<Payment[]>
+findByInvoiceId(invoiceId: string): Promise<Payment[]>
+create(data: CreatePaymentInput): Promise<Payment>
+update(id: string, data: UpdatePaymentInput): Promise<Payment>
+list(options?: ListOptions): Promise<PaginatedResult<Payment>>
+```
+
+### QZPayInvoicesRepository
+
+```typescript
+// Methods
+findById(id: string): Promise<Invoice | null>
+findByCustomerId(customerId: string): Promise<Invoice[]>
+findBySubscriptionId(subscriptionId: string): Promise<Invoice[]>
+create(data: CreateInvoiceInput): Promise<Invoice>
+update(id: string, data: UpdateInvoiceInput): Promise<Invoice>
+list(options?: ListOptions): Promise<PaginatedResult<Invoice>>
+```
+
+### Other Repositories
+
+- `QZPayPlansRepository` - Plan CRUD operations
+- `QZPayPricesRepository` - Price configurations
+- `QZPayLimitsRepository` - Usage limit tracking
+- `QZPayEntitlementsRepository` - Feature entitlements
+- `QZPayAddonsRepository` - Add-on management
+- `QZPayPaymentMethodsRepository` - Payment method storage
+- `QZPayPromoCodesRepository` - Promotional codes
+- `QZPayEventsRepository` - Event logging
+
+## Schema Details
+
+### billing_customers
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| external_id | VARCHAR | Your app's user ID |
+| email | VARCHAR | Customer email |
+| name | VARCHAR | Customer name |
+| phone | VARCHAR | Phone number |
+| provider_customer_ids | JSONB | Provider IDs (stripe, mercadopago) |
+| metadata | JSONB | Custom metadata |
+| livemode | BOOLEAN | Live vs test mode |
+| created_at | TIMESTAMP | Creation timestamp |
+| updated_at | TIMESTAMP | Last update timestamp |
+
+### billing_subscriptions
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| customer_id | UUID | FK to customers |
+| plan_id | VARCHAR | Plan identifier |
+| status | VARCHAR | active, trialing, past_due, canceled, paused |
+| current_period_start | TIMESTAMP | Billing period start |
+| current_period_end | TIMESTAMP | Billing period end |
+| trial_end | TIMESTAMP | Trial end date |
+| cancel_at | TIMESTAMP | Scheduled cancellation |
+| cancel_at_period_end | BOOLEAN | Cancel at end of period |
+| canceled_at | TIMESTAMP | When canceled |
+| grace_period_ends_at | TIMESTAMP | Grace period end |
+| next_retry_at | TIMESTAMP | Next payment retry |
+| retry_count | INTEGER | Number of retry attempts |
+| metadata | JSONB | Custom metadata |
+| livemode | BOOLEAN | Live vs test mode |
+
+### billing_payments
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | Primary key |
+| customer_id | UUID | FK to customers |
+| invoice_id | UUID | FK to invoices |
+| subscription_id | UUID | FK to subscriptions |
+| amount | INTEGER | Amount in cents |
+| currency | VARCHAR | Currency code |
+| status | VARCHAR | pending, succeeded, failed, refunded |
+| idempotency_key | VARCHAR | Prevents duplicate payments |
+| provider_payment_ids | JSONB | Provider payment IDs |
+| failure_code | VARCHAR | Error code if failed |
+| failure_message | TEXT | Error message |
+
+### Table Relationships
+
+```
+billing_customers
+├── billing_subscriptions (1:N)
+│   ├── billing_payments (1:N)
+│   └── billing_subscription_addons (1:N)
+├── billing_invoices (1:N)
+│   └── billing_invoice_lines (1:N)
+├── billing_payments (1:N)
+├── billing_payment_methods (1:N)
+├── billing_customer_limits (1:N)
+└── billing_customer_entitlements (1:N)
+
+billing_plans
+├── billing_prices (1:N)
+└── billing_addons (M:N via compatible_plan_ids)
+```
+
+## Transactions
+
+Use transactions for operations that need to be atomic:
+
+```typescript
+import { qzpayWithTransaction } from '@qazuor/qzpay-drizzle';
+
+// Using the transaction utility
+await qzpayWithTransaction(db, async (tx) => {
+  // All operations use the transaction
+  const customer = await customersRepo.create({ ... }, tx);
+  const subscription = await subscriptionsRepo.create({
+    customerId: customer.id,
+    ...
+  }, tx);
+
+  // If any operation fails, all changes are rolled back
+});
+
+// Or via the storage adapter
+await storageAdapter.transaction(async () => {
+  const customer = await billing.customers.create({ ... });
+  const subscription = await billing.subscriptions.create({
+    customerId: customer.id,
+    ...
+  });
+});
+```
 
 ## Migrations
 

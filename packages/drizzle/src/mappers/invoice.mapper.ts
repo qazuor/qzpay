@@ -3,7 +3,14 @@
  *
  * Maps between Drizzle schema types and Core domain types.
  */
-import type { QZPayCreateInvoiceInput, QZPayCurrency, QZPayInvoice, QZPayInvoiceLine, QZPayInvoiceStatus } from '@qazuor/qzpay-core';
+import type {
+    QZPayCreateInvoiceInput,
+    QZPayCurrency,
+    QZPayInvoice,
+    QZPayInvoiceLine,
+    QZPayInvoiceStatus,
+    QZPayMetadata
+} from '@qazuor/qzpay-core';
 import type {
     QZPayBillingInvoice,
     QZPayBillingInvoiceInsert,
@@ -45,7 +52,7 @@ export function mapDrizzleInvoiceToCore(drizzle: QZPayBillingInvoice, lines: QZP
         periodEnd: drizzle.periodEnd ?? null,
         lines: lines.map(mapDrizzleInvoiceLineToCore),
         providerInvoiceIds,
-        metadata: (drizzle.metadata as Record<string, unknown>) ?? {},
+        metadata: (drizzle.metadata as QZPayMetadata) ?? {},
         livemode: drizzle.livemode,
         createdAt: drizzle.createdAt,
         updatedAt: drizzle.updatedAt
@@ -66,7 +73,7 @@ export function mapDrizzleInvoiceLineToCore(drizzle: QZPayBillingInvoiceLine): Q
         priceId: drizzle.priceId ?? null,
         periodStart: drizzle.periodStart ?? null,
         periodEnd: drizzle.periodEnd ?? null,
-        metadata: (drizzle.metadata as Record<string, unknown>) ?? {}
+        metadata: (drizzle.metadata as QZPayMetadata) ?? {}
     };
 }
 

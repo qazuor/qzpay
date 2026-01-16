@@ -7,6 +7,7 @@ import type {
     QZPayAddOn,
     QZPayBillingInterval,
     QZPayCreateAddOnInput,
+    QZPayMetadata,
     QZPaySubscriptionAddOn,
     QZPayUpdateAddOnInput
 } from '@qazuor/qzpay-core';
@@ -35,7 +36,7 @@ export function mapDrizzleAddonToCore(drizzle: QZPayBillingAddon): QZPayAddOn {
         maxQuantity: drizzle.maxQuantity ?? null,
         entitlements: drizzle.entitlements ?? [],
         limits: (drizzle.limits as Array<{ key: string; value: number; action: 'set' | 'increment' }>) ?? [],
-        metadata: (drizzle.metadata as Record<string, unknown>) ?? {},
+        metadata: (drizzle.metadata as QZPayMetadata) ?? {},
         createdAt: drizzle.createdAt,
         updatedAt: drizzle.updatedAt
     };
@@ -119,7 +120,7 @@ export function mapDrizzleSubscriptionAddonToCore(drizzle: QZPayBillingSubscript
         addedAt: drizzle.addedAt,
         canceledAt: drizzle.canceledAt ?? null,
         expiresAt: drizzle.expiresAt ?? null,
-        metadata: (drizzle.metadata as Record<string, unknown>) ?? {},
+        metadata: (drizzle.metadata as QZPayMetadata) ?? {},
         createdAt: drizzle.createdAt,
         updatedAt: drizzle.updatedAt
     };

@@ -23,6 +23,7 @@ export const billingPaymentMethods = pgTable(
         provider: varchar('provider', { length: 50 }).notNull(),
         providerPaymentMethodId: varchar('provider_payment_method_id', { length: 255 }).notNull(),
         type: varchar('type', { length: 50 }).notNull(),
+        status: varchar('status', { length: 50 }).notNull().default('active'),
         lastFour: varchar('last_four', { length: 4 }),
         brand: varchar('brand', { length: 50 }),
         expMonth: integer('exp_month'),

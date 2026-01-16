@@ -55,18 +55,19 @@ describe('QZPayPaymentsRepository', () => {
             expect(payment.provider).toBe('stripe');
         });
 
-        it('should create payment with provider payment id', async () => {
+        it('should create payment with provider payment ids', async () => {
             const payment = await paymentsRepo.create({
                 customerId,
                 amount: 5000,
                 currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
-                providerPaymentId: 'pi_test_123456',
+                providerPaymentIds: { stripe: 'pi_test_123456' },
                 livemode: true
             });
 
-            expect(payment.providerPaymentId).toBe('pi_test_123456');
+            const providerIds = payment.providerPaymentIds as Record<string, string>;
+            expect(providerIds.stripe).toBe('pi_test_123456');
         });
 
         it('should create payment with metadata', async () => {
@@ -154,14 +155,15 @@ describe('QZPayPaymentsRepository', () => {
                 currency: 'USD',
                 status: 'succeeded',
                 provider: 'stripe',
-                providerPaymentId: 'pi_unique_123',
+                providerPaymentIds: { stripe: 'pi_unique_123' },
                 livemode: true
             });
 
             const found = await paymentsRepo.findByProviderPaymentId('pi_unique_123');
 
             expect(found).not.toBeNull();
-            expect(found?.providerPaymentId).toBe('pi_unique_123');
+            const providerIds = found?.providerPaymentIds as Record<string, string>;
+            expect(providerIds?.stripe).toBe('pi_unique_123');
         });
 
         it('should return null for non-existent provider payment id', async () => {
@@ -207,7 +209,7 @@ describe('QZPayPaymentsRepository', () => {
             expect(updated.metadata).toEqual({ refundRequested: true });
         });
 
-        it('should update provider payment id', async () => {
+        it('should update provider payment ids', async () => {
             const created = await paymentsRepo.create({
                 customerId,
                 amount: 9999,
@@ -218,10 +220,11 @@ describe('QZPayPaymentsRepository', () => {
             });
 
             const updated = await paymentsRepo.update(created.id, {
-                providerPaymentId: 'pi_updated_123'
+                providerPaymentIds: { stripe: 'pi_updated_123' }
             });
 
-            expect(updated.providerPaymentId).toBe('pi_updated_123');
+            const providerIds = updated.providerPaymentIds as Record<string, string>;
+            expect(providerIds.stripe).toBe('pi_updated_123');
         });
     });
 

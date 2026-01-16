@@ -12,6 +12,7 @@ export {
     parseDatabaseUrl,
     type QZPayConnection,
     type QZPayConnectionConfig,
+    type QZPayDatabase,
     type QZPayPoolStats
 } from './connection.js';
 // Migration utilities
@@ -66,3 +67,16 @@ export {
     softDeleteValues,
     withSoftDeleteFilter
 } from './soft-delete.js';
+// Transaction utilities
+export {
+    executeTransaction,
+    isTransaction,
+    type QZPayIsolationLevel,
+    type QZPayTransaction,
+    type QZPayTransactionContext,
+    type QZPayTransactionOptions,
+    retryTransaction,
+    transactional,
+    withIsolationLevel,
+    withTransaction
+} from './transaction.js';

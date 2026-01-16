@@ -77,12 +77,22 @@ export class QZPayPaymentsRepository {
 
     /**
      * Find payment by provider payment ID
+     * Searches within the providerPaymentIds JSONB object for any matching value
      */
     async findByProviderPaymentId(providerPaymentId: string): Promise<QZPayBillingPayment | null> {
         const result = await this.db
             .select()
             .from(billingPayments)
-            .where(and(eq(billingPayments.providerPaymentId, providerPaymentId), isNull(billingPayments.deletedAt)))
+            .where(
+                and(
+                    // Use JSONB contains operator to check if any value in the object matches
+                    sql`EXISTS (
+                        SELECT 1 FROM jsonb_each_text(${billingPayments.providerPaymentIds})
+                        WHERE value = ${providerPaymentId}
+                    )`,
+                    isNull(billingPayments.deletedAt)
+                )
+            )
             .limit(1);
 
         return firstOrNull(result);

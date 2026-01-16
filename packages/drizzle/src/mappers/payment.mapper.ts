@@ -3,19 +3,15 @@
  *
  * Maps between Drizzle schema types and Core domain types.
  */
-import type { QZPayCurrency, QZPayPayment, QZPayPaymentStatus } from '@qazuor/qzpay-core';
+import type { QZPayCurrency, QZPayMetadata, QZPayPayment, QZPayPaymentStatus } from '@qazuor/qzpay-core';
 import type { QZPayBillingPayment, QZPayBillingPaymentInsert } from '../schema/index.js';
 
 /**
  * Map Drizzle payment to Core payment
  */
 export function mapDrizzlePaymentToCore(drizzle: QZPayBillingPayment): QZPayPayment {
-    const providerPaymentIds: Record<string, string> = {};
-
-    if (drizzle.providerPaymentId) {
-        // Use bracket notation for index signature access
-        providerPaymentIds[drizzle.provider] = drizzle.providerPaymentId;
-    }
+    // Parse providerPaymentIds from JSONB
+    const providerPaymentIds = (drizzle.providerPaymentIds as Record<string, string>) ?? {};
 
     return {
         id: drizzle.id,
@@ -29,7 +25,7 @@ export function mapDrizzlePaymentToCore(drizzle: QZPayBillingPayment): QZPayPaym
         providerPaymentIds,
         failureCode: drizzle.failureCode ?? null,
         failureMessage: drizzle.failureMessage ?? null,
-        metadata: (drizzle.metadata as Record<string, unknown>) ?? {},
+        metadata: (drizzle.metadata as QZPayMetadata) ?? {},
         livemode: drizzle.livemode,
         createdAt: drizzle.createdAt,
         updatedAt: drizzle.updatedAt
@@ -40,10 +36,9 @@ export function mapDrizzlePaymentToCore(drizzle: QZPayBillingPayment): QZPayPaym
  * Map Core payment to Drizzle insert
  */
 export function mapCorePaymentToDrizzle(payment: QZPayPayment): QZPayBillingPaymentInsert {
-    // Get first provider and its payment ID
+    // Get first provider for the provider field
     const providers = Object.keys(payment.providerPaymentIds);
-    const provider = providers[0];
-    const providerPaymentId = provider ? payment.providerPaymentIds[provider] : null;
+    const provider = providers[0] ?? 'unknown';
 
     return {
         id: payment.id,
@@ -53,8 +48,8 @@ export function mapCorePaymentToDrizzle(payment: QZPayPayment): QZPayBillingPaym
         amount: payment.amount,
         currency: payment.currency,
         status: payment.status,
-        provider: provider ?? 'unknown',
-        providerPaymentId: providerPaymentId ?? null,
+        provider,
+        providerPaymentIds: payment.providerPaymentIds,
         paymentMethodId: payment.paymentMethodId ?? null,
         failureCode: payment.failureCode ?? null,
         failureMessage: payment.failureMessage ?? null,

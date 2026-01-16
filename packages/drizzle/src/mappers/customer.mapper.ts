@@ -3,7 +3,7 @@
  *
  * Maps between Drizzle schema types and Core domain types.
  */
-import type { QZPayCreateCustomerInput, QZPayCustomer, QZPayUpdateCustomerInput } from '@qazuor/qzpay-core';
+import type { QZPayCreateCustomerInput, QZPayCustomer, QZPayMetadata, QZPayUpdateCustomerInput } from '@qazuor/qzpay-core';
 import type { QZPayBillingCustomer, QZPayBillingCustomerInsert } from '../schema/index.js';
 
 /**
@@ -39,9 +39,9 @@ export function mapDrizzleCustomerToCore(drizzle: QZPayBillingCustomer): QZPayEx
         externalId: drizzle.externalId,
         email: drizzle.email,
         name: drizzle.name ?? null,
-        phone: null, // Not in current Drizzle schema
+        phone: drizzle.phone ?? null,
         providerCustomerIds,
-        metadata: (drizzle.metadata as Record<string, unknown>) ?? {},
+        metadata: (drizzle.metadata as QZPayMetadata) ?? {},
         livemode: drizzle.livemode,
         createdAt: drizzle.createdAt,
         updatedAt: drizzle.updatedAt,
@@ -84,6 +84,9 @@ export function mapCoreCustomerCreateToDrizzle(input: QZPayExtendedCreateCustome
     // Only set optional fields if explicitly provided
     if (input.name !== undefined) {
         result.name = input.name;
+    }
+    if (input.phone !== undefined) {
+        result.phone = input.phone;
     }
     if (input.stripeCustomerId !== undefined) {
         result.stripeCustomerId = input.stripeCustomerId;
@@ -145,6 +148,9 @@ export function mapCoreCustomerUpdateToDrizzle(input: QZPayExtendedUpdateCustome
     }
     if (input.name !== undefined) {
         update.name = input.name;
+    }
+    if (input.phone !== undefined) {
+        update.phone = input.phone;
     }
     if (input.metadata !== undefined) {
         update.metadata = input.metadata;

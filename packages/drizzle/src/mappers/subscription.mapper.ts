@@ -6,6 +6,7 @@
 import type {
     QZPayBillingInterval,
     QZPayCreateSubscriptionInput,
+    QZPayMetadata,
     QZPaySubscription,
     QZPaySubscriptionStatus,
     QZPayUpdateSubscriptionInput
@@ -41,9 +42,9 @@ export function mapDrizzleSubscriptionToCore(drizzle: QZPayBillingSubscription):
         trialEnd: drizzle.trialEnd ?? null,
         cancelAt: drizzle.cancelAt ?? null,
         canceledAt: drizzle.canceledAt ?? null,
-        cancelAtPeriodEnd: false, // Schema doesn't have this field, derive from cancelAt
+        cancelAtPeriodEnd: drizzle.cancelAtPeriodEnd ?? false,
         providerSubscriptionIds,
-        metadata: (drizzle.metadata as Record<string, unknown>) ?? {},
+        metadata: (drizzle.metadata as QZPayMetadata) ?? {},
         livemode: drizzle.livemode,
         createdAt: drizzle.createdAt,
         updatedAt: drizzle.updatedAt,

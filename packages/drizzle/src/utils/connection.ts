@@ -5,6 +5,12 @@
  */
 import { type PostgresJsDatabase, drizzle } from 'drizzle-orm/postgres-js';
 import postgres, { type Sql } from 'postgres';
+import { qzpaySchema } from '../schema/index.js';
+
+/**
+ * Type-safe PostgreSQL database with QZPay schema
+ */
+export type QZPayDatabase = PostgresJsDatabase<typeof qzpaySchema>;
 
 /**
  * Connection pool configuration options
@@ -31,7 +37,7 @@ export interface QZPayConnectionConfig {
  */
 export interface QZPayConnection {
     /** Drizzle database instance */
-    db: PostgresJsDatabase;
+    db: QZPayDatabase;
     /** Raw postgres.js client */
     client: Sql;
     /** Close the connection pool */
@@ -86,7 +92,7 @@ export function createConnection(config: QZPayConnectionConfig): QZPayConnection
         }
     });
 
-    const db = drizzle(client);
+    const db = drizzle(client, { schema: qzpaySchema });
 
     return {
         db,

@@ -20,6 +20,7 @@ export const billingCustomers = pgTable(
         externalId: varchar('external_id', { length: 255 }).notNull(),
         email: varchar('email', { length: 255 }).notNull(),
         name: varchar('name', { length: 255 }),
+        phone: varchar('phone', { length: 20 }),
         stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
         mpCustomerId: varchar('mp_customer_id', { length: 255 }),
         preferredLanguage: varchar('preferred_language', { length: 10 }).default('en'),
