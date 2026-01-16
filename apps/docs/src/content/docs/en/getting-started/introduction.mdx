@@ -31,7 +31,7 @@ Write your billing logic once, switch providers without code changes:
 ```typescript
 // Using Stripe
 const billing = createQZPayBilling({
-  paymentAdapter: createQZPayStripeAdapter({ apiKey: stripeKey }),
+  paymentAdapter: createQZPayStripeAdapter({ secretKey: stripeKey }),
   storage: createQZPayDrizzleAdapter(db)
 });
 

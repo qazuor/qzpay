@@ -1,0 +1,512 @@
+---
+title: Business Metrics
+description: Calculate and track MRR, churn, revenue, and subscription metrics with QZPay
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+# Business Metrics Guide
+
+QZPay provides built-in metrics calculation for tracking your subscription business performance including MRR, churn rate, revenue analysis, and subscription statistics.
+
+## Overview
+
+The metrics service offers:
+
+- **MRR (Monthly Recurring Revenue)**: Track current and historical MRR with breakdown
+- **Subscription Metrics**: Active, trialing, past due, and canceled subscriptions
+- **Revenue Metrics**: Total, recurring, one-time, and refunded revenue
+- **Churn Metrics**: Customer churn rate and churned revenue
+
+## Monthly Recurring Revenue (MRR)
+
+### Getting Current MRR
+
+```typescript
+const mrrMetrics = await billing.metrics.getMrr();
+
+console.log('Current MRR:', mrrMetrics.current);
+console.log('Previous MRR:', mrrMetrics.previous);
+console.log('Change:', mrrMetrics.change);
+console.log('Change %:', mrrMetrics.changePercent);
+```
+
+### MRR Breakdown
+
+The MRR breakdown shows how MRR changed during a period:
+
+```typescript
+const mrrMetrics = await billing.metrics.getMrr();
+
+console.log('New MRR:', mrrMetrics.breakdown.newMrr);           // New subscriptions
+console.log('Expansion MRR:', mrrMetrics.breakdown.expansionMrr); // Upgrades
+console.log('Contraction MRR:', mrrMetrics.breakdown.contractionMrr); // Downgrades
+console.log('Churned MRR:', mrrMetrics.breakdown.churnedMrr);    // Cancellations
+console.log('Reactivation MRR:', mrrMetrics.breakdown.reactivationMrr); // Reactivated
+```
+
+#### Understanding MRR Components
+
+| Component | Description | Impact |
+|-----------|-------------|--------|
+| **New MRR** | Revenue from new subscriptions | Positive |
+| **Expansion MRR** | Additional revenue from upgrades | Positive |
+| **Contraction MRR** | Lost revenue from downgrades | Negative |
+| **Churned MRR** | Lost revenue from cancellations | Negative |
+| **Reactivation MRR** | Revenue from reactivated subscriptions | Positive |
+
+**Formula:**
+```
+Current MRR = Previous MRR + New MRR + Expansion MRR + Reactivation MRR - Contraction MRR - Churned MRR
+```
+
+### MRR with Custom Period
+
+```typescript
+const mrrMetrics = await billing.metrics.getMrr({
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-01-31'),
+  currency: 'USD'
+});
+```
+
+### How MRR is Calculated
+
+QZPay normalizes all billing intervals to monthly equivalents:
+
+```typescript
+// Daily: $10/day → $300/month
+// Weekly: $50/week → $217/month (50 × 30/7)
+// Monthly: $100/month → $100/month
+// Quarterly: $270/quarter → $90/month (270 / 3)
+// Yearly: $1200/year → $100/month (1200 / 12)
+```
+
+**Example:**
+```typescript
+// Subscription: $1200/year, quantity: 2
+// MRR = (1200 / 12) × 2 = $200
+```
+
+## Subscription Metrics
+
+Track subscriptions by status:
+
+```typescript
+const subMetrics = await billing.metrics.getSubscriptionMetrics();
+
+console.log('Active:', subMetrics.active);
+console.log('Trialing:', subMetrics.trialing);
+console.log('Past Due:', subMetrics.pastDue);
+console.log('Canceled:', subMetrics.canceled);
+console.log('Total:', subMetrics.total);
+```
+
+### Use Cases
+
+**Monitor subscription health:**
+```typescript
+const metrics = await billing.metrics.getSubscriptionMetrics();
+
+const healthScore = (metrics.active + metrics.trialing) / metrics.total;
+console.log(`Health Score: ${(healthScore * 100).toFixed(1)}%`);
+
+if (metrics.pastDue > metrics.active * 0.1) {
+  console.warn('⚠️ High past due rate - check payment failures');
+}
+```
+
+## Revenue Metrics
+
+Calculate revenue for any period:
+
+```typescript
+const revenueMetrics = await billing.metrics.getRevenueMetrics({
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-01-31'),
+  currency: 'USD'
+});
+
+console.log('Total Revenue:', revenueMetrics.total);
+console.log('Recurring Revenue:', revenueMetrics.recurring);
+console.log('One-time Revenue:', revenueMetrics.oneTime);
+console.log('Refunded:', revenueMetrics.refunded);
+console.log('Net Revenue:', revenueMetrics.net);
+```
+
+### Revenue Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| **Total** | All successful payments | $10,000 |
+| **Recurring** | Payments from subscriptions | $8,500 |
+| **One-time** | Payments without subscription | $1,500 |
+| **Refunded** | Refunded amounts | $500 |
+| **Net** | Total - Refunded | $9,500 |
+
+### Monthly Revenue Report
+
+```typescript
+async function generateMonthlyReport(year: number, month: number) {
+  const start = new Date(year, month, 1);
+  const end = new Date(year, month + 1, 0, 23, 59, 59);
+
+  const revenue = await billing.metrics.getRevenueMetrics({
+    startDate: start,
+    endDate: end,
+    currency: 'USD'
+  });
+
+  return {
+    month: `${year}-${String(month + 1).padStart(2, '0')}`,
+    total: revenue.total,
+    recurring: revenue.recurring,
+    oneTime: revenue.oneTime,
+    refunded: revenue.refunded,
+    net: revenue.net,
+    recurringPercentage: (revenue.recurring / revenue.total * 100).toFixed(1)
+  };
+}
+
+const report = await generateMonthlyReport(2024, 0); // January 2024
+console.log(report);
+```
+
+## Churn Metrics
+
+Calculate customer churn for a period:
+
+```typescript
+const churnMetrics = await billing.metrics.getChurnMetrics({
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-01-31'),
+  currency: 'USD'
+});
+
+console.log('Churn Rate:', churnMetrics.rate, '%');
+console.log('Churned Customers:', churnMetrics.count);
+console.log('Churned Revenue:', churnMetrics.revenue);
+```
+
+### Understanding Churn
+
+**Churn Rate Formula:**
+```
+Churn Rate = (Canceled Subscriptions / Active at Period Start) × 100
+```
+
+**Example:**
+- Active subscriptions at start: 100
+- Canceled during month: 5
+- Churn rate: (5 / 100) × 100 = 5%
+
+### Acceptable Churn Rates
+
+| Business Type | Good Churn Rate | Concern Level |
+|---------------|-----------------|---------------|
+| B2C SaaS | < 5% monthly | > 7% |
+| B2B SaaS | < 3% monthly | > 5% |
+| Enterprise | < 1% monthly | > 2% |
+
+### Monitoring Churn Trends
+
+```typescript
+async function getChurnTrend(months: number = 6) {
+  const trends = [];
+  const now = new Date();
+
+  for (let i = months - 1; i >= 0; i--) {
+    const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+
+    const churn = await billing.metrics.getChurnMetrics({
+      startDate: start,
+      endDate: end,
+      currency: 'USD'
+    });
+
+    trends.push({
+      month: start.toISOString().slice(0, 7),
+      rate: churn.rate,
+      count: churn.count,
+      revenue: churn.revenue
+    });
+  }
+
+  return trends;
+}
+
+const trend = await getChurnTrend(6);
+console.table(trend);
+```
+
+## Dashboard Metrics
+
+Get all metrics in a single call:
+
+```typescript
+const dashboard = await billing.metrics.getDashboard({
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-01-31'),
+  currency: 'USD'
+});
+
+console.log('MRR:', dashboard.mrr);
+console.log('Subscriptions:', dashboard.subscriptions);
+console.log('Revenue:', dashboard.revenue);
+console.log('Churn:', dashboard.churn);
+```
+
+### Dashboard Example
+
+```typescript
+async function getDashboardData() {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const metrics = await billing.metrics.getDashboard({
+    startDate: startOfMonth,
+    endDate: now,
+    currency: 'USD'
+  });
+
+  return {
+    // MRR Card
+    mrr: {
+      current: metrics.mrr.current,
+      change: metrics.mrr.change,
+      changePercent: metrics.mrr.changePercent,
+      trend: metrics.mrr.changePercent >= 0 ? 'up' : 'down'
+    },
+
+    // Subscriptions Card
+    subscriptions: {
+      active: metrics.subscriptions.active,
+      total: metrics.subscriptions.total,
+      activeRate: (metrics.subscriptions.active / metrics.subscriptions.total * 100).toFixed(1)
+    },
+
+    // Revenue Card
+    revenue: {
+      total: metrics.revenue.total,
+      net: metrics.revenue.net,
+      recurringPercentage: (metrics.revenue.recurring / metrics.revenue.total * 100).toFixed(1)
+    },
+
+    // Churn Card
+    churn: {
+      rate: metrics.churn.rate,
+      count: metrics.churn.count,
+      status: metrics.churn.rate < 5 ? 'good' : metrics.churn.rate < 7 ? 'warning' : 'critical'
+    }
+  };
+}
+```
+
+## Period Helpers
+
+QZPay provides helper functions for common period calculations:
+
+```typescript
+import {
+  qzpayGetCurrentMonthPeriod,
+  qzpayGetLastNDaysPeriod,
+  qzpayGetMonthPeriod,
+  qzpayGetPreviousPeriod
+} from '@qazuor/qzpay-core';
+
+// Current month
+const currentMonth = qzpayGetCurrentMonthPeriod();
+// { start: Date(2024, 0, 1), end: Date(2024, 0, 31, 23, 59, 59) }
+
+// Last 30 days
+const last30Days = qzpayGetLastNDaysPeriod(30);
+
+// Specific month
+const january = qzpayGetMonthPeriod(2024, 0); // January 2024
+
+// Previous period (for comparison)
+const previousMonth = qzpayGetPreviousPeriod(currentMonth);
+```
+
+## Best Practices
+
+### 1. Cache Metrics
+
+Metrics calculation can be expensive. Cache results:
+
+```typescript
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const cache = new Map<string, { data: any; expires: number }>();
+
+async function getCachedMetrics() {
+  const key = 'dashboard';
+  const cached = cache.get(key);
+
+  if (cached && cached.expires > Date.now()) {
+    return cached.data;
+  }
+
+  const data = await billing.metrics.getDashboard();
+  cache.set(key, { data, expires: Date.now() + CACHE_TTL });
+
+  return data;
+}
+```
+
+### 2. Monitor Key Metrics
+
+Set up alerts for critical metrics:
+
+```typescript
+async function checkMetricsHealth() {
+  const metrics = await billing.metrics.getDashboard();
+
+  // Alert on high churn
+  if (metrics.churn.rate > 7) {
+    await sendAlert('High churn rate detected', {
+      rate: metrics.churn.rate,
+      count: metrics.churn.count
+    });
+  }
+
+  // Alert on MRR decline
+  if (metrics.mrr.changePercent < -10) {
+    await sendAlert('Significant MRR decline', {
+      change: metrics.mrr.change,
+      changePercent: metrics.mrr.changePercent
+    });
+  }
+
+  // Alert on past due subscriptions
+  const pastDueRate = metrics.subscriptions.pastDue / metrics.subscriptions.total;
+  if (pastDueRate > 0.1) {
+    await sendAlert('High past due rate', {
+      count: metrics.subscriptions.pastDue,
+      total: metrics.subscriptions.total
+    });
+  }
+}
+```
+
+### 3. Track Trends
+
+Store historical snapshots for trend analysis:
+
+```typescript
+async function snapshotMetrics() {
+  const metrics = await billing.metrics.getDashboard();
+
+  await db.metricSnapshots.create({
+    date: new Date(),
+    mrr: metrics.mrr.current,
+    activeSubscriptions: metrics.subscriptions.active,
+    churnRate: metrics.churn.rate,
+    revenue: metrics.revenue.total
+  });
+}
+
+// Run daily
+cron.schedule('0 0 * * *', snapshotMetrics);
+```
+
+### 4. Compare Periods
+
+Always compare metrics to previous periods:
+
+```typescript
+async function getMetricsWithComparison() {
+  const currentPeriod = qzpayGetCurrentMonthPeriod();
+  const previousPeriod = qzpayGetPreviousPeriod(currentPeriod);
+
+  const [current, previous] = await Promise.all([
+    billing.metrics.getDashboard({
+      startDate: currentPeriod.start,
+      endDate: currentPeriod.end,
+      currency: 'USD'
+    }),
+    billing.metrics.getDashboard({
+      startDate: previousPeriod.start,
+      endDate: previousPeriod.end,
+      currency: 'USD'
+    })
+  ]);
+
+  return {
+    current,
+    previous,
+    comparison: {
+      mrrChange: ((current.mrr.current - previous.mrr.current) / previous.mrr.current * 100).toFixed(1),
+      revenueChange: ((current.revenue.total - previous.revenue.total) / previous.revenue.total * 100).toFixed(1),
+      churnChange: (current.churn.rate - previous.churn.rate).toFixed(2)
+    }
+  };
+}
+```
+
+## Advanced Calculations
+
+### Customer Lifetime Value (LTV)
+
+```typescript
+async function calculateLTV(customerId: string) {
+  const subscriptions = await billing.subscriptions.getByCustomerId(customerId);
+  const payments = await billing.payments.getByCustomerId(customerId);
+
+  const totalRevenue = payments
+    .filter(p => p.status === 'succeeded')
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  const avgMonthlyRevenue = totalRevenue / subscriptions.length;
+
+  // Simple LTV = Avg Monthly Revenue / Churn Rate
+  const churnMetrics = await billing.metrics.getChurnMetrics({
+    startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+    endDate: new Date(),
+    currency: 'USD'
+  });
+
+  const ltv = avgMonthlyRevenue / (churnMetrics.rate / 100);
+
+  return {
+    totalRevenue,
+    avgMonthlyRevenue,
+    ltv,
+    churnRate: churnMetrics.rate
+  };
+}
+```
+
+### Net Revenue Retention (NRR)
+
+```typescript
+async function calculateNRR(periodStart: Date, periodEnd: Date) {
+  const mrrMetrics = await billing.metrics.getMrr({
+    startDate: periodStart,
+    endDate: periodEnd,
+    currency: 'USD'
+  });
+
+  const startingMRR = mrrMetrics.previous;
+  const endingMRR = mrrMetrics.current;
+  const expansion = mrrMetrics.breakdown.expansionMrr + mrrMetrics.breakdown.reactivationMrr;
+  const contraction = mrrMetrics.breakdown.contractionMrr + mrrMetrics.breakdown.churnedMrr;
+
+  const nrr = ((startingMRR + expansion - contraction) / startingMRR) * 100;
+
+  return {
+    nrr: nrr.toFixed(1),
+    startingMRR,
+    expansion,
+    contraction,
+    endingMRR,
+    status: nrr >= 100 ? 'Excellent' : nrr >= 90 ? 'Good' : 'Needs Improvement'
+  };
+}
+```
+
+## Related
+
+- [Subscription Lifecycle](/en/guides/subscription-lifecycle) - Managing subscriptions
+- [Webhooks](/en/concepts/webhooks) - Real-time event handling
+- [API Reference](/en/api/) - Full API documentation

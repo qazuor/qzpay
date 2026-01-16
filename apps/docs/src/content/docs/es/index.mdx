@@ -55,7 +55,7 @@ import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
 
 const billing = createQZPayBilling({
-  paymentAdapter: createQZPayStripeAdapter({ apiKey: process.env.STRIPE_SECRET_KEY }),
+  paymentAdapter: createQZPayStripeAdapter({ secretKey: process.env.STRIPE_SECRET_KEY }),
   storage: createQZPayDrizzleAdapter(db)
 });
 

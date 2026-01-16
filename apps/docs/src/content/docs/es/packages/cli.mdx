@@ -125,7 +125,7 @@ const db = drizzle(sql);
 export const billing = createQZPayBilling({
   storage: createQZPayDrizzleAdapter(db),
   paymentAdapter: createQZPayStripeAdapter({
-    apiKey: process.env.STRIPE_SECRET_KEY!
+    secretKey: process.env.STRIPE_SECRET_KEY!
   }),
   livemode: process.env.NODE_ENV === 'production'
 });

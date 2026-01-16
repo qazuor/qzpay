@@ -1,0 +1,625 @@
+---
+title: Saved Cards
+description: Complete guide to managing saved payment cards with QZPay
+---
+
+import { Steps, Aside, Tabs, TabItem } from '@astrojs/starlight/components';
+
+# Saved Cards Guide
+
+The Saved Cards Service provides a unified interface for managing saved payment cards across different payment providers.
+
+## Overview
+
+The service allows you to:
+- Save payment methods (cards) to customers
+- List all saved cards for a customer
+- Remove saved cards
+- Set a card as the default payment method (provider-dependent)
+
+## Why Use SavedCardService?
+
+```
+┌─────────────────────────────────────────────────┐
+│           Benefits of Saved Cards               │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  ✓ Faster checkout experience                  │
+│  ✓ Improved conversion rates                   │
+│  ✓ Reduced cart abandonment                    │
+│  ✓ Support for recurring billing                │
+│  ✓ PCI compliance handled by provider           │
+│  ✓ Unified API across Stripe & MercadoPago     │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+## Installation
+
+```bash
+# For Stripe
+pnpm add @qazuor/qzpay-stripe
+
+# For MercadoPago
+pnpm add @qazuor/qzpay-mercadopago
+```
+
+<Aside type="note">
+The core types are included in `@qazuor/qzpay-core`, which is automatically installed as a dependency.
+</Aside>
+
+## Configuration
+
+### Stripe Setup
+
+<Steps>
+
+1. **Create the service**
+
+   ```typescript
+   import { createSavedCardService } from '@qazuor/qzpay-stripe';
+
+   const cardService = createSavedCardService({
+     provider: 'stripe',
+     stripeSecretKey: process.env.STRIPE_SECRET_KEY!,
+     getProviderCustomerId: async (customerId) => {
+       // Resolve your local customer ID to Stripe customer ID
+       const customer = await db.customers.findById(customerId);
+       return customer.stripeCustomerId;
+     },
+   });
+   ```
+
+2. **Configure Stripe.js on frontend**
+
+   ```javascript
+   // Load Stripe.js
+   const stripe = await loadStripe('pk_test_xxx');
+   const elements = stripe.elements();
+   const cardElement = elements.create('card');
+   cardElement.mount('#card-element');
+   ```
+
+3. **Create PaymentMethod on frontend**
+
+   ```javascript
+   const { paymentMethod, error } = await stripe.createPaymentMethod({
+     type: 'card',
+     card: cardElement,
+     billing_details: {
+       name: 'John Doe',
+       email: 'john@example.com',
+     },
+   });
+
+   if (error) {
+     console.error(error.message);
+   } else {
+     // Send paymentMethod.id to your backend
+     await saveCard(paymentMethod.id);
+   }
+   ```
+
+</Steps>
+
+### MercadoPago Setup
+
+<Steps>
+
+1. **Create the service**
+
+   ```typescript
+   import { createSavedCardService } from '@qazuor/qzpay-mercadopago';
+
+   const cardService = createSavedCardService({
+     provider: 'mercadopago',
+     mercadopagoAccessToken: process.env.MP_ACCESS_TOKEN!,
+     getProviderCustomerId: async (customerId) => {
+       // Resolve your local customer ID to MercadoPago customer ID
+       const customer = await db.customers.findById(customerId);
+       return customer.mercadopagoCustomerId;
+     },
+   });
+   ```
+
+2. **Configure MercadoPago SDK on frontend**
+
+   ```javascript
+   // Initialize MercadoPago SDK
+   const mp = new MercadoPago('PUBLIC_KEY', {
+     locale: 'en-US'
+   });
+
+   const cardForm = mp.cardForm({
+     amount: "100.5",
+     iframe: true,
+     form: {
+       id: "form-checkout",
+       cardNumber: {
+         id: "form-checkout__cardNumber",
+         placeholder: "Card number",
+       },
+       expirationDate: {
+         id: "form-checkout__expirationDate",
+         placeholder: "MM/YY",
+       },
+       securityCode: {
+         id: "form-checkout__securityCode",
+         placeholder: "CVV",
+       },
+       cardholderName: {
+         id: "form-checkout__cardholderName",
+         placeholder: "Cardholder name",
+       },
+       installments: {
+         id: "form-checkout__installments",
+         placeholder: "Installments",
+       },
+       identificationType: {
+         id: "form-checkout__identificationType",
+         placeholder: "ID type",
+       },
+       identificationNumber: {
+         id: "form-checkout__identificationNumber",
+         placeholder: "ID number",
+       },
+     },
+     callbacks: {
+       onFormMounted: error => {
+         if (error) return console.warn("Form mounted handling error: ", error);
+         console.log("Form mounted");
+       },
+       onSubmit: event => {
+         event.preventDefault();
+         const {
+           token,
+           installments,
+           issuerId,
+           paymentMethodId,
+           identificationNumber,
+           identificationType,
+         } = cardForm.getCardFormData();
+
+         // Send token to your backend
+         saveCard(token);
+       },
+     },
+   });
+   ```
+
+</Steps>
+
+<Aside type="caution">
+MercadoPago does not have native support for default payment methods. Your application must track the default card separately in your database.
+</Aside>
+
+## Basic Usage
+
+### Save a Card
+
+<Tabs>
+<TabItem label="Stripe">
+
+```typescript
+const card = await cardService.save({
+  customerId: 'local_cus_123',
+  paymentMethodId: 'pm_xxx', // From Stripe.js
+  setAsDefault: true,
+  metadata: {
+    source: 'web-app',
+    savedAt: new Date().toISOString(),
+  },
+});
+
+console.log('Card saved:', {
+  id: card.id,
+  brand: card.brand,
+  last4: card.last4,
+  expiry: `${card.expMonth}/${card.expYear}`,
+  isDefault: card.isDefault,
+});
+```
+
+</TabItem>
+<TabItem label="MercadoPago">
+
+```typescript
+const card = await cardService.save({
+  customerId: 'local_cus_123',
+  token: 'card_token_xxx', // From MercadoPago.js
+  setAsDefault: true, // Tracked in your app, not by MP
+  metadata: {
+    source: 'mobile-app',
+    deviceId: 'device_123',
+  },
+});
+
+console.log('Card saved:', {
+  id: card.id,
+  brand: card.brand,
+  last4: card.last4,
+  firstSixDigits: card.firstSixDigits, // MP-specific
+  expiry: `${card.expMonth}/${card.expYear}`,
+});
+```
+
+</TabItem>
+</Tabs>
+
+### List All Cards
+
+```typescript
+const cards = await cardService.list('local_cus_123');
+
+console.log(`Customer has ${cards.length} saved card(s)`);
+
+cards.forEach((card) => {
+  console.log(`
+    ${card.brand.toUpperCase()} •••• ${card.last4}
+    Expires: ${card.expMonth}/${card.expYear}
+    Default: ${card.isDefault ? 'Yes' : 'No'}
+  `);
+});
+```
+
+### Set Default Card
+
+```typescript
+// Only supported for Stripe
+try {
+  await cardService.setDefault('local_cus_123', 'pm_xxx');
+  console.log('Default card updated');
+} catch (error) {
+  if (error.message.includes('not supported for mercadopago')) {
+    // Handle MercadoPago case - track in your database
+    await db.customers.update('local_cus_123', {
+      defaultMercadoPagoCardId: 'card_xxx',
+    });
+  }
+}
+```
+
+<Aside type="tip">
+For MercadoPago, track the default card ID in your application database and use it explicitly when creating payments.
+</Aside>
+
+### Remove a Card
+
+```typescript
+await cardService.remove('local_cus_123', 'pm_xxx');
+console.log('Card removed successfully');
+```
+
+## Frontend Integration Examples
+
+### Complete Stripe Example
+
+```typescript
+// frontend/components/SaveCardForm.tsx
+import { loadStripe } from '@stripe/stripe-js';
+import { CardElement, Elements, useStripe, useElements } from '@stripe/react-stripe-js';
+
+const stripePromise = loadStripe('pk_test_xxx');
+
+function SaveCardForm() {
+  const stripe = useStripe();
+  const elements = useElements();
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!stripe || !elements) return;
+
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) return;
+
+    // Create PaymentMethod on frontend
+    const { error, paymentMethod } = await stripe.createPaymentMethod({
+      type: 'card',
+      card: cardElement,
+      billing_details: {
+        name: 'John Doe',
+      },
+    });
+
+    if (error) {
+      console.error(error.message);
+      return;
+    }
+
+    // Send to backend
+    const response = await fetch('/api/cards/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        paymentMethodId: paymentMethod.id,
+        setAsDefault: true,
+      }),
+    });
+
+    if (response.ok) {
+      alert('Card saved successfully!');
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <CardElement />
+      <button type="submit" disabled={!stripe}>
+        Save Card
+      </button>
+    </form>
+  );
+}
+
+export default function App() {
+  return (
+    <Elements stripe={stripePromise}>
+      <SaveCardForm />
+    </Elements>
+  );
+}
+```
+
+```typescript
+// backend/routes/cards.ts
+import { Hono } from 'hono';
+import { cardService } from '../services/billing';
+import { getSession } from '../auth';
+
+const app = new Hono();
+
+app.post('/save', async (c) => {
+  const session = await getSession(c);
+  const { paymentMethodId, setAsDefault } = await c.req.json();
+
+  try {
+    const card = await cardService.save({
+      customerId: session.customerId,
+      paymentMethodId,
+      setAsDefault,
+    });
+
+    return c.json({ success: true, card });
+  } catch (error) {
+    return c.json({ error: error.message }, 400);
+  }
+});
+
+export default app;
+```
+
+### Complete MercadoPago Example
+
+```html
+<!-- frontend/save-card.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://sdk.mercadopago.com/js/v2"></script>
+</head>
+<body>
+  <form id="form-checkout">
+    <div id="form-checkout__cardNumber"></div>
+    <div id="form-checkout__expirationDate"></div>
+    <div id="form-checkout__securityCode"></div>
+    <input type="text" id="form-checkout__cardholderName" />
+    <select id="form-checkout__identificationType"></select>
+    <input type="text" id="form-checkout__identificationNumber" />
+    <button type="submit">Save Card</button>
+  </form>
+
+  <script>
+    const mp = new MercadoPago('PUBLIC_KEY', { locale: 'en-US' });
+
+    const cardForm = mp.cardForm({
+      amount: "0",
+      iframe: true,
+      form: {
+        id: "form-checkout",
+        cardNumber: { id: "form-checkout__cardNumber" },
+        expirationDate: { id: "form-checkout__expirationDate" },
+        securityCode: { id: "form-checkout__securityCode" },
+        cardholderName: { id: "form-checkout__cardholderName" },
+        identificationType: { id: "form-checkout__identificationType" },
+        identificationNumber: { id: "form-checkout__identificationNumber" },
+      },
+      callbacks: {
+        onFormMounted: error => {
+          if (error) return console.warn(error);
+        },
+        onSubmit: async event => {
+          event.preventDefault();
+          const { token } = cardForm.getCardFormData();
+
+          // Send to backend
+          const response = await fetch('/api/cards/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
+          });
+
+          if (response.ok) {
+            alert('Card saved successfully!');
+          }
+        },
+      },
+    });
+  </script>
+</body>
+</html>
+```
+
+## Provider Differences
+
+| Feature | Stripe | MercadoPago |
+|---------|--------|-------------|
+| Save card | ✅ `paymentMethodId` | ✅ `token` |
+| List cards | ✅ | ✅ |
+| Remove card | ✅ | ✅ |
+| Set default | ✅ Native support | ❌ Track in app DB |
+| First 6 digits | ❌ | ✅ `firstSixDigits` |
+| Cardholder name | ✅ | ✅ |
+
+### Handling Default Cards
+
+**Stripe:** Natively supports default payment methods. Simply call `setDefault()`.
+
+**MercadoPago:** Does not have a native concept of default payment method. Your application must:
+
+1. Track the default card ID in your database
+2. Specify the card ID explicitly when creating payments
+3. Don't rely on the `isDefault` field for MercadoPago cards
+
+```typescript
+// Database schema
+interface Customer {
+  id: string;
+  stripeCustomerId: string;
+  mercadopagoCustomerId: string;
+  defaultMercadoPagoCardId?: string; // Track this
+}
+
+// When creating a payment with MercadoPago
+const customer = await db.customers.findById(customerId);
+const payment = await mpAdapter.createPayment({
+  amount: 1000,
+  currency: 'ARS',
+  customerId: customer.mercadopagoCustomerId,
+  cardId: customer.defaultMercadoPagoCardId, // Specify explicitly
+});
+```
+
+## Error Handling
+
+```typescript
+try {
+  const card = await cardService.save({
+    customerId: 'local_cus_123',
+    paymentMethodId: 'pm_invalid',
+  });
+} catch (error) {
+  if (error.message.includes('paymentMethodId is required')) {
+    // Missing required parameter for Stripe
+    showError('Please provide a valid payment method');
+  } else if (error.message.includes('does not belong to customer')) {
+    // Attempting to use a card from another customer
+    showError('Invalid card');
+  } else if (error.message.includes('has been deleted')) {
+    // Customer no longer exists
+    showError('Customer not found');
+  } else if (error.message.includes('payment method has expired')) {
+    // Card has expired
+    showError('This card has expired');
+  } else {
+    // Generic error
+    showError('Failed to save card. Please try again.');
+    console.error('Card save error:', error);
+  }
+}
+```
+
+## Best Practices
+
+### Security
+
+1. **Never send raw card details to your backend**
+   - Always tokenize cards on the frontend using the provider's SDK
+   - Only send tokens/PaymentMethod IDs to your backend
+
+2. **Validate customer ownership**
+   - The service automatically validates that cards belong to the specified customer
+   - Never allow users to access cards from other customers
+
+3. **Use HTTPS everywhere**
+   - All API calls must use HTTPS in production
+   - Configure secure cookies for authentication
+
+4. **Implement rate limiting**
+   - Protect card save endpoints from abuse
+   - Limit failed attempts per user
+
+### User Experience
+
+1. **Show clear card information**
+   - Display brand, last 4 digits, and expiration date
+   - Indicate which card is the default
+
+2. **Confirm before deletion**
+   - Ask for confirmation before removing a card
+   - Warn if removing the default card
+
+3. **Handle provider downtime gracefully**
+   - Implement retry logic with exponential backoff
+   - Show user-friendly error messages
+
+4. **Support card updates**
+   - Allow users to update expiration dates
+   - Provide a way to handle expired cards
+
+### Data Management
+
+1. **Store provider customer IDs**
+   - Maintain mapping between your customer IDs and provider IDs
+   - Index these fields for fast lookups
+
+2. **Use metadata effectively**
+   - Track when and where cards were saved
+   - Store relevant business context
+
+3. **Clean up deleted cards**
+   - Remove references to deleted cards from your database
+   - Handle cascading deletes properly
+
+## Using with Subscriptions
+
+```typescript
+// Save a card and create a subscription
+async function createSubscriptionWithNewCard(
+  customerId: string,
+  paymentMethodId: string,
+  planId: string
+) {
+  // 1. Save the card as default
+  const card = await cardService.save({
+    customerId,
+    paymentMethodId,
+    setAsDefault: true,
+  });
+
+  // 2. Create subscription using the saved card
+  const subscription = await billing.subscriptions.create({
+    customerId,
+    planId,
+    paymentMethodId: card.id,
+  });
+
+  return { card, subscription };
+}
+
+// Update default card for existing subscription
+async function updateSubscriptionCard(
+  subscriptionId: string,
+  customerId: string,
+  newPaymentMethodId: string
+) {
+  // 1. Save the new card as default
+  await cardService.save({
+    customerId,
+    paymentMethodId: newPaymentMethodId,
+    setAsDefault: true,
+  });
+
+  // 2. Update the subscription
+  await billing.subscriptions.update(subscriptionId, {
+    paymentMethodId: newPaymentMethodId,
+  });
+}
+```
+
+## See Also
+
+- [Stripe Integration Guide](/guides/stripe-integration)
+- [MercadoPago Integration Guide](/guides/mercadopago-integration)
+- [Subscription Lifecycle](/guides/subscription-lifecycle)
+- [Payment Error Handling](/guides/payment-errors)

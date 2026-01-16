@@ -1,0 +1,515 @@
+---
+title: Add-ons
+description: Gestiona add-ons de suscripciones y funcionalidades adicionales con QZPay
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+# Guía de Add-ons
+
+Los add-ons permiten ofrecer funcionalidades, servicios o productos adicionales que los clientes pueden comprar junto a sus suscripciones. Proporcionan flexibilidad para upselling y personalización de ofertas de suscripción.
+
+## Visión General
+
+Los add-ons en QZPay:
+
+- Pueden ser **recurrentes** (facturados regularmente) o compras **únicas**
+- Tienen su propio precio e intervalo de facturación
+- Pueden otorgar **entitlements** y modificar **límites**
+- Son **compatibles con planes** (funcionan con planes específicos o todos los planes)
+- Soportan precio **basado en cantidad**
+
+## Crear Add-ons
+
+### Add-on Básico
+
+```typescript
+const addon = await billing.addons.create({
+  name: 'Almacenamiento Extra',
+  description: '100GB de espacio adicional',
+  unitAmount: 1000, // $10.00 en centavos
+  currency: 'USD',
+  billingInterval: 'month',
+  billingIntervalCount: 1,
+  entitlements: ['extra_storage'],
+  limits: [
+    {
+      key: 'storage_gb',
+      value: 100,
+      action: 'increment' // Suma al límite existente
+    }
+  ]
+});
+```
+
+### Add-on de Compra Única
+
+```typescript
+const setupAddon = await billing.addons.create({
+  name: 'Onboarding Premium',
+  description: 'Sesión de configuración individual con nuestro equipo',
+  unitAmount: 5000, // $50.00
+  currency: 'USD',
+  billingInterval: 'one_time',
+  entitlements: ['premium_onboarding']
+});
+```
+
+### Add-on Específico de Plan
+
+```typescript
+const enterpriseAddon = await billing.addons.create({
+  name: 'Soporte Dedicado',
+  description: 'Línea de soporte dedicado 24/7',
+  unitAmount: 10000, // $100.00/mes
+  currency: 'USD',
+  billingInterval: 'month',
+  compatiblePlanIds: ['plan_enterprise', 'plan_business'],
+  entitlements: ['dedicated_support']
+});
+```
+
+### Add-on Basado en Cantidad
+
+```typescript
+const userSeatAddon = await billing.addons.create({
+  name: 'Usuario Adicional',
+  description: 'Agrega otro miembro al equipo',
+  unitAmount: 1500, // $15.00 por usuario
+  currency: 'USD',
+  billingInterval: 'month',
+  allowMultiple: true,
+  maxQuantity: 50, // Máximo 50 usuarios adicionales
+  limits: [
+    {
+      key: 'team_members',
+      value: 1,
+      action: 'increment'
+    }
+  ]
+});
+```
+
+## Gestionar Add-ons
+
+### Listar Todos los Add-ons
+
+```typescript
+const addons = await billing.addons.list();
+
+for (const addon of addons.data) {
+  console.log(`${addon.name}: $${addon.unitAmount / 100}/${addon.billingInterval}`);
+}
+```
+
+### Obtener Add-on por ID
+
+```typescript
+const addon = await billing.addons.get('addon_123');
+
+if (addon) {
+  console.log('Add-on:', addon.name);
+  console.log('Precio:', addon.unitAmount);
+  console.log('Entitlements:', addon.entitlements);
+}
+```
+
+### Obtener Add-ons de un Plan
+
+```typescript
+const planAddons = await billing.addons.getByPlanId('plan_pro');
+
+console.log('Add-ons disponibles para el plan Pro:');
+planAddons.forEach(addon => {
+  console.log(`- ${addon.name}: $${addon.unitAmount / 100}`);
+});
+```
+
+### Actualizar Add-on
+
+```typescript
+const updatedAddon = await billing.addons.update('addon_123', {
+  unitAmount: 1200, // Nuevo precio
+  description: 'Descripción actualizada',
+  active: true
+});
+```
+
+### Eliminar Add-on
+
+```typescript
+await billing.addons.delete('addon_123');
+```
+
+<Aside type="caution">
+Eliminar un add-on no lo remueve de las suscripciones existentes. Esas continuarán siendo facturadas hasta que se remuevan explícitamente.
+</Aside>
+
+## Agregar Add-ons a Suscripciones
+
+### Agregar a Suscripción
+
+```typescript
+const result = await billing.addons.addToSubscription({
+  subscriptionId: 'sub_123',
+  addOnId: 'addon_storage',
+  quantity: 2, // 2x 100GB = 200GB total
+  metadata: {
+    requestedBy: 'customer'
+  }
+});
+
+console.log('Add-on de suscripción creado:', result.subscriptionAddOn.id);
+console.log('Monto de prorrateo:', result.prorationAmount);
+```
+
+### Remover de Suscripción
+
+```typescript
+await billing.addons.removeFromSubscription('sub_123', 'addon_storage');
+```
+
+<Aside type="note">
+Remover un add-on recurrente aplicará un crédito prorrateado a la cuenta del cliente basado en el tiempo no utilizado.
+</Aside>
+
+### Actualizar Add-on de Suscripción
+
+```typescript
+const updatedSubAddon = await billing.addons.updateSubscriptionAddOn(
+  'sub_123',
+  'addon_storage',
+  {
+    quantity: 5, // Incrementar a 5x almacenamiento
+    metadata: {
+      updatedAt: new Date().toISOString()
+    }
+  }
+);
+```
+
+### Obtener Add-ons de Suscripción
+
+```typescript
+const subscription = await billing.subscriptions.get('sub_123');
+const subAddons = await billing.addons.getSubscriptionAddOns(subscription.id);
+
+console.log('Add-ons activos:');
+subAddons.forEach(sa => {
+  console.log(`- ${sa.addOnId} x${sa.quantity}`);
+});
+```
+
+## Prorrateo
+
+Al agregar o remover add-ons a mitad del ciclo de facturación, QZPay calcula automáticamente el prorrateo:
+
+### Agregar a Mitad de Ciclo
+
+```typescript
+const result = await billing.addons.addToSubscription({
+  subscriptionId: 'sub_123',
+  addOnId: 'addon_storage',
+  quantity: 1
+});
+
+if (result.prorationAmount && result.prorationAmount > 0) {
+  // Cobrar al cliente el monto prorrateado
+  await billing.payments.process({
+    customerId: subscription.customerId,
+    amount: result.prorationAmount,
+    currency: 'USD',
+    subscriptionId: 'sub_123',
+    metadata: {
+      reason: 'addon_proration',
+      addonId: 'addon_storage'
+    }
+  });
+}
+```
+
+### Remover a Mitad de Ciclo
+
+```typescript
+// Retorna un monto de crédito
+const credit = await billing.addons.removeFromSubscription('sub_123', 'addon_storage');
+
+if (credit > 0) {
+  console.log(`Cliente acreditado: $${credit / 100}`);
+  // El crédito se aplicará a la próxima factura
+}
+```
+
+## Entitlements desde Add-ons
+
+Los add-ons pueden otorgar entitlements igual que los planes:
+
+```typescript
+// Crear add-on con entitlements
+const addon = await billing.addons.create({
+  name: 'Acceso API',
+  unitAmount: 2000,
+  currency: 'USD',
+  billingInterval: 'month',
+  entitlements: ['api_access', 'webhooks', 'advanced_integrations']
+});
+
+// Agregar a suscripción
+await billing.addons.addToSubscription({
+  subscriptionId: 'sub_123',
+  addOnId: addon.id
+});
+
+// Verificar entitlement (ahora incluye entitlements del add-on)
+const hasApiAccess = await billing.entitlements.check('cus_123', 'api_access');
+console.log('Tiene acceso API:', hasApiAccess); // true
+```
+
+## Límites desde Add-ons
+
+Los add-ons pueden modificar límites de suscripción:
+
+### Incrementar Límites
+
+```typescript
+const storageAddon = await billing.addons.create({
+  name: 'Almacenamiento Extra',
+  unitAmount: 1000,
+  currency: 'USD',
+  billingInterval: 'month',
+  limits: [
+    {
+      key: 'storage_gb',
+      value: 100,
+      action: 'increment' // Suma al límite existente
+    }
+  ]
+});
+
+// Antes: cliente tiene 50GB del plan
+// Después de agregar addon: cliente tiene 150GB (50 + 100)
+```
+
+### Establecer Límites
+
+```typescript
+const unlimitedAddon = await billing.addons.create({
+  name: 'Llamadas API Ilimitadas',
+  unitAmount: 5000,
+  currency: 'USD',
+  billingInterval: 'month',
+  limits: [
+    {
+      key: 'api_calls_per_month',
+      value: -1, // -1 representa ilimitado
+      action: 'set' // Sobrescribe límite existente
+    }
+  ]
+});
+```
+
+## Eventos de Add-ons
+
+Escucha eventos del ciclo de vida de add-ons:
+
+```typescript
+billing.on('addon.created', async (event) => {
+  console.log('Nuevo add-on creado:', event.data.name);
+});
+
+billing.on('addon.updated', async (event) => {
+  console.log('Add-on actualizado:', event.data.name);
+});
+
+billing.on('addon.deleted', async (event) => {
+  console.log('Add-on eliminado:', event.data.id);
+});
+
+billing.on('subscription.addon_added', async (event) => {
+  console.log('Add-on agregado a suscripción');
+  console.log('Suscripción:', event.data.subscription.id);
+  console.log('Add-on:', event.data.addon.name);
+  console.log('Cantidad:', event.data.subscriptionAddOn.quantity);
+});
+
+billing.on('subscription.addon_removed', async (event) => {
+  console.log('Add-on removido de suscripción');
+  console.log('Suscripción:', event.data.subscription.id);
+  console.log('Add-on:', event.data.addon.name);
+});
+
+billing.on('subscription.addon_updated', async (event) => {
+  console.log('Add-on de suscripción actualizado');
+  console.log('Nueva cantidad:', event.data.subscriptionAddOn.quantity);
+});
+```
+
+## Patrones Comunes
+
+### Niveles de Almacenamiento
+
+```typescript
+const storageTiers = [
+  {
+    name: 'Almacenamiento Extra 100GB',
+    storage: 100,
+    price: 1000
+  },
+  {
+    name: 'Almacenamiento Extra 500GB',
+    storage: 500,
+    price: 4000
+  },
+  {
+    name: 'Almacenamiento Extra 1TB',
+    storage: 1000,
+    price: 7000
+  }
+];
+
+for (const tier of storageTiers) {
+  await billing.addons.create({
+    name: tier.name,
+    unitAmount: tier.price,
+    currency: 'USD',
+    billingInterval: 'month',
+    limits: [
+      {
+        key: 'storage_gb',
+        value: tier.storage,
+        action: 'increment'
+      }
+    ]
+  });
+}
+```
+
+### Gestión de Usuarios del Equipo
+
+```typescript
+// Definir add-on de usuario
+const seatAddon = await billing.addons.create({
+  id: 'addon_user_seat',
+  name: 'Usuario Adicional',
+  unitAmount: 1500,
+  currency: 'USD',
+  billingInterval: 'month',
+  allowMultiple: true,
+  maxQuantity: 100,
+  limits: [
+    {
+      key: 'team_members',
+      value: 1,
+      action: 'increment'
+    }
+  ]
+});
+
+// Agregar 5 usuarios
+await billing.addons.addToSubscription({
+  subscriptionId: 'sub_123',
+  addOnId: 'addon_user_seat',
+  quantity: 5
+});
+
+// El cliente ahora puede tener 5 miembros adicionales
+const limit = await billing.limits.check('cus_123', 'team_members');
+console.log('Límite de miembros:', limit.maxValue); // Plan base + 5
+```
+
+## Mejores Prácticas
+
+### 1. Nombres Claros
+
+Usa nombres descriptivos que comuniquen claramente el valor:
+
+```typescript
+// Bueno
+'Usuario Adicional - $15/mes'
+'100GB Almacenamiento Extra'
+'Soporte Prioritario por Email'
+
+// Evitar
+'Add-on #1'
+'Funcionalidad Extra'
+'Opción Premium'
+```
+
+### 2. Compatibilidad Lógica
+
+Restringe add-ons a planes compatibles:
+
+```typescript
+// No ofrecer características enterprise a planes básicos
+const dedicatedSupport = await billing.addons.create({
+  name: 'Gerente de Cuenta Dedicado',
+  unitAmount: 50000,
+  currency: 'USD',
+  billingInterval: 'month',
+  compatiblePlanIds: ['plan_enterprise'] // Solo para enterprise
+});
+```
+
+### 3. Establecer Límites Razonables
+
+Prevén abuso con cantidades máximas:
+
+```typescript
+const seatAddon = await billing.addons.create({
+  name: 'Usuario Adicional',
+  unitAmount: 1500,
+  currency: 'USD',
+  billingInterval: 'month',
+  allowMultiple: true,
+  maxQuantity: 50 // Límite en 50 usuarios adicionales
+});
+```
+
+### 4. Usar Metadata
+
+Rastrea información importante:
+
+```typescript
+await billing.addons.addToSubscription({
+  subscriptionId: 'sub_123',
+  addOnId: 'addon_storage',
+  metadata: {
+    requestedBy: 'customer',
+    requestDate: new Date().toISOString(),
+    source: 'upgrade_flow',
+    campaign: 'storage_promo_2024'
+  }
+});
+```
+
+### 5. Manejar Prorrateo
+
+Siempre procesa cargos de prorrateo:
+
+```typescript
+const result = await billing.addons.addToSubscription({
+  subscriptionId: 'sub_123',
+  addOnId: 'addon_storage'
+});
+
+if (result.prorationAmount && result.prorationAmount > 0) {
+  try {
+    await billing.payments.process({
+      customerId: subscription.customerId,
+      amount: result.prorationAmount,
+      currency: 'USD',
+      subscriptionId: 'sub_123'
+    });
+  } catch (error) {
+    // Revertir add-on si el pago falla
+    await billing.addons.removeFromSubscription('sub_123', 'addon_storage');
+    throw error;
+  }
+}
+```
+
+## Relacionado
+
+- [Suscripciones](/es/concepts/subscriptions) - Gestión de suscripciones
+- [Entitlements](/es/concepts/entitlements) - Control de acceso a funcionalidades
+- [Códigos Promocionales](/es/guides/promo-codes) - Gestión de descuentos

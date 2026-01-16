@@ -21,10 +21,13 @@ QZPay soporta tres tipos de descuento:
 
 ## Creación de Códigos Promocionales
 
+Los códigos promocionales se crean típicamente a través de tu adaptador de almacenamiento. QZPay proporciona lógica de validación y aplicación pero no métodos de creación directamente a través de `billing.promoCodes`.
+
 ### Descuento Porcentual Básico
 
 ```typescript
-const promoCode = await billing.promoCodes.create({
+// Crear vía adaptador de almacenamiento
+const promoCode = await storage.promoCodes.create({
   code: 'SUMMER20',
   discountType: 'percentage',
   discountValue: 20, // 20% off
@@ -35,7 +38,8 @@ const promoCode = await billing.promoCodes.create({
 ### Descuento de Monto Fijo
 
 ```typescript
-const promoCode = await billing.promoCodes.create({
+// Crear vía adaptador de almacenamiento
+const promoCode = await storage.promoCodes.create({
   code: 'FLAT10',
   discountType: 'fixed_amount',
   discountValue: 1000, // $10.00 off (in cents)
@@ -51,7 +55,7 @@ Los descuentos de monto fijo requieren una moneda. Solo pueden aplicarse a compr
 ### Códigos con Límite de Tiempo
 
 ```typescript
-const promoCode = await billing.promoCodes.create({
+const promoCode = await storage.promoCodes.create({
   code: 'BLACKFRIDAY',
   discountType: 'percentage',
   discountValue: 50,
@@ -64,7 +68,7 @@ const promoCode = await billing.promoCodes.create({
 ### Redenciones Limitadas
 
 ```typescript
-const promoCode = await billing.promoCodes.create({
+const promoCode = await storage.promoCodes.create({
   code: 'EXCLUSIVE100',
   discountType: 'percentage',
   discountValue: 30,
@@ -77,7 +81,7 @@ const promoCode = await billing.promoCodes.create({
 ### Descuentos Específicos por Plan
 
 ```typescript
-const promoCode = await billing.promoCodes.create({
+const promoCode = await storage.promoCodes.create({
   code: 'PROONLY',
   discountType: 'percentage',
   discountValue: 25,
@@ -93,7 +97,7 @@ Agregue condiciones para controlar cuándo pueden usarse los códigos:
 ### Solo Primera Compra
 
 ```typescript
-const promoCode = await billing.promoCodes.create({
+const promoCode = await storage.promoCodes.create({
   code: 'WELCOME20',
   discountType: 'percentage',
   discountValue: 20,
@@ -107,7 +111,7 @@ const promoCode = await billing.promoCodes.create({
 ### Monto Mínimo de Compra
 
 ```typescript
-const promoCode = await billing.promoCodes.create({
+const promoCode = await storage.promoCodes.create({
   code: 'SAVE15',
   discountType: 'percentage',
   discountValue: 15,
@@ -121,7 +125,7 @@ const promoCode = await billing.promoCodes.create({
 ### Cantidad Mínima
 
 ```typescript
-const promoCode = await billing.promoCodes.create({
+const promoCode = await storage.promoCodes.create({
   code: 'BULK10',
   discountType: 'percentage',
   discountValue: 10,
@@ -135,7 +139,7 @@ const promoCode = await billing.promoCodes.create({
 ### Etiquetas de Cliente
 
 ```typescript
-const promoCode = await billing.promoCodes.create({
+const promoCode = await storage.promoCodes.create({
   code: 'VIP30',
   discountType: 'percentage',
   discountValue: 30,
@@ -150,7 +154,7 @@ const promoCode = await billing.promoCodes.create({
 
 ```typescript
 // All conditions must be met
-const promoCode = await billing.promoCodes.create({
+const promoCode = await storage.promoCodes.create({
   code: 'NEWVIP',
   discountType: 'percentage',
   discountValue: 40,

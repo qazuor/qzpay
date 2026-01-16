@@ -47,10 +47,10 @@ const customer = await billing.customers.get('cus_123');
 
 ### Por ID Externo
 
-Busca un cliente por su ID del proveedor (almacenado en `externalIds`):
+Busca un cliente por su ID del proveedor (almacenado en `providerCustomerIds`):
 
 ```typescript
-// El externalId está almacenado en customer.externalIds.stripe
+// El ID del cliente del proveedor está almacenado en customer.providerCustomerIds.stripe
 const customer = await billing.customers.getByExternalId('cus_xyz');
 ```
 
@@ -99,7 +99,7 @@ interface Customer {
   phone?: string;
   address?: Address;
   metadata: Record<string, string>;
-  externalIds: Record<string, string>; // IDs del proveedor
+  providerCustomerIds: Record<string, string>; // IDs del proveedor
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
@@ -116,7 +116,7 @@ const customer = await billing.customers.create({
   email: 'usuario@ejemplo.com'
 });
 
-// customer.externalIds.stripe = 'cus_xyz'
+// customer.providerCustomerIds.stripe = 'cus_xyz'
 ```
 
 ## Eventos

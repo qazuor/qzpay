@@ -29,7 +29,7 @@ pnpm add @qazuor/qzpay-stripe stripe
 import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 
 const stripeAdapter = createQZPayStripeAdapter({
-  apiKey: process.env.STRIPE_SECRET_KEY!,
+  secretKey: process.env.STRIPE_SECRET_KEY!,
   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET
 });
 
@@ -37,7 +37,7 @@ const stripeAdapter = createQZPayStripeAdapter({
 import { QZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 
 const stripeAdapter = new QZPayStripeAdapter({
-  apiKey: process.env.STRIPE_SECRET_KEY!
+  secretKey: process.env.STRIPE_SECRET_KEY!
 });
 ```
 
@@ -45,7 +45,7 @@ const stripeAdapter = new QZPayStripeAdapter({
 
 | Option | Type | Required | Description |
 |--------|------|----------|-------------|
-| `apiKey` | `string` | Yes | Stripe secret key |
+| `secretKey` | `string` | Yes | Stripe secret key |
 | `webhookSecret` | `string` | No | Webhook signing secret |
 
 ## Using with QZPay
@@ -58,7 +58,7 @@ import { createQZPayDrizzleAdapter } from '@qazuor/qzpay-drizzle';
 const billing = createQZPayBilling({
   storage: createQZPayDrizzleAdapter(db),
   paymentAdapter: createQZPayStripeAdapter({
-    apiKey: process.env.STRIPE_SECRET_KEY!
+    secretKey: process.env.STRIPE_SECRET_KEY!
   })
 });
 ```
@@ -318,7 +318,7 @@ Configure Connect credentials for marketplace functionality.
 import { QZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 
 const stripeAdapter = new QZPayStripeAdapter(
-  { apiKey: process.env.STRIPE_SECRET_KEY! },
+  { secretKey: process.env.STRIPE_SECRET_KEY! },
   { // Connect config
     platformAccountId: 'acct_xxx'
   }

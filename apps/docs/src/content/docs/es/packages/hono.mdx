@@ -39,7 +39,7 @@ import {
 // Initialize adapters
 const storage = createQZPayDrizzleAdapter(db);
 const stripeAdapter = createQZPayStripeAdapter({
-  apiKey: process.env.STRIPE_SECRET_KEY!,
+  secretKey: process.env.STRIPE_SECRET_KEY!,
   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!
 });
 
@@ -335,7 +335,7 @@ const db = drizzle(sql);
 // Billing setup
 const storage = createQZPayDrizzleAdapter(db);
 const stripeAdapter = createQZPayStripeAdapter({
-  apiKey: process.env.STRIPE_SECRET_KEY!,
+  secretKey: process.env.STRIPE_SECRET_KEY!,
   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!
 });
 

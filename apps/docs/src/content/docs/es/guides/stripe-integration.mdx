@@ -61,7 +61,7 @@ Esta guía te lleva paso a paso a través de la configuración de una integraci�
 
    export const billing = createQZPayBilling({
      paymentAdapter: createQZPayStripeAdapter({
-       apiKey: process.env.STRIPE_SECRET_KEY!
+       secretKey: process.env.STRIPE_SECRET_KEY!
      }),
      storage: createQZPayDrizzleAdapter(db)
    });
@@ -118,7 +118,7 @@ Usa el adaptador de pago para crear sesiones de checkout:
 import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 
 const stripeAdapter = createQZPayStripeAdapter({
-  apiKey: process.env.STRIPE_SECRET_KEY!
+  secretKey: process.env.STRIPE_SECRET_KEY!
 });
 
 export async function createCheckoutSession(

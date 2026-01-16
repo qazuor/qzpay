@@ -61,7 +61,7 @@ This guide walks you through setting up a complete Stripe integration with QZPay
 
    export const billing = createQZPayBilling({
      paymentAdapter: createQZPayStripeAdapter({
-       apiKey: process.env.STRIPE_SECRET_KEY!
+       secretKey: process.env.STRIPE_SECRET_KEY!
      }),
      storage: createQZPayDrizzleAdapter(db)
    });
@@ -129,7 +129,7 @@ Use the payment adapter to create checkout sessions:
 import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 
 const stripeAdapter = createQZPayStripeAdapter({
-  apiKey: process.env.STRIPE_SECRET_KEY!
+  secretKey: process.env.STRIPE_SECRET_KEY!
 });
 
 export async function createCheckoutSession(

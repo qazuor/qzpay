@@ -57,12 +57,12 @@ pnpm add -D typescript@latest
 ```typescript
 // Correct
 const stripe = createQZPayStripeAdapter({
-  apiKey: process.env.STRIPE_SECRET_KEY! // sk_test_xxx or sk_live_xxx
+  secretKey: process.env.STRIPE_SECRET_KEY! // sk_test_xxx or sk_live_xxx
 });
 
 // Wrong - using publishable key
 const stripe = createQZPayStripeAdapter({
-  apiKey: process.env.STRIPE_PUBLISHABLE_KEY! // pk_test_xxx - won't work!
+  secretKey: process.env.STRIPE_PUBLISHABLE_KEY! // pk_test_xxx - won't work!
 });
 ```
 

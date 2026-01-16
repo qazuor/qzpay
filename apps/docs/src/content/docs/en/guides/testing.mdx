@@ -206,7 +206,7 @@ describe('Stripe E2E', () => {
     // Use Stripe test mode
     billing = createQZPayBilling({
       paymentAdapter: createQZPayStripeAdapter({
-        apiKey: process.env.STRIPE_TEST_SECRET_KEY!
+        secretKey: process.env.STRIPE_TEST_SECRET_KEY!
       }),
       storage: createQZPayDrizzleAdapter(db)
     });

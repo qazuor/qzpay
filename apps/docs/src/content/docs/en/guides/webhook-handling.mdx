@@ -131,31 +131,27 @@ try {
 
 ### Replay Attack Prevention
 
-```typescript
-const billing = createQZPayBilling({
-  paymentAdapter,
-  storage,
-  config: {
-    // Reject webhooks older than 5 minutes
-    webhookTolerance: 300 // seconds
-  }
-});
-```
+Webhook signatures include timestamps that providers use to validate freshness. Each payment provider (Stripe, MercadoPago) handles timestamp validation automatically during signature verification.
 
 ### Idempotency
 
-QZPay tracks processed webhook events:
+Design your webhook handlers to be idempotent:
 
 ```typescript
-// Same event received twice? Second call is ignored
-// Event ID is stored to prevent duplicate processing
+// Same event received twice? Make sure processing is safe
+billing.on('payment.succeeded', async (event) => {
+  // Check if already processed
+  const existing = await db.receipts.findByPaymentId(event.data.id);
+  if (existing) {
+    console.log('Payment already processed, skipping');
+    return;
+  }
 
-billing.on('webhook.processed', (event) => {
-  console.log('Processed:', event.data.eventId);
-});
+  // Process payment
+  await processPayment(event.data);
 
-billing.on('webhook.duplicate', (event) => {
-  console.log('Duplicate ignored:', event.data.eventId);
+  // Mark as processed
+  await db.receipts.create({ paymentId: event.data.id });
 });
 ```
 
@@ -334,44 +330,58 @@ describe('Webhook Handlers', () => {
 
 ### Logging
 
+Use the built-in logger or your own logging solution:
+
 ```typescript
-billing.on('webhook.received', (event) => {
-  logger.info('Webhook received', {
-    provider: event.data.provider,
-    type: event.data.type,
-    id: event.data.id
-  });
+// Configure QZPay logger
+const billing = createQZPayBilling({
+  storage,
+  paymentAdapter,
+  logger: {
+    debug: (message, context) => console.debug(message, context),
+    info: (message, context) => console.info(message, context),
+    warn: (message, context) => console.warn(message, context),
+    error: (message, context) => console.error(message, context)
+  }
 });
 
-billing.on('webhook.processed', (event) => {
-  logger.info('Webhook processed', {
-    type: event.data.type,
-    duration: event.data.processingTime
-  });
-});
-
-billing.on('webhook.failed', (event) => {
-  logger.error('Webhook failed', {
-    type: event.data.type,
-    error: event.data.error
-  });
+// Log webhook processing in your handlers
+const webhookRouter = createWebhookRouter({
+  billing,
+  paymentAdapter: stripeAdapter,
+  handlers: {
+    'invoice.payment_succeeded': async (c, event) => {
+      logger.info('Processing payment success webhook', {
+        invoiceId: event.data.id,
+        customerId: event.data.customer
+      });
+      // Process event...
+    }
+  }
 });
 ```
 
 ### Alerting
 
 ```typescript
-// Alert on repeated failures
-const failureCount = new Map<string, number>();
+// Alert on payment failures
+billing.on('payment.failed', async (event) => {
+  const { customerId, amount, failureCode } = event.data;
 
-billing.on('webhook.failed', async (event) => {
-  const key = event.data.type;
-  const count = (failureCount.get(key) || 0) + 1;
-  failureCount.set(key, count);
+  // Alert team for high-value failures
+  if (amount > 100000) { // $1000+
+    await alertTeam(`High-value payment failed: $${amount / 100}`, {
+      customerId,
+      failureCode
+    });
+  }
+});
 
-  if (count >= 5) {
-    await alertTeam(`Webhook ${key} failing repeatedly`);
-    failureCount.set(key, 0);
+// Alert on repeated subscription issues
+billing.on('invoice.payment_failed', async (event) => {
+  const subscription = await billing.subscriptions.get(event.data.subscriptionId);
+  if (subscription && subscription.status === 'past_due') {
+    await alertTeam(`Subscription at risk: ${subscription.id}`);
   }
 });
 ```

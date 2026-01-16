@@ -64,7 +64,7 @@ const subscription = await billing.subscriptions.create({
 const subscription = await billing.subscriptions.create({
   customerId: 'cus_123',
   planId: 'price_pro_monthly',
-  promoCode: 'LAUNCH50' // 50% off first month
+  promoCodeId: 'LAUNCH50' // 50% off first month
 });
 ```
 
@@ -111,7 +111,7 @@ Trial converts automatically when:
 ```typescript
 const subscription = await billing.subscriptions.update('sub_123', {
   planId: 'price_enterprise_monthly',
-  proration: 'create_prorations'
+  prorationBehavior: 'create_prorations'
 });
 
 // Customer is charged the prorated difference immediately
@@ -132,15 +132,73 @@ For downgrades, consider using the `changePlan` method which handles proration a
 
 ### Using changePlan for Plan Changes
 
-For more control over plan changes with proration:
+The `changePlan()` method provides more control over plan changes with automatic proration calculation:
 
 ```typescript
 const result = await billing.subscriptions.changePlan('sub_123', {
   newPlanId: 'price_enterprise_monthly',
-  proration: 'create_prorations'
+  prorationBehavior: 'create_prorations'
 });
 
-console.log('Prorated amount:', result.proratedAmount);
+console.log('Prorated credit:', result.proration?.creditAmount);
+console.log('Prorated charge:', result.proration?.chargeAmount);
+console.log('Effective date:', result.proration?.effectiveDate);
+```
+
+#### Proration Behavior Options
+
+| Behavior | Description | Use Case |
+|----------|-------------|----------|
+| `create_prorations` | Calculate credit/charge based on time remaining | Default for upgrades/downgrades |
+| `none` | No proration, apply new price immediately | Free trials, special promotions |
+| `always_invoice` | Always create an invoice for proration | Enterprise customers, accounting requirements |
+
+#### Apply Timing Options
+
+```typescript
+// Apply change immediately (default)
+await billing.subscriptions.changePlan('sub_123', {
+  newPlanId: 'plan_pro',
+  applyAt: 'immediately'
+});
+
+// Apply change at end of current billing period
+await billing.subscriptions.changePlan('sub_123', {
+  newPlanId: 'plan_basic',
+  applyAt: 'period_end'
+});
+```
+
+#### Complete Example
+
+```typescript
+// Upgrade with immediate proration
+const upgradeResult = await billing.subscriptions.changePlan('sub_123', {
+  newPlanId: 'plan_enterprise',
+  newPriceId: 'price_enterprise_monthly', // Optional: specify exact price
+  prorationBehavior: 'create_prorations',
+  applyAt: 'immediately'
+});
+
+if (upgradeResult.proration) {
+  // Charge customer the difference
+  if (upgradeResult.proration.chargeAmount > 0) {
+    await billing.payments.process({
+      customerId: upgradeResult.subscription.customerId,
+      amount: upgradeResult.proration.chargeAmount,
+      currency: 'USD',
+      subscriptionId: upgradeResult.subscription.id,
+      metadata: {
+        reason: 'plan_upgrade_proration'
+      }
+    });
+  }
+
+  // Apply credit if downgrading
+  if (upgradeResult.proration.creditAmount > 0) {
+    console.log(`Credit of ${upgradeResult.proration.creditAmount} applied to account`);
+  }
+}
 ```
 
 ## Pausing & Resuming
@@ -300,6 +358,182 @@ if (!hasFeature) {
 }
 ```
 
+## Automated Lifecycle Management
+
+For production applications, you should automate subscription lifecycle operations using the `SubscriptionLifecycleService`.
+
+### What is SubscriptionLifecycleService?
+
+The lifecycle service orchestrates the complete lifecycle of subscriptions, including:
+
+- **Automatic Renewals**: Charge and renew active subscriptions when their period ends
+- **Trial Conversions**: Convert trial subscriptions to paid automatically
+- **Payment Retries**: Retry failed payments according to a configured schedule
+- **Automatic Cancellations**: Cancel subscriptions after grace period expires
+
+### Setup
+
+```typescript
+import { createSubscriptionLifecycle } from '@qazuor/qzpay-core';
+
+const lifecycle = createSubscriptionLifecycle(billing, storage, {
+  gracePeriodDays: 7,
+  retryIntervals: [1, 3, 5], // Retry after 1, 3, and 5 days
+  trialConversionDays: 0,
+
+  processPayment: async (input) => {
+    // Process payment with your provider
+    const result = await stripe.paymentIntents.create({
+      amount: input.amount,
+      currency: input.currency,
+      customer: providerCustomerId,
+      payment_method: input.paymentMethodId,
+      confirm: true,
+    });
+
+    return {
+      success: result.status === 'succeeded',
+      paymentId: result.id,
+    };
+  },
+
+  getDefaultPaymentMethod: async (customerId) => {
+    const pm = await storage.paymentMethods.findDefaultByCustomerId(customerId);
+    return pm ? { id: pm.id, providerPaymentMethodId: pm.stripePaymentMethodId } : null;
+  },
+
+  onEvent: async (event) => {
+    // Handle lifecycle events
+    console.log(`[Lifecycle] ${event.type}`, event);
+
+    switch (event.type) {
+      case 'subscription.renewal_failed':
+        await sendEmail(event.customerId, 'payment_failed');
+        break;
+      case 'subscription.trial_converted':
+        await sendEmail(event.customerId, 'trial_converted');
+        break;
+      case 'subscription.canceled_nonpayment':
+        await sendEmail(event.customerId, 'subscription_canceled');
+        break;
+    }
+  },
+});
+```
+
+### Running in a Cron Job
+
+Process all lifecycle operations on a regular schedule:
+
+```typescript
+import cron from 'node-cron';
+
+// Run every hour
+cron.schedule('0 * * * *', async () => {
+  console.log('Processing subscription lifecycle...');
+
+  const results = await lifecycle.processAll();
+
+  console.log({
+    renewals: results.renewals.succeeded,
+    conversions: results.trialConversions.succeeded,
+    retries: results.retries.succeeded,
+    cancellations: results.cancellations.processed,
+  });
+});
+```
+
+### Configuration Options
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `gracePeriodDays` | Days before canceling due to failed payment | 7 |
+| `retryIntervals` | Days between payment retries | `[1, 3, 5]` |
+| `trialConversionDays` | Days before trial end to attempt conversion | 0 |
+| `processPayment` | Function to process payment with provider | See above |
+| `getDefaultPaymentMethod` | Function to get customer's default payment method | See above |
+| `onEvent` | Optional callback for lifecycle events | See above |
+
+### Lifecycle Events
+
+The service emits events for all operations:
+
+**Renewal Events:**
+- `subscription.renewed`: Successfully renewed
+- `subscription.renewal_failed`: Renewal payment failed
+- `subscription.entered_grace_period`: Entered grace period
+
+**Trial Conversion Events:**
+- `subscription.trial_converted`: Trial converted to paid
+- `subscription.trial_conversion_failed`: Trial conversion failed
+
+**Retry Events:**
+- `subscription.retry_scheduled`: Payment retry scheduled
+- `subscription.retry_succeeded`: Retry succeeded
+- `subscription.retry_failed`: Retry failed
+
+**Cancellation Events:**
+- `subscription.canceled_nonpayment`: Canceled due to non-payment
+
+### With Background Jobs
+
+Use a queue system for more robust processing:
+
+```typescript
+import { Queue, Worker } from 'bullmq';
+
+const connection = { host: 'localhost', port: 6379 };
+
+// Schedule job
+const lifecycleQueue = new Queue('subscription-lifecycle', { connection });
+
+await lifecycleQueue.add(
+  'process-all',
+  {},
+  {
+    repeat: {
+      pattern: '0 * * * *', // Every hour
+    },
+  }
+);
+
+// Process job
+const worker = new Worker(
+  'subscription-lifecycle',
+  async (job) => {
+    const results = await lifecycle.processAll();
+    return results;
+  },
+  { connection }
+);
+
+worker.on('completed', (job, result) => {
+  console.log(`Lifecycle processing completed`, result);
+});
+```
+
+### Retry Strategies
+
+Configure retry intervals based on your business needs:
+
+**Aggressive (High-value customers):**
+```typescript
+gracePeriodDays: 14,
+retryIntervals: [1, 2, 3, 5, 7, 10], // 6 retries over 28 days
+```
+
+**Balanced (Standard):**
+```typescript
+gracePeriodDays: 7,
+retryIntervals: [1, 3, 5], // 3 retries over 9 days
+```
+
+**Lenient (Enterprise):**
+```typescript
+gracePeriodDays: 30,
+retryIntervals: [3, 7, 14, 21], // 4 retries over 45 days
+```
+
 ## Best Practices
 
 1. **Always use `atPeriodEnd: true`** for cancellations unless explicitly requested
@@ -308,3 +542,7 @@ if (!hasFeature) {
 4. **Track cancellation reasons** to improve your product
 5. **Allow reactivation** within a reasonable window
 6. **Preview changes** before applying plan updates
+7. **Automate lifecycle operations** using SubscriptionLifecycleService
+8. **Monitor lifecycle events** and respond appropriately
+9. **Configure retry strategies** based on your business model
+10. **Test thoroughly** with different scenarios before going live

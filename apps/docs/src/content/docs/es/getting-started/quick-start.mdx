@@ -122,7 +122,7 @@ Tu configuración de QZPay está lista. El CLI crea un archivo `qzpay.config.ts`
    export const billing = createQZPayBilling({
      storage: createQZPayDrizzleAdapter(db),
      paymentAdapter: createQZPayStripeAdapter({
-       apiKey: process.env.STRIPE_SECRET_KEY!,
+       secretKey: process.env.STRIPE_SECRET_KEY!,
        webhookSecret: process.env.STRIPE_WEBHOOK_SECRET
      })
    });
@@ -164,7 +164,7 @@ Tu configuración de QZPay está lista. El CLI crea un archivo `qzpay.config.ts`
    import { billing } from '../billing';
 
    const stripeAdapter = createQZPayStripeAdapter({
-     apiKey: process.env.STRIPE_SECRET_KEY!,
+     secretKey: process.env.STRIPE_SECRET_KEY!,
      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!
    });
 
@@ -209,7 +209,7 @@ const db = drizzle(sql);
 // Create adapters
 const storage = createQZPayDrizzleAdapter(db);
 const stripeAdapter = createQZPayStripeAdapter({
-  apiKey: process.env.STRIPE_SECRET_KEY!,
+  secretKey: process.env.STRIPE_SECRET_KEY!,
   webhookSecret: process.env.STRIPE_WEBHOOK_SECRET!
 });
 

@@ -48,7 +48,7 @@ Always test migrations in a development environment first. Never run untested mi
 
    const billing = createQZPayBilling({
      paymentAdapter: createQZPayStripeAdapter({
-       apiKey: process.env.STRIPE_SECRET_KEY! // Same key you're already using
+       secretKey: process.env.STRIPE_SECRET_KEY! // Same key you're already using
      }),
      storage: createQZPayDrizzleAdapter(db)
    });
@@ -205,7 +205,7 @@ One of QZPay's key features is the ability to switch payment providers.
 
    // Keep existing provider for current customers
    const stripeBilling = createQZPayBilling({
-     paymentAdapter: createQZPayStripeAdapter({ apiKey: stripeKey }),
+     paymentAdapter: createQZPayStripeAdapter({ secretKey: stripeKey }),
      storage
    });
 

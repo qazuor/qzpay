@@ -92,7 +92,7 @@ import { createBilling } from '@qazuor/qzpay-core';
 import { createQZPayStripeAdapter } from '@qazuor/qzpay-stripe';
 
 const billing = createBilling({
-  paymentAdapter: createQZPayStripeAdapter({ apiKey: 'sk_test_xxx' }),
+  paymentAdapter: createQZPayStripeAdapter({ secretKey: 'sk_test_xxx' }),
   storage
 });
 

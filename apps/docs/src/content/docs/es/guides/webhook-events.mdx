@@ -1,0 +1,965 @@
+---
+title: Estructura de Eventos Webhook
+description: Referencia completa de tipos de eventos webhook y estructuras de payload en QZPay
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+# Estructura de Eventos Webhook
+
+Esta guía documenta la estructura exacta de todos los eventos webhook emitidos por QZPay. Comprender estas estructuras es esencial para construir manejadores de webhook robustos.
+
+## Estructura de Evento
+
+Todos los eventos de QZPay siguen esta estructura base:
+
+```typescript
+interface QZPayEvent<T> {
+  /** Identificador único del evento */
+  id: string;
+
+  /** Tipo de evento (ej., 'customer.created') */
+  type: QZPayBillingEvent;
+
+  /** Payload de datos específico del evento */
+  data: T;
+
+  /** Si es un evento en modo producción */
+  livemode: boolean;
+
+  /** Cuándo se creó el evento */
+  createdAt: Date;
+}
+```
+
+## Tipos de Evento
+
+### Eventos de Cliente
+
+#### `customer.created`
+
+Emitido cuando se crea un nuevo cliente.
+
+```typescript
+{
+  id: "evt_abc123",
+  type: "customer.created",
+  data: {
+    id: "cus_abc123",
+    externalId: "user_789",
+    email: "customer@example.com",
+    name: "John Doe",
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `customer.updated`
+
+Emitido cuando se actualiza la información del cliente.
+
+```typescript
+{
+  id: "evt_abc124",
+  type: "customer.updated",
+  data: {
+    id: "cus_abc123",
+    externalId: "user_789",
+    email: "newemail@example.com", // Campo actualizado
+    name: "John Doe",
+    metadata: { tier: "premium" }, // Metadata actualizada
+    createdAt: Date,
+    updatedAt: Date // Nueva marca de tiempo
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `customer.deleted`
+
+Emitido cuando se elimina un cliente.
+
+```typescript
+{
+  id: "evt_abc125",
+  type: "customer.deleted",
+  data: {
+    id: "cus_abc123",
+    externalId: "user_789",
+    email: "customer@example.com",
+    name: "John Doe",
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+### Eventos de Suscripción
+
+#### `subscription.created`
+
+Emitido cuando se crea una nueva suscripción.
+
+```typescript
+{
+  id: "evt_sub001",
+  type: "subscription.created",
+  data: {
+    id: "sub_abc123",
+    customerId: "cus_abc123",
+    planId: "plan_pro",
+    priceId: "price_pro_monthly",
+    status: "active",
+    quantity: 1,
+    interval: "month",
+    intervalCount: 1,
+    currentPeriodStart: Date,
+    currentPeriodEnd: Date,
+    trialStart: null,
+    trialEnd: null,
+    canceledAt: null,
+    cancelAtPeriodEnd: false,
+    pausedAt: null,
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `subscription.updated`
+
+Emitido cuando cambian los detalles de la suscripción (plan, cantidad, etc.).
+
+```typescript
+{
+  id: "evt_sub002",
+  type: "subscription.updated",
+  data: {
+    id: "sub_abc123",
+    customerId: "cus_abc123",
+    planId: "plan_enterprise", // Cambiado desde plan_pro
+    priceId: "price_enterprise_monthly",
+    status: "active",
+    quantity: 2, // Aumentado desde 1
+    interval: "month",
+    intervalCount: 1,
+    currentPeriodStart: Date,
+    currentPeriodEnd: Date,
+    trialStart: null,
+    trialEnd: null,
+    canceledAt: null,
+    cancelAtPeriodEnd: false,
+    pausedAt: null,
+    metadata: { upgraded: true },
+    createdAt: Date,
+    updatedAt: Date // Marca de tiempo actualizada
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `subscription.canceled`
+
+Emitido cuando se cancela una suscripción.
+
+```typescript
+{
+  id: "evt_sub003",
+  type: "subscription.canceled",
+  data: {
+    id: "sub_abc123",
+    customerId: "cus_abc123",
+    planId: "plan_pro",
+    priceId: "price_pro_monthly",
+    status: "canceled",
+    quantity: 1,
+    interval: "month",
+    intervalCount: 1,
+    currentPeriodStart: Date,
+    currentPeriodEnd: Date,
+    trialStart: null,
+    trialEnd: null,
+    canceledAt: Date, // Establecido al cancelar
+    cancelAtPeriodEnd: false,
+    pausedAt: null,
+    metadata: {
+      cancellationReason: "switching_provider"
+    },
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `subscription.paused`
+
+Emitido cuando se pausa una suscripción.
+
+```typescript
+{
+  id: "evt_sub004",
+  type: "subscription.paused",
+  data: {
+    id: "sub_abc123",
+    customerId: "cus_abc123",
+    planId: "plan_pro",
+    priceId: "price_pro_monthly",
+    status: "paused",
+    quantity: 1,
+    interval: "month",
+    intervalCount: 1,
+    currentPeriodStart: Date,
+    currentPeriodEnd: Date,
+    trialStart: null,
+    trialEnd: null,
+    canceledAt: null,
+    cancelAtPeriodEnd: false,
+    pausedAt: Date, // Establecido al pausar
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `subscription.resumed`
+
+Emitido cuando se reanuda una suscripción pausada.
+
+```typescript
+{
+  id: "evt_sub005",
+  type: "subscription.resumed",
+  data: {
+    id: "sub_abc123",
+    customerId: "cus_abc123",
+    planId: "plan_pro",
+    priceId: "price_pro_monthly",
+    status: "active",
+    quantity: 1,
+    interval: "month",
+    intervalCount: 1,
+    currentPeriodStart: Date,
+    currentPeriodEnd: Date,
+    trialStart: null,
+    trialEnd: null,
+    canceledAt: null,
+    cancelAtPeriodEnd: false,
+    pausedAt: null, // Limpiado al reanudar
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `subscription.trial_ending`
+
+Emitido 3 días antes de que termine el período de prueba (configurable).
+
+```typescript
+{
+  id: "evt_sub006",
+  type: "subscription.trial_ending",
+  data: {
+    id: "sub_abc123",
+    customerId: "cus_abc123",
+    planId: "plan_pro",
+    priceId: "price_pro_monthly",
+    status: "trialing",
+    quantity: 1,
+    interval: "month",
+    intervalCount: 1,
+    currentPeriodStart: Date,
+    currentPeriodEnd: Date,
+    trialStart: Date,
+    trialEnd: Date, // 3 días desde ahora
+    canceledAt: null,
+    cancelAtPeriodEnd: false,
+    pausedAt: null,
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `subscription.trial_ended`
+
+Emitido cuando termina el período de prueba.
+
+```typescript
+{
+  id: "evt_sub007",
+  type: "subscription.trial_ended",
+  data: {
+    id: "sub_abc123",
+    customerId: "cus_abc123",
+    planId: "plan_pro",
+    priceId: "price_pro_monthly",
+    status: "active", // Convertida desde trialing
+    quantity: 1,
+    interval: "month",
+    intervalCount: 1,
+    currentPeriodStart: Date,
+    currentPeriodEnd: Date,
+    trialStart: Date,
+    trialEnd: Date, // Recién terminada
+    canceledAt: null,
+    cancelAtPeriodEnd: false,
+    pausedAt: null,
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+### Eventos de Pago
+
+#### `payment.succeeded`
+
+Emitido cuando un pago es exitoso.
+
+```typescript
+{
+  id: "evt_pay001",
+  type: "payment.succeeded",
+  data: {
+    id: "pay_abc123",
+    customerId: "cus_abc123",
+    amount: 9900, // $99.00 en centavos
+    currency: "USD",
+    status: "succeeded",
+    provider: "stripe",
+    providerPaymentId: "pi_stripe123",
+    invoiceId: "inv_abc123",
+    subscriptionId: "sub_abc123",
+    failureReason: null,
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `payment.failed`
+
+Emitido cuando falla un pago.
+
+```typescript
+{
+  id: "evt_pay002",
+  type: "payment.failed",
+  data: {
+    id: "pay_abc124",
+    customerId: "cus_abc123",
+    amount: 9900,
+    currency: "USD",
+    status: "failed",
+    provider: "stripe",
+    providerPaymentId: "pi_stripe124",
+    invoiceId: "inv_abc124",
+    subscriptionId: "sub_abc123",
+    failureReason: "card_declined",
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `payment.refunded`
+
+Emitido cuando se reembolsa un pago.
+
+```typescript
+{
+  id: "evt_pay003",
+  type: "payment.refunded",
+  data: {
+    id: "pay_abc123",
+    customerId: "cus_abc123",
+    amount: 9900,
+    currency: "USD",
+    status: "refunded",
+    provider: "stripe",
+    providerPaymentId: "pi_stripe123",
+    invoiceId: "inv_abc123",
+    subscriptionId: "sub_abc123",
+    failureReason: null,
+    metadata: {
+      refundReason: "customer_request",
+      refundedAt: Date
+    },
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `payment.disputed`
+
+Emitido cuando se disputa un pago (contracargo).
+
+```typescript
+{
+  id: "evt_pay004",
+  type: "payment.disputed",
+  data: {
+    id: "pay_abc123",
+    customerId: "cus_abc123",
+    amount: 9900,
+    currency: "USD",
+    status: "disputed",
+    provider: "stripe",
+    providerPaymentId: "pi_stripe123",
+    invoiceId: "inv_abc123",
+    subscriptionId: "sub_abc123",
+    failureReason: null,
+    metadata: {
+      disputeReason: "fraudulent",
+      disputeId: "dp_stripe123"
+    },
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+### Eventos de Factura
+
+#### `invoice.created`
+
+Emitido cuando se crea una factura.
+
+```typescript
+{
+  id: "evt_inv001",
+  type: "invoice.created",
+  data: {
+    id: "inv_abc123",
+    customerId: "cus_abc123",
+    subscriptionId: "sub_abc123",
+    amount: 9900,
+    currency: "USD",
+    status: "open",
+    dueDate: Date,
+    paidAt: null,
+    voidedAt: null,
+    lines: [
+      {
+        description: "Pro Plan - Monthly",
+        quantity: 1,
+        unitAmount: 9900,
+        priceId: "price_pro_monthly"
+      }
+    ],
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `invoice.paid`
+
+Emitido cuando se paga una factura.
+
+```typescript
+{
+  id: "evt_inv002",
+  type: "invoice.paid",
+  data: {
+    id: "inv_abc123",
+    customerId: "cus_abc123",
+    subscriptionId: "sub_abc123",
+    amount: 9900,
+    currency: "USD",
+    status: "paid",
+    dueDate: Date,
+    paidAt: Date, // Establecido al pagar
+    voidedAt: null,
+    lines: [...],
+    metadata: {
+      paymentId: "pay_abc123"
+    },
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `invoice.payment_failed`
+
+Emitido cuando falla el pago de una factura.
+
+```typescript
+{
+  id: "evt_inv003",
+  type: "invoice.payment_failed",
+  data: {
+    id: "inv_abc124",
+    customerId: "cus_abc123",
+    subscriptionId: "sub_abc123",
+    amount: 9900,
+    currency: "USD",
+    status: "open",
+    dueDate: Date,
+    paidAt: null,
+    voidedAt: null,
+    lines: [...],
+    metadata: {
+      paymentAttempts: 1,
+      lastPaymentError: "card_declined"
+    },
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `invoice.voided`
+
+Emitido cuando se anula una factura.
+
+```typescript
+{
+  id: "evt_inv004",
+  type: "invoice.voided",
+  data: {
+    id: "inv_abc125",
+    customerId: "cus_abc123",
+    subscriptionId: "sub_abc123",
+    amount: 9900,
+    currency: "USD",
+    status: "voided",
+    dueDate: Date,
+    paidAt: null,
+    voidedAt: Date, // Establecido al anular
+    lines: [...],
+    metadata: {
+      voidReason: "duplicate"
+    },
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+### Eventos de Checkout
+
+#### `checkout.completed`
+
+Emitido cuando la sesión de checkout se completa exitosamente.
+
+```typescript
+{
+  id: "evt_co001",
+  type: "checkout.completed",
+  data: {
+    id: "cs_abc123",
+    customerId: "cus_abc123",
+    planId: "plan_pro",
+    priceId: "price_pro_monthly",
+    mode: "subscription",
+    status: "completed",
+    successUrl: "https://example.com/success",
+    cancelUrl: "https://example.com/cancel",
+    metadata: {},
+    completedAt: Date,
+    expiresAt: Date,
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `checkout.expired`
+
+Emitido cuando expira la sesión de checkout.
+
+```typescript
+{
+  id: "evt_co002",
+  type: "checkout.expired",
+  data: {
+    id: "cs_abc124",
+    customerId: null,
+    planId: "plan_pro",
+    priceId: "price_pro_monthly",
+    mode: "subscription",
+    status: "expired",
+    successUrl: "https://example.com/success",
+    cancelUrl: "https://example.com/cancel",
+    metadata: {},
+    completedAt: null,
+    expiresAt: Date, // Marca de tiempo de expiración
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+### Eventos de Vendor
+
+#### `vendor.created`
+
+Emitido cuando se crea un vendor.
+
+```typescript
+{
+  id: "evt_ven001",
+  type: "vendor.created",
+  data: {
+    id: "ven_abc123",
+    name: "Acme Inc",
+    email: "vendor@acme.com",
+    revenueSharePercentage: 80, // 80% al vendor
+    status: "active",
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `vendor.updated`
+
+Emitido cuando se actualiza la información del vendor.
+
+```typescript
+{
+  id: "evt_ven002",
+  type: "vendor.updated",
+  data: {
+    id: "ven_abc123",
+    name: "Acme Inc",
+    email: "vendor@acme.com",
+    revenueSharePercentage: 85, // Actualizado desde 80%
+    status: "active",
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `vendor.payout`
+
+Emitido cuando se realiza un pago a un vendor.
+
+```typescript
+{
+  id: "evt_ven003",
+  type: "vendor.payout",
+  data: {
+    id: "po_abc123",
+    vendorId: "ven_abc123",
+    amount: 8000, // $80.00
+    currency: "USD",
+    status: "completed",
+    periodStart: Date,
+    periodEnd: Date,
+    metadata: {
+      transactionId: "txn_123",
+      method: "bank_transfer"
+    },
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+### Eventos de Add-on
+
+#### `addon.created`
+
+Emitido cuando se crea un nuevo add-on.
+
+```typescript
+{
+  id: "evt_addon001",
+  type: "addon.created",
+  data: {
+    id: "addon_abc123",
+    name: "Extra Storage",
+    description: "100GB additional storage",
+    active: true,
+    unitAmount: 1000,
+    currency: "USD",
+    billingInterval: "month",
+    billingIntervalCount: 1,
+    compatiblePlanIds: [],
+    allowMultiple: true,
+    maxQuantity: null,
+    entitlements: ["extra_storage"],
+    limits: [
+      {
+        key: "storage_gb",
+        value: 100,
+        action: "increment"
+      }
+    ],
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `addon.updated`
+
+Emitido cuando se actualiza un add-on.
+
+```typescript
+{
+  id: "evt_addon002",
+  type: "addon.updated",
+  data: {
+    id: "addon_abc123",
+    name: "Extra Storage",
+    description: "100GB additional storage",
+    active: true,
+    unitAmount: 1200, // Precio actualizado
+    currency: "USD",
+    billingInterval: "month",
+    billingIntervalCount: 1,
+    compatiblePlanIds: [],
+    allowMultiple: true,
+    maxQuantity: null,
+    entitlements: ["extra_storage"],
+    limits: [...],
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `addon.deleted`
+
+Emitido cuando se elimina un add-on.
+
+```typescript
+{
+  id: "evt_addon003",
+  type: "addon.deleted",
+  data: {
+    id: "addon_abc123",
+    name: "Extra Storage",
+    description: "100GB additional storage",
+    active: false, // Establecido como inactivo
+    unitAmount: 1000,
+    currency: "USD",
+    billingInterval: "month",
+    billingIntervalCount: 1,
+    compatiblePlanIds: [],
+    allowMultiple: true,
+    maxQuantity: null,
+    entitlements: ["extra_storage"],
+    limits: [...],
+    metadata: {},
+    createdAt: Date,
+    updatedAt: Date
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+### Eventos de Add-on de Suscripción
+
+#### `subscription.addon_added`
+
+Emitido cuando se agrega un add-on a una suscripción.
+
+```typescript
+{
+  id: "evt_subaddon001",
+  type: "subscription.addon_added",
+  data: {
+    subscription: {
+      id: "sub_abc123",
+      customerId: "cus_abc123",
+      planId: "plan_pro",
+      // ... objeto de suscripción completo
+    },
+    subscriptionAddOn: {
+      id: "sa_abc123",
+      subscriptionId: "sub_abc123",
+      addOnId: "addon_abc123",
+      quantity: 2,
+      unitAmount: 1000,
+      currency: "USD",
+      status: "active",
+      addedAt: Date,
+      canceledAt: null,
+      expiresAt: null,
+      metadata: {},
+      createdAt: Date,
+      updatedAt: Date
+    },
+    addon: {
+      id: "addon_abc123",
+      name: "Extra Storage",
+      // ... objeto de add-on completo
+    }
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `subscription.addon_removed`
+
+Emitido cuando se elimina un add-on de una suscripción.
+
+```typescript
+{
+  id: "evt_subaddon002",
+  type: "subscription.addon_removed",
+  data: {
+    subscription: { /* suscripción completa */ },
+    subscriptionAddOn: {
+      id: "sa_abc123",
+      subscriptionId: "sub_abc123",
+      addOnId: "addon_abc123",
+      quantity: 2,
+      unitAmount: 1000,
+      currency: "USD",
+      status: "canceled",
+      addedAt: Date,
+      canceledAt: Date, // Establecido al eliminar
+      expiresAt: null,
+      metadata: {},
+      createdAt: Date,
+      updatedAt: Date
+    },
+    addon: { /* add-on completo */ }
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+#### `subscription.addon_updated`
+
+Emitido cuando se actualiza un add-on de suscripción (ej., cantidad cambiada).
+
+```typescript
+{
+  id: "evt_subaddon003",
+  type: "subscription.addon_updated",
+  data: {
+    subscription: { /* suscripción completa */ },
+    subscriptionAddOn: {
+      id: "sa_abc123",
+      subscriptionId: "sub_abc123",
+      addOnId: "addon_abc123",
+      quantity: 5, // Actualizado desde 2
+      unitAmount: 1000,
+      currency: "USD",
+      status: "active",
+      addedAt: Date,
+      canceledAt: null,
+      expiresAt: null,
+      metadata: {},
+      createdAt: Date,
+      updatedAt: Date
+    },
+    addon: { /* add-on completo */ }
+  },
+  livemode: true,
+  createdAt: Date
+}
+```
+
+## Ejemplo de Manejo de Eventos
+
+```typescript
+import type { QZPayEvent, QZPayEventMap } from '@qazuor/qzpay-core';
+
+// Handler de eventos con tipado seguro
+billing.on('subscription.created', async (event: QZPayEvent<QZPayEventMap['subscription.created']>) => {
+  console.log('Nueva suscripción:', event.data.id);
+  console.log('Cliente:', event.data.customerId);
+  console.log('Plan:', event.data.planId);
+  console.log('Estado:', event.data.status);
+});
+
+// Manejar fallos de pago
+billing.on('payment.failed', async (event) => {
+  await sendEmail(event.data.customerId, 'payment_failed', {
+    amount: event.data.amount / 100,
+    reason: event.data.failureReason,
+    retryUrl: `${APP_URL}/billing/retry`
+  });
+});
+
+// Manejar adiciones de add-on
+billing.on('subscription.addon_added', async (event) => {
+  console.log('Add-on agregado a la suscripción');
+  console.log('Suscripción:', event.data.subscription.id);
+  console.log('Add-on:', event.data.addon.name);
+  console.log('Cantidad:', event.data.subscriptionAddOn.quantity);
+});
+```
+
+## Relacionado
+
+- [Manejo de Webhooks](/es/guides/webhook-handling) - Configuración de webhooks
+- [Concepto de Webhooks](/es/concepts/webhooks) - Entendiendo webhooks
+- [Referencia API](/es/api/) - Documentación completa de la API

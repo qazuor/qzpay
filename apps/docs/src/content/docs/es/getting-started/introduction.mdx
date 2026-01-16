@@ -31,7 +31,7 @@ Escribe tu lógica de facturación una vez, cambia de proveedor sin cambiar cód
 ```typescript
 // Usando Stripe
 const billing = createQZPayBilling({
-  paymentAdapter: createQZPayStripeAdapter({ apiKey: stripeKey }),
+  paymentAdapter: createQZPayStripeAdapter({ secretKey: stripeKey }),
   storage: createQZPayDrizzleAdapter(db)
 });
 

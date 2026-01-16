@@ -1,0 +1,512 @@
+---
+title: Métricas de Negocio
+description: Calcula y rastrea MRR, churn, revenue y métricas de suscripciones con QZPay
+---
+
+import { Aside } from '@astrojs/starlight/components';
+
+# Guía de Métricas de Negocio
+
+QZPay proporciona cálculo integrado de métricas para rastrear el rendimiento de tu negocio de suscripciones incluyendo MRR, tasa de churn, análisis de revenue y estadísticas de suscripciones.
+
+## Visión General
+
+El servicio de métricas ofrece:
+
+- **MRR (Monthly Recurring Revenue)**: Rastrea MRR actual e histórico con desglose
+- **Métricas de Suscripciones**: Suscripciones activas, en prueba, vencidas y canceladas
+- **Métricas de Revenue**: Revenue total, recurrente, único y reembolsado
+- **Métricas de Churn**: Tasa de churn de clientes y revenue perdido
+
+## Monthly Recurring Revenue (MRR)
+
+### Obtener MRR Actual
+
+```typescript
+const mrrMetrics = await billing.metrics.getMrr();
+
+console.log('MRR Actual:', mrrMetrics.current);
+console.log('MRR Anterior:', mrrMetrics.previous);
+console.log('Cambio:', mrrMetrics.change);
+console.log('Cambio %:', mrrMetrics.changePercent);
+```
+
+### Desglose de MRR
+
+El desglose de MRR muestra cómo cambió el MRR durante un período:
+
+```typescript
+const mrrMetrics = await billing.metrics.getMrr();
+
+console.log('Nuevo MRR:', mrrMetrics.breakdown.newMrr);           // Nuevas suscripciones
+console.log('Expansión MRR:', mrrMetrics.breakdown.expansionMrr); // Upgrades
+console.log('Contracción MRR:', mrrMetrics.breakdown.contractionMrr); // Downgrades
+console.log('MRR Perdido:', mrrMetrics.breakdown.churnedMrr);    // Cancelaciones
+console.log('Reactivación MRR:', mrrMetrics.breakdown.reactivationMrr); // Reactivadas
+```
+
+#### Componentes de MRR
+
+| Componente | Descripción | Impacto |
+|-----------|-------------|---------|
+| **New MRR** | Revenue de nuevas suscripciones | Positivo |
+| **Expansion MRR** | Revenue adicional por upgrades | Positivo |
+| **Contraction MRR** | Revenue perdido por downgrades | Negativo |
+| **Churned MRR** | Revenue perdido por cancelaciones | Negativo |
+| **Reactivation MRR** | Revenue de suscripciones reactivadas | Positivo |
+
+**Fórmula:**
+```
+MRR Actual = MRR Anterior + Nuevo MRR + Expansión MRR + Reactivación MRR - Contracción MRR - MRR Perdido
+```
+
+### MRR con Período Personalizado
+
+```typescript
+const mrrMetrics = await billing.metrics.getMrr({
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-01-31'),
+  currency: 'USD'
+});
+```
+
+### Cómo se Calcula el MRR
+
+QZPay normaliza todos los intervalos de facturación a equivalentes mensuales:
+
+```typescript
+// Diario: $10/día → $300/mes
+// Semanal: $50/semana → $217/mes (50 × 30/7)
+// Mensual: $100/mes → $100/mes
+// Trimestral: $270/trimestre → $90/mes (270 / 3)
+// Anual: $1200/año → $100/mes (1200 / 12)
+```
+
+**Ejemplo:**
+```typescript
+// Suscripción: $1200/año, cantidad: 2
+// MRR = (1200 / 12) × 2 = $200
+```
+
+## Métricas de Suscripciones
+
+Rastrea suscripciones por estado:
+
+```typescript
+const subMetrics = await billing.metrics.getSubscriptionMetrics();
+
+console.log('Activas:', subMetrics.active);
+console.log('En Prueba:', subMetrics.trialing);
+console.log('Vencidas:', subMetrics.pastDue);
+console.log('Canceladas:', subMetrics.canceled);
+console.log('Total:', subMetrics.total);
+```
+
+### Casos de Uso
+
+**Monitorear salud de suscripciones:**
+```typescript
+const metrics = await billing.metrics.getSubscriptionMetrics();
+
+const healthScore = (metrics.active + metrics.trialing) / metrics.total;
+console.log(`Puntuación de Salud: ${(healthScore * 100).toFixed(1)}%`);
+
+if (metrics.pastDue > metrics.active * 0.1) {
+  console.warn('⚠️ Alta tasa de vencimiento - verificar fallos de pago');
+}
+```
+
+## Métricas de Revenue
+
+Calcula revenue para cualquier período:
+
+```typescript
+const revenueMetrics = await billing.metrics.getRevenueMetrics({
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-01-31'),
+  currency: 'USD'
+});
+
+console.log('Revenue Total:', revenueMetrics.total);
+console.log('Revenue Recurrente:', revenueMetrics.recurring);
+console.log('Revenue Único:', revenueMetrics.oneTime);
+console.log('Reembolsado:', revenueMetrics.refunded);
+console.log('Revenue Neto:', revenueMetrics.net);
+```
+
+### Tipos de Revenue
+
+| Tipo | Descripción | Ejemplo |
+|------|-------------|---------|
+| **Total** | Todos los pagos exitosos | $10,000 |
+| **Recurring** | Pagos de suscripciones | $8,500 |
+| **One-time** | Pagos sin suscripción | $1,500 |
+| **Refunded** | Montos reembolsados | $500 |
+| **Net** | Total - Reembolsado | $9,500 |
+
+### Reporte Mensual de Revenue
+
+```typescript
+async function generateMonthlyReport(year: number, month: number) {
+  const start = new Date(year, month, 1);
+  const end = new Date(year, month + 1, 0, 23, 59, 59);
+
+  const revenue = await billing.metrics.getRevenueMetrics({
+    startDate: start,
+    endDate: end,
+    currency: 'USD'
+  });
+
+  return {
+    month: `${year}-${String(month + 1).padStart(2, '0')}`,
+    total: revenue.total,
+    recurring: revenue.recurring,
+    oneTime: revenue.oneTime,
+    refunded: revenue.refunded,
+    net: revenue.net,
+    recurringPercentage: (revenue.recurring / revenue.total * 100).toFixed(1)
+  };
+}
+
+const report = await generateMonthlyReport(2024, 0); // Enero 2024
+console.log(report);
+```
+
+## Métricas de Churn
+
+Calcula churn de clientes para un período:
+
+```typescript
+const churnMetrics = await billing.metrics.getChurnMetrics({
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-01-31'),
+  currency: 'USD'
+});
+
+console.log('Tasa de Churn:', churnMetrics.rate, '%');
+console.log('Clientes Perdidos:', churnMetrics.count);
+console.log('Revenue Perdido:', churnMetrics.revenue);
+```
+
+### Entendiendo el Churn
+
+**Fórmula de Tasa de Churn:**
+```
+Tasa de Churn = (Suscripciones Canceladas / Activas al Inicio del Período) × 100
+```
+
+**Ejemplo:**
+- Suscripciones activas al inicio: 100
+- Canceladas durante el mes: 5
+- Tasa de churn: (5 / 100) × 100 = 5%
+
+### Tasas de Churn Aceptables
+
+| Tipo de Negocio | Buena Tasa | Nivel de Preocupación |
+|-----------------|------------|----------------------|
+| B2C SaaS | < 5% mensual | > 7% |
+| B2B SaaS | < 3% mensual | > 5% |
+| Enterprise | < 1% mensual | > 2% |
+
+### Monitorear Tendencias de Churn
+
+```typescript
+async function getChurnTrend(months: number = 6) {
+  const trends = [];
+  const now = new Date();
+
+  for (let i = months - 1; i >= 0; i--) {
+    const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+
+    const churn = await billing.metrics.getChurnMetrics({
+      startDate: start,
+      endDate: end,
+      currency: 'USD'
+    });
+
+    trends.push({
+      month: start.toISOString().slice(0, 7),
+      rate: churn.rate,
+      count: churn.count,
+      revenue: churn.revenue
+    });
+  }
+
+  return trends;
+}
+
+const trend = await getChurnTrend(6);
+console.table(trend);
+```
+
+## Métricas de Dashboard
+
+Obtén todas las métricas en una sola llamada:
+
+```typescript
+const dashboard = await billing.metrics.getDashboard({
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-01-31'),
+  currency: 'USD'
+});
+
+console.log('MRR:', dashboard.mrr);
+console.log('Suscripciones:', dashboard.subscriptions);
+console.log('Revenue:', dashboard.revenue);
+console.log('Churn:', dashboard.churn);
+```
+
+### Ejemplo de Dashboard
+
+```typescript
+async function getDashboardData() {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const metrics = await billing.metrics.getDashboard({
+    startDate: startOfMonth,
+    endDate: now,
+    currency: 'USD'
+  });
+
+  return {
+    // Tarjeta MRR
+    mrr: {
+      current: metrics.mrr.current,
+      change: metrics.mrr.change,
+      changePercent: metrics.mrr.changePercent,
+      trend: metrics.mrr.changePercent >= 0 ? 'up' : 'down'
+    },
+
+    // Tarjeta Suscripciones
+    subscriptions: {
+      active: metrics.subscriptions.active,
+      total: metrics.subscriptions.total,
+      activeRate: (metrics.subscriptions.active / metrics.subscriptions.total * 100).toFixed(1)
+    },
+
+    // Tarjeta Revenue
+    revenue: {
+      total: metrics.revenue.total,
+      net: metrics.revenue.net,
+      recurringPercentage: (metrics.revenue.recurring / metrics.revenue.total * 100).toFixed(1)
+    },
+
+    // Tarjeta Churn
+    churn: {
+      rate: metrics.churn.rate,
+      count: metrics.churn.count,
+      status: metrics.churn.rate < 5 ? 'good' : metrics.churn.rate < 7 ? 'warning' : 'critical'
+    }
+  };
+}
+```
+
+## Helpers de Período
+
+QZPay proporciona funciones helper para cálculos de períodos comunes:
+
+```typescript
+import {
+  qzpayGetCurrentMonthPeriod,
+  qzpayGetLastNDaysPeriod,
+  qzpayGetMonthPeriod,
+  qzpayGetPreviousPeriod
+} from '@qazuor/qzpay-core';
+
+// Mes actual
+const currentMonth = qzpayGetCurrentMonthPeriod();
+// { start: Date(2024, 0, 1), end: Date(2024, 0, 31, 23, 59, 59) }
+
+// Últimos 30 días
+const last30Days = qzpayGetLastNDaysPeriod(30);
+
+// Mes específico
+const january = qzpayGetMonthPeriod(2024, 0); // Enero 2024
+
+// Período anterior (para comparación)
+const previousMonth = qzpayGetPreviousPeriod(currentMonth);
+```
+
+## Mejores Prácticas
+
+### 1. Cachear Métricas
+
+El cálculo de métricas puede ser costoso. Cachea los resultados:
+
+```typescript
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+const cache = new Map<string, { data: any; expires: number }>();
+
+async function getCachedMetrics() {
+  const key = 'dashboard';
+  const cached = cache.get(key);
+
+  if (cached && cached.expires > Date.now()) {
+    return cached.data;
+  }
+
+  const data = await billing.metrics.getDashboard();
+  cache.set(key, { data, expires: Date.now() + CACHE_TTL });
+
+  return data;
+}
+```
+
+### 2. Monitorear Métricas Clave
+
+Configura alertas para métricas críticas:
+
+```typescript
+async function checkMetricsHealth() {
+  const metrics = await billing.metrics.getDashboard();
+
+  // Alerta en churn alto
+  if (metrics.churn.rate > 7) {
+    await sendAlert('Alta tasa de churn detectada', {
+      rate: metrics.churn.rate,
+      count: metrics.churn.count
+    });
+  }
+
+  // Alerta en declive de MRR
+  if (metrics.mrr.changePercent < -10) {
+    await sendAlert('Declive significativo de MRR', {
+      change: metrics.mrr.change,
+      changePercent: metrics.mrr.changePercent
+    });
+  }
+
+  // Alerta en suscripciones vencidas
+  const pastDueRate = metrics.subscriptions.pastDue / metrics.subscriptions.total;
+  if (pastDueRate > 0.1) {
+    await sendAlert('Alta tasa de vencimiento', {
+      count: metrics.subscriptions.pastDue,
+      total: metrics.subscriptions.total
+    });
+  }
+}
+```
+
+### 3. Rastrear Tendencias
+
+Almacena snapshots históricos para análisis de tendencias:
+
+```typescript
+async function snapshotMetrics() {
+  const metrics = await billing.metrics.getDashboard();
+
+  await db.metricSnapshots.create({
+    date: new Date(),
+    mrr: metrics.mrr.current,
+    activeSubscriptions: metrics.subscriptions.active,
+    churnRate: metrics.churn.rate,
+    revenue: metrics.revenue.total
+  });
+}
+
+// Ejecutar diariamente
+cron.schedule('0 0 * * *', snapshotMetrics);
+```
+
+### 4. Comparar Períodos
+
+Siempre compara métricas con períodos anteriores:
+
+```typescript
+async function getMetricsWithComparison() {
+  const currentPeriod = qzpayGetCurrentMonthPeriod();
+  const previousPeriod = qzpayGetPreviousPeriod(currentPeriod);
+
+  const [current, previous] = await Promise.all([
+    billing.metrics.getDashboard({
+      startDate: currentPeriod.start,
+      endDate: currentPeriod.end,
+      currency: 'USD'
+    }),
+    billing.metrics.getDashboard({
+      startDate: previousPeriod.start,
+      endDate: previousPeriod.end,
+      currency: 'USD'
+    })
+  ]);
+
+  return {
+    current,
+    previous,
+    comparison: {
+      mrrChange: ((current.mrr.current - previous.mrr.current) / previous.mrr.current * 100).toFixed(1),
+      revenueChange: ((current.revenue.total - previous.revenue.total) / previous.revenue.total * 100).toFixed(1),
+      churnChange: (current.churn.rate - previous.churn.rate).toFixed(2)
+    }
+  };
+}
+```
+
+## Cálculos Avanzados
+
+### Customer Lifetime Value (LTV)
+
+```typescript
+async function calculateLTV(customerId: string) {
+  const subscriptions = await billing.subscriptions.getByCustomerId(customerId);
+  const payments = await billing.payments.getByCustomerId(customerId);
+
+  const totalRevenue = payments
+    .filter(p => p.status === 'succeeded')
+    .reduce((sum, p) => sum + p.amount, 0);
+
+  const avgMonthlyRevenue = totalRevenue / subscriptions.length;
+
+  // LTV Simple = Revenue Mensual Promedio / Tasa de Churn
+  const churnMetrics = await billing.metrics.getChurnMetrics({
+    startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+    endDate: new Date(),
+    currency: 'USD'
+  });
+
+  const ltv = avgMonthlyRevenue / (churnMetrics.rate / 100);
+
+  return {
+    totalRevenue,
+    avgMonthlyRevenue,
+    ltv,
+    churnRate: churnMetrics.rate
+  };
+}
+```
+
+### Net Revenue Retention (NRR)
+
+```typescript
+async function calculateNRR(periodStart: Date, periodEnd: Date) {
+  const mrrMetrics = await billing.metrics.getMrr({
+    startDate: periodStart,
+    endDate: periodEnd,
+    currency: 'USD'
+  });
+
+  const startingMRR = mrrMetrics.previous;
+  const endingMRR = mrrMetrics.current;
+  const expansion = mrrMetrics.breakdown.expansionMrr + mrrMetrics.breakdown.reactivationMrr;
+  const contraction = mrrMetrics.breakdown.contractionMrr + mrrMetrics.breakdown.churnedMrr;
+
+  const nrr = ((startingMRR + expansion - contraction) / startingMRR) * 100;
+
+  return {
+    nrr: nrr.toFixed(1),
+    startingMRR,
+    expansion,
+    contraction,
+    endingMRR,
+    status: nrr >= 100 ? 'Excelente' : nrr >= 90 ? 'Bueno' : 'Necesita Mejora'
+  };
+}
+```
+
+## Relacionado
+
+- [Ciclo de Vida de Suscripciones](/es/guides/subscription-lifecycle) - Gestión de suscripciones
+- [Webhooks](/es/concepts/webhooks) - Manejo de eventos en tiempo real
+- [Referencia API](/es/api/) - Documentación completa de API

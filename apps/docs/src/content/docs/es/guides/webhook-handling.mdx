@@ -11,15 +11,23 @@ Los webhooks son críticos para mantener sincronización entre proveedores de pa
 
 ## Por qué Importan los Webhooks
 
+```
+┌─────────────┐                 ┌─────────────┐
+│   Stripe    │──── webhook ───▶│  Your App   │
+│ MercadoPago │                 │   (QZPay)   │
+└─────────────┘                 └─────────────┘
+       │                              │
+       │    Cliente paga              │
+       │    Cambios de suscripción    │
+       │    Fallo de pago             │
+       │                              │
+       └──────────────────────────────┘
+         Sincronización en tiempo real vía webhooks
+```
+
 <Aside type="caution">
 Nunca confíes únicamente en confirmaciones de pago del lado cliente. Siempre verifica vía webhooks.
 </Aside>
-
-Los webhooks son esenciales para:
-- **Cambios de estado de suscripción** - Saber cuándo se cancela
-- **Confirmaciones de pago** - Verificación del lado servidor
-- **Notificaciones de disputa** - Responder rápidamente a contracargos
-- **Actualizaciones de factura** - Rastrear estado de pago
 
 ## Configuración
 
@@ -110,6 +118,7 @@ try {
   // Procesar evento...
 } catch (error) {
   if (error instanceof WebhookSignatureError) {
+    // Registrar evento de seguridad
     await logSecurityEvent('invalid_webhook_signature', {
       provider: 'stripe',
       ip: c.req.ip
@@ -122,27 +131,27 @@ try {
 
 ### Prevención de Ataques de Repetición
 
-```typescript
-const billing = createQZPayBilling({
-  paymentAdapter,
-  storage,
-  config: {
-    // Rechaza webhooks más antiguos que 5 minutos
-    webhookTolerance: 300 // segundos
-  }
-});
-```
+Las firmas de webhook incluyen marcas de tiempo que los proveedores usan para validar la frescura. Cada proveedor de pagos (Stripe, MercadoPago) maneja la validación de marca de tiempo automáticamente durante la verificación de firma.
 
 ### Idempotencia
 
-QZPay rastrea eventos de webhook procesados:
+Diseña tus handlers de webhook para ser idempotentes:
 
 ```typescript
-// ¿El mismo evento recibido dos veces? La segunda llamada se ignora
-// El ID del evento se almacena para prevenir procesamiento duplicado
+// ¿El mismo evento recibido dos veces? Asegura que el procesamiento sea seguro
+billing.on('payment.succeeded', async (event) => {
+  // Verificar si ya fue procesado
+  const existing = await db.receipts.findByPaymentId(event.data.id);
+  if (existing) {
+    console.log('Pago ya procesado, omitiendo');
+    return;
+  }
 
-billing.on('webhook.duplicate', (event) => {
-  console.log('Duplicado ignorado:', event.data.eventId);
+  // Procesar pago
+  await processPayment(event.data);
+
+  // Marcar como procesado
+  await db.receipts.create({ paymentId: event.data.id });
 });
 ```
 
@@ -155,14 +164,17 @@ QZPay procesa eventos comunes automáticamente:
 | Evento Webhook | Acción QZPay |
 |----------------|--------------|
 | `customer.subscription.created` | Crear registro de suscripción |
-| `customer.subscription.updated` | Actualizar estado |
-| `customer.subscription.deleted` | Marcar cancelada |
-| `invoice.payment_succeeded` | Registrar pago |
-| `invoice.payment_failed` | Actualizar estado |
+| `customer.subscription.updated` | Actualizar estado de suscripción |
+| `customer.subscription.deleted` | Marcar suscripción cancelada |
+| `invoice.payment_succeeded` | Registrar pago, actualizar estado |
+| `invoice.payment_failed` | Actualizar estado, incrementar contador de reintentos |
 
 ### Handlers Personalizados
 
+Agrega tu lógica de negocio:
+
 ```typescript
+// Después de la creación exitosa de suscripción
 billing.on('subscription.created', async (event) => {
   const { customerId, planId, id } = event.data;
 
@@ -175,8 +187,16 @@ billing.on('subscription.created', async (event) => {
     planName: plan.name,
     features: plan.entitlements
   });
+
+  // Rastrear en analytics
+  await analytics.track('subscription_started', {
+    customerId,
+    planId,
+    subscriptionId: id
+  });
 });
 
+// Después de fallo de pago
 billing.on('payment.failed', async (event) => {
   const { customerId, amount, failureCode } = event.data;
 
@@ -185,6 +205,27 @@ billing.on('payment.failed', async (event) => {
     amount,
     reason: getHumanReadableReason(failureCode),
     updateUrl: `${APP_URL}/billing/metodo-pago`
+  });
+
+  // Alertar equipo para montos grandes
+  if (amount > 100000) { // $1000+
+    await slackNotify(`Pago de alto valor falló: ${amount / 100}`);
+  }
+});
+
+// Después de cancelación
+billing.on('subscription.canceled', async (event) => {
+  const { customerId, canceledAt, currentPeriodEnd } = event.data;
+
+  // Programar revocación de funcionalidades
+  await jobQueue.schedule('revoke_features', {
+    customerId,
+    executeAt: currentPeriodEnd
+  });
+
+  // Enviar encuesta de feedback
+  await emailService.send(customerId, 'cancellation_survey', {
+    surveyUrl: `${APP_URL}/feedback/cancelacion`
   });
 });
 ```
@@ -223,26 +264,134 @@ const webhookRouter = createWebhookRouter({
 Retorna 2xx para webhooks recibidos exitosamente, incluso si tu lógica de negocio falla. Solo retorna 5xx para errores transitorios donde un reintento ayudaría.
 </Aside>
 
+### Manejo de Reintentos
+
+Los proveedores reintentan webhooks fallidos:
+
+| Proveedor | Calendario de Reintentos |
+|-----------|-------------------------|
+| Stripe | Hasta 72 horas, backoff exponencial |
+| MercadoPago | Hasta 48 horas |
+
+```typescript
+// Diseña handlers para ser idempotentes
+billing.on('payment.succeeded', async (event) => {
+  // Verificar si ya fue procesado
+  const existing = await db.receipts.findByPaymentId(event.data.id);
+  if (existing) {
+    console.log('Recibo ya enviado, omitiendo');
+    return;
+  }
+
+  // Procesar y marcar como completado
+  await sendReceipt(event.data);
+  await db.receipts.create({ paymentId: event.data.id });
+});
+```
+
 ## Testing
 
 ### Desarrollo Local
 
-Usa CLI del proveedor para forwarding:
+Usa CLI del proveedor para reenviar webhooks:
 
 ```bash
 # Stripe
 stripe listen --forward-to localhost:3000/webhooks/stripe
 
-# Trigger eventos de prueba
+# Disparar eventos de prueba
 stripe trigger customer.subscription.created
 stripe trigger invoice.payment_succeeded
 ```
 
+### Test Fixtures
+
+```typescript
+import { createMockWebhookEvent } from '@qazuor/qzpay-core/testing';
+
+describe('Webhook Handlers', () => {
+  it('procesa subscription.created', async () => {
+    const event = createMockWebhookEvent('subscription.created', {
+      id: 'sub_test',
+      customerId: 'cus_test',
+      planId: 'price_test',
+      status: 'active'
+    });
+
+    // Tu lógica de handler recibe el evento del router
+    await subscriptionCreatedHandler(event);
+
+    expect(subscriptionCreatedHandler).toHaveBeenCalled();
+  });
+});
+```
+
+## Monitoreo
+
+### Logging
+
+Usa el logger incorporado o tu propia solución de logging:
+
+```typescript
+// Configura el logger de QZPay
+const billing = createQZPayBilling({
+  storage,
+  paymentAdapter,
+  logger: {
+    debug: (message, context) => console.debug(message, context),
+    info: (message, context) => console.info(message, context),
+    warn: (message, context) => console.warn(message, context),
+    error: (message, context) => console.error(message, context)
+  }
+});
+
+// Loguea procesamiento de webhook en tus handlers
+const webhookRouter = createWebhookRouter({
+  billing,
+  paymentAdapter: stripeAdapter,
+  handlers: {
+    'invoice.payment_succeeded': async (c, event) => {
+      logger.info('Procesando webhook de pago exitoso', {
+        invoiceId: event.data.id,
+        customerId: event.data.customer
+      });
+      // Procesar evento...
+    }
+  }
+});
+```
+
+### Alertas
+
+```typescript
+// Alertar sobre fallos de pago
+billing.on('payment.failed', async (event) => {
+  const { customerId, amount, failureCode } = event.data;
+
+  // Alertar equipo para fallos de alto valor
+  if (amount > 100000) { // $1000+
+    await alertTeam(`Pago de alto valor falló: $${amount / 100}`, {
+      customerId,
+      failureCode
+    });
+  }
+});
+
+// Alertar sobre problemas repetidos de suscripción
+billing.on('invoice.payment_failed', async (event) => {
+  const subscription = await billing.subscriptions.get(event.data.subscriptionId);
+  if (subscription && subscription.status === 'past_due') {
+    await alertTeam(`Suscripción en riesgo: ${subscription.id}`);
+  }
+});
+```
+
 ## Mejores Prácticas
 
-1. **Siempre verifica firmas** antes de procesar
-2. **Procesa webhooks de forma idempotente**
-3. **Retorna rápidamente** - procesamiento pesado de forma asíncrona
+1. **Verifica todas las firmas** antes de procesar
+2. **Procesa de forma asíncrona** para operaciones pesadas
+3. **Haz handlers idempotentes** para manejar reintentos
 4. **Loguea toda actividad de webhook** para debugging
-5. **Monitorea tasas de fallo** y configura alertas
-6. **Usa secretos de webhook** desde variables de entorno
+5. **Monitorea tasas de fallo** y alerta sobre anomalías
+6. **Prueba con herramientas del proveedor** antes de ir a producción
+7. **Usa HTTPS únicamente** para endpoints de webhook
