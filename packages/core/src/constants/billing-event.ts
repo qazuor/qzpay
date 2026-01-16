@@ -43,7 +43,12 @@ export const QZPAY_BILLING_EVENT = {
     ADDON_DELETED: 'addon.deleted',
     SUBSCRIPTION_ADDON_ADDED: 'subscription.addon_added',
     SUBSCRIPTION_ADDON_REMOVED: 'subscription.addon_removed',
-    SUBSCRIPTION_ADDON_UPDATED: 'subscription.addon_updated'
+    SUBSCRIPTION_ADDON_UPDATED: 'subscription.addon_updated',
+
+    // Payment method events
+    PAYMENT_METHOD_CREATED: 'payment_method.created',
+    PAYMENT_METHOD_UPDATED: 'payment_method.updated',
+    PAYMENT_METHOD_DELETED: 'payment_method.deleted'
 } as const;
 
 export type QZPayBillingEvent = (typeof QZPAY_BILLING_EVENT)[keyof typeof QZPAY_BILLING_EVENT];

@@ -2,6 +2,8 @@
  * Customer types for QZPay
  */
 
+import type { QZPayMetadata } from './common.types.js';
+
 /**
  * Saved payment method (card) for a customer
  */
@@ -28,7 +30,7 @@ export interface QZPayCustomer {
     phone: string | null;
     providerCustomerIds: Record<string, string>;
     savedCards?: QZPaySavedCard[];
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     livemode: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -40,14 +42,14 @@ export interface QZPayCreateCustomerInput {
     email: string;
     name?: string | null;
     phone?: string | null;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 export interface QZPayUpdateCustomerInput {
     email?: string;
     name?: string | null;
     phone?: string | null;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
     providerCustomerIds?: Record<string, string>;
     savedCards?: QZPaySavedCard[];
 }

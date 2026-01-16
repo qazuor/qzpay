@@ -97,7 +97,6 @@ export interface QZPayVolumePricing {
 /**
  * Validate a promo code against its rules and context
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex business logic requires multiple validation conditions
 export function qzpayValidatePromoCode(promoCode: QZPayPromoCode, context: QZPayDiscountContext): QZPayPromoCodeCheckResult {
     const now = context.currentDate ?? new Date();
 
@@ -171,7 +170,6 @@ export function qzpayEvaluateConditions(
 /**
  * Evaluate a single condition
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex business logic requires multiple condition type checks
 export function qzpayEvaluateSingleCondition(
     condition: QZPayPromoCodeCondition,
     context: QZPayDiscountContext
@@ -304,7 +302,6 @@ export function qzpayApplyPromoCode(promoCode: QZPayPromoCode, amount: number): 
 /**
  * Calculate total discount from multiple sources
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex business logic for discount stacking with multiple modes
 export function qzpayCalculateDiscounts(
     amount: number,
     promoCodes: QZPayPromoCode[],

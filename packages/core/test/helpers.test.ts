@@ -620,6 +620,29 @@ describe('Subscription Helpers', () => {
             expect(info.percentComplete).toBeGreaterThan(40);
             expect(info.percentComplete).toBeLessThan(60);
         });
+
+        it('throws error when period start and end are the same', () => {
+            const now = new Date();
+            const sub = createSubscription({
+                currentPeriodStart: now,
+                currentPeriodEnd: now
+            });
+
+            expect(() => qzpayGetPeriodInfo(sub)).toThrow('Cannot calculate proration: period has no days (daysInPeriod <= 0)');
+        });
+
+        it('throws error when period end is before start', () => {
+            const now = new Date();
+            const start = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+            const end = new Date(now.getTime());
+
+            const sub = createSubscription({
+                currentPeriodStart: start,
+                currentPeriodEnd: end
+            });
+
+            expect(() => qzpayGetPeriodInfo(sub)).toThrow('Cannot calculate proration: period has no days (daysInPeriod <= 0)');
+        });
     });
 
     describe('qzpayGetRenewalInfo', () => {

@@ -80,8 +80,8 @@ await billing.subscriptions.cancel('sub_123');
 ### Payment Operations
 
 ```typescript
-// Create payment
-const payment = await billing.payments.create({
+// Process a payment
+const payment = await billing.payments.process({
   customerId: 'cus_123',
   amount: 2999, // $29.99 in cents
   currency: 'USD',
@@ -91,8 +91,26 @@ const payment = await billing.payments.create({
 // Retrieve payment
 const status = await billing.payments.get('pay_123');
 
+// Get payments by customer
+const payments = await billing.payments.getByCustomerId('cus_123');
+
+// Record an external payment (already processed by provider)
+const recorded = await billing.payments.record({
+  id: 'pay_external_123',
+  customerId: 'cus_123',
+  amount: 2999,
+  currency: 'USD',
+  status: 'succeeded',
+  providerPaymentId: 'pi_xxx',
+  provider: 'stripe'
+});
+
 // Refund payment
-await billing.payments.refund('pay_123', { amount: 1500 });
+await billing.payments.refund({
+  paymentId: 'pay_123',
+  amount: 1500, // Optional: partial refund
+  reason: 'requested_by_customer'
+});
 ```
 
 ### Events
@@ -113,27 +131,44 @@ billing.on('payment.succeeded', (event) => {
 
 ### Metrics
 
+The `billing.metrics` service provides business intelligence and analytics:
+
 ```typescript
-import { createMetricsService } from '@qazuor/qzpay-core';
+// Get Monthly Recurring Revenue
+const mrr = await billing.metrics.getMrr({ currency: 'USD' });
+console.log('Current MRR:', mrr.currentMrr);
+console.log('Previous MRR:', mrr.previousMrr);
+console.log('Net New MRR:', mrr.netNewMrr);
 
-const metrics = createMetricsService({ storage });
+// Get subscription metrics by status
+const subMetrics = await billing.metrics.getSubscriptionMetrics();
+console.log('Active:', subMetrics.active);
+console.log('Trialing:', subMetrics.trialing);
+console.log('Canceled:', subMetrics.canceled);
+console.log('Past Due:', subMetrics.pastDue);
 
-// Get MRR
-const mrr = await metrics.getMRR({ currency: 'USD' });
-console.log('Current MRR:', mrr.current);
-
-// Get churn rate
-const churn = await metrics.getChurnRate({
-  from: new Date('2024-01-01'),
-  to: new Date('2024-12-31')
-});
-
-// Get revenue metrics
-const revenue = await metrics.getRevenueMetrics({
-  from: new Date('2024-01-01'),
-  to: new Date('2024-12-31'),
+// Get revenue metrics for a period
+const revenue = await billing.metrics.getRevenueMetrics({
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-12-31'),
   currency: 'USD'
 });
+console.log('Total Revenue:', revenue.totalRevenue);
+console.log('Refunds:', revenue.totalRefunds);
+
+// Get churn metrics
+const churn = await billing.metrics.getChurnMetrics({
+  startDate: new Date('2024-01-01'),
+  endDate: new Date('2024-12-31')
+});
+console.log('Churn Rate:', churn.churnRate);
+console.log('Churned MRR:', churn.churnedMrr);
+
+// Get all dashboard metrics aggregated
+const dashboard = await billing.metrics.getDashboard({
+  currency: 'USD'
+});
+console.log('Dashboard:', dashboard);
 ```
 
 ### Health Checks
@@ -203,11 +238,266 @@ const billing = new QZPayBilling({
 | `billing.payments` | Payment processing |
 | `billing.invoices` | Invoice management |
 | `billing.plans` | Plan configuration |
-| `billing.prices` | Price management |
 | `billing.promoCodes` | Promotional codes |
 | `billing.entitlements` | Feature entitlements |
 | `billing.limits` | Usage limits |
 | `billing.addons` | Add-on management |
+| `billing.paymentMethods` | Payment method management |
+| `billing.metrics` | Business metrics and analytics |
+
+### Entitlements Service
+
+Manage feature access based on subscriptions:
+
+```typescript
+// Check if customer has an entitlement
+const hasAccess = await billing.entitlements.check('cus_123', 'advanced_analytics');
+if (hasAccess) {
+  // Show advanced analytics
+}
+
+// Get all entitlements for a customer
+const entitlements = await billing.entitlements.getByCustomerId('cus_123');
+
+// Grant an entitlement manually
+await billing.entitlements.grant('cus_123', 'beta_features', 'manual', 'admin_grant');
+
+// Revoke an entitlement
+await billing.entitlements.revoke('cus_123', 'beta_features');
+```
+
+### Limits Service
+
+Track and enforce usage limits:
+
+```typescript
+// Check if customer is within limit
+const result = await billing.limits.check('cus_123', 'api_calls');
+console.log('Allowed:', result.allowed);
+console.log('Current:', result.currentValue);
+console.log('Max:', result.maxValue);
+console.log('Remaining:', result.remaining);
+
+// Get all limits for a customer
+const limits = await billing.limits.getByCustomerId('cus_123');
+
+// Increment usage
+await billing.limits.increment('cus_123', 'api_calls', 1);
+
+// Set a limit value
+await billing.limits.set('cus_123', 'api_calls', 10000);
+
+// Record usage (for audit/history)
+await billing.limits.recordUsage('cus_123', 'api_calls', 5, 'increment');
+```
+
+### Add-ons Service
+
+Manage subscription add-ons:
+
+```typescript
+// Create an add-on definition
+const addon = await billing.addons.create({
+  name: 'Extra Storage',
+  unitAmount: 500, // $5.00 in cents
+  currency: 'USD',
+  billingInterval: 'month',
+  compatiblePlanIds: ['plan_pro', 'plan_enterprise']
+});
+
+// Get add-ons compatible with a plan
+const addons = await billing.addons.getByPlanId('plan_pro');
+
+// Add an add-on to a subscription
+const result = await billing.addons.addToSubscription({
+  subscriptionId: 'sub_123',
+  addOnId: 'addon_extra_storage',
+  quantity: 2
+});
+console.log('Proration amount:', result.prorationAmount);
+
+// Get add-ons attached to a subscription
+const subscriptionAddons = await billing.addons.getBySubscriptionId('sub_123');
+
+// Update add-on quantity
+await billing.addons.updateSubscriptionAddOn('sub_123', 'addon_extra_storage', {
+  quantity: 5
+});
+
+// Remove add-on from subscription
+await billing.addons.removeFromSubscription('sub_123', 'addon_extra_storage');
+```
+
+### Payment Methods Service
+
+Manage customer payment methods:
+
+```typescript
+// Create a payment method
+const paymentMethod = await billing.paymentMethods.create({
+  customerId: 'cus_123',
+  type: 'card',
+  providerPaymentMethodId: 'pm_xxx',
+  provider: 'stripe',
+  card: {
+    brand: 'visa',
+    last4: '4242',
+    expMonth: 12,
+    expYear: 2025
+  },
+  setAsDefault: true
+});
+
+// Get payment methods for a customer
+const methods = await billing.paymentMethods.getByCustomerId('cus_123');
+
+// Get the default payment method
+const defaultMethod = await billing.paymentMethods.getDefault('cus_123');
+
+// Set a payment method as default
+await billing.paymentMethods.setDefault('cus_123', 'pm_456');
+
+// Update a payment method
+await billing.paymentMethods.update('pm_123', {
+  card: { expMonth: 1, expYear: 2026 }
+});
+
+// Delete a payment method
+await billing.paymentMethods.delete('pm_123');
+```
+
+### Saved Card Service
+
+Unified interface for saving and managing payment cards across providers.
+
+```typescript
+import { createSavedCardService } from '@qazuor/qzpay-stripe'; // or '@qazuor/qzpay-mercadopago'
+
+const cardService = createSavedCardService({
+  provider: 'stripe',
+  stripeSecretKey: 'sk_xxx',
+  getProviderCustomerId: async (customerId) => {
+    const customer = await db.customers.findById(customerId);
+    return customer.stripeCustomerId;
+  },
+});
+
+// Save a card
+const card = await cardService.save({
+  customerId: 'local_cus_123',
+  paymentMethodId: 'pm_xxx', // From Stripe.js
+  setAsDefault: true,
+});
+
+// List all cards
+const cards = await cardService.list('local_cus_123');
+
+// Set card as default (Stripe only)
+await cardService.setDefault('local_cus_123', 'pm_xxx');
+
+// Remove a card
+await cardService.remove('local_cus_123', 'pm_xxx');
+```
+
+**Provider Differences:**
+
+| Feature | Stripe | MercadoPago |
+|---------|--------|-------------|
+| Save card | `paymentMethodId` | `token` |
+| List cards | ✅ | ✅ |
+| Remove card | ✅ | ✅ |
+| Set default | ✅ Native | ❌ Track in your DB |
+
+**Note:** MercadoPago doesn't support default payment methods natively. Your application must track the default card ID in its database.
+
+### Subscription Lifecycle Service
+
+Automates subscription renewals, trial conversions, and payment retries.
+
+```typescript
+import { createSubscriptionLifecycle } from '@qazuor/qzpay-core';
+
+const lifecycle = createSubscriptionLifecycle(billing, storage, {
+  gracePeriodDays: 7,
+  retryIntervals: [1, 3, 5], // Retry after 1, 3, and 5 days
+  trialConversionDays: 0, // Convert immediately when trial ends
+
+  // Process payment callback
+  processPayment: async (input) => {
+    const result = await stripe.paymentIntents.create({
+      amount: input.amount,
+      currency: input.currency,
+      customer: await getStripeCustomerId(input.customerId),
+      payment_method: input.paymentMethodId,
+      confirm: true,
+      off_session: true,
+    });
+    return {
+      success: result.status === 'succeeded',
+      paymentId: result.id,
+      error: result.last_payment_error?.message,
+    };
+  },
+
+  // Get default payment method callback
+  getDefaultPaymentMethod: async (customerId) => {
+    const pm = await db.paymentMethods.findDefault(customerId);
+    return pm ? {
+      id: pm.id,
+      providerPaymentMethodId: pm.stripePaymentMethodId
+    } : null;
+  },
+
+  // Optional: event callback for logging/notifications
+  onEvent: async (event) => {
+    console.log(`[${event.type}] Subscription: ${event.subscriptionId}`);
+
+    // Send notifications
+    if (event.type === 'subscription.renewal_failed') {
+      await sendEmail({
+        to: customer.email,
+        subject: 'Payment Failed',
+        body: 'Your subscription payment failed. Please update your payment method.'
+      });
+    }
+  },
+});
+
+// Run from a cron job
+const results = await lifecycle.processAll();
+console.log('Renewals:', results.renewals);
+console.log('Trial conversions:', results.trialConversions);
+console.log('Retries:', results.retries);
+console.log('Cancellations:', results.cancellations);
+
+// Or run individual operations
+await lifecycle.processRenewals();
+await lifecycle.processTrialConversions();
+await lifecycle.processRetries();
+await lifecycle.processCancellations();
+```
+
+**Lifecycle Events:**
+
+- `subscription.renewed` - Subscription successfully renewed
+- `subscription.renewal_failed` - Renewal payment failed
+- `subscription.trial_converted` - Trial converted to paid
+- `subscription.trial_conversion_failed` - Trial conversion failed
+- `subscription.entered_grace_period` - Entered grace period after failed payment
+- `subscription.retry_scheduled` - Payment retry scheduled
+- `subscription.retry_succeeded` - Retry payment succeeded
+- `subscription.retry_failed` - All retries exhausted
+- `subscription.canceled_nonpayment` - Canceled due to non-payment
+
+**Cron Setup Example:**
+
+```typescript
+// Run every hour
+cron.schedule('0 * * * *', async () => {
+  const results = await lifecycle.processAll();
+  console.log(`Processed ${results.renewals.processed} renewals`);
+});
+```
 
 ## Utility Functions
 

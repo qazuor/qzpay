@@ -5,6 +5,7 @@
  */
 
 import type { QZPayCurrency } from '../constants/index.js';
+import type { QZPayMetadata } from './common.types.js';
 
 /**
  * Usage meter definition
@@ -34,7 +35,7 @@ export interface QZPayUsageMeter {
     active: boolean;
 
     /** Custom metadata */
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
 
     /** Timestamps */
     createdAt: Date;
@@ -177,7 +178,7 @@ export interface QZPayMeteredPrice {
     resetBehavior: 'billing_period' | 'calendar_month' | 'never' | null;
 
     /** Custom metadata */
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
 
     /** Timestamps */
     createdAt: Date;
@@ -243,7 +244,7 @@ export interface QZPayCreateUsageMeterInput {
     description?: string;
     unit: string;
     aggregationType: QZPayUsageAggregationType;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 /**
@@ -260,7 +261,7 @@ export interface QZPayCreateMeteredPriceInput {
     maximumAmount?: number;
     billingMode?: 'advance' | 'arrears';
     resetBehavior?: 'billing_period' | 'calendar_month' | 'never';
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 /**

@@ -454,7 +454,6 @@ export function qzpayCreateIPRestrictionConfig(overrides: Partial<QZPayIPRestric
 /**
  * Check if IP is allowed
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: IP validation requires multiple conditional checks for blocklist/allowlist modes
 export function qzpayCheckIPAllowed(ip: string, config: QZPayIPRestrictionConfig): boolean {
     const normalizedIP = ip.trim().toLowerCase();
 
@@ -634,7 +633,6 @@ export function qzpayValidateCurrency(currency: string): { valid: boolean; value
 /**
  * Validate metadata object
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Metadata validation requires checking multiple value types and constraints
 export function qzpayValidateMetadata(
     metadata: unknown,
     maxKeys = 50,

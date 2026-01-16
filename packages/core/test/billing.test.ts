@@ -991,7 +991,7 @@ describe('billing.subscriptions', () => {
         expect(result.subscription).toBeDefined();
         expect(result.subscription.planId).toBe('free'); // Not changed yet
         expect(result.proration).toBeNull(); // No proration for period_end changes
-        expect(result.subscription.metadata).toHaveProperty('scheduledPlanChange');
+        expect(result.subscription.metadata).toHaveProperty('scheduledPlanChangeNewPlanId');
     });
 
     it('should throw error when subscription not found', async () => {

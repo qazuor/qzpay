@@ -2,6 +2,8 @@
  * Payment Method types for QZPay
  */
 
+import type { QZPayMetadata } from './common.types.js';
+
 /**
  * Payment method type
  */
@@ -74,7 +76,7 @@ export interface QZPayPaymentMethod {
     bankAccount: QZPayBankAccountDetails | null;
     billingDetails: QZPayBillingDetails | null;
     providerPaymentMethodIds: Record<string, string>;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     livemode: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -90,7 +92,7 @@ export interface QZPayCreatePaymentMethodInput {
     provider: string;
     setAsDefault?: boolean;
     billingDetails?: Partial<QZPayBillingDetails>;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 /**
@@ -98,7 +100,7 @@ export interface QZPayCreatePaymentMethodInput {
  */
 export interface QZPayUpdatePaymentMethodInput {
     billingDetails?: Partial<QZPayBillingDetails>;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 /**

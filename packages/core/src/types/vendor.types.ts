@@ -2,6 +2,7 @@
  * Vendor types for QZPay (marketplace scenarios)
  */
 import type { QZPayCurrency, QZPayVendorStatus } from '../constants/index.js';
+import type { QZPayMetadata } from './common.types.js';
 
 export interface QZPayVendor {
     id: string;
@@ -12,7 +13,7 @@ export interface QZPayVendor {
     commissionRate: number;
     payoutSchedule: QZPayPayoutSchedule;
     providerAccountIds: Record<string, string>;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     livemode: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -31,7 +32,7 @@ export interface QZPayCreateVendorInput {
     email: string;
     commissionRate?: number;
     payoutSchedule?: QZPayPayoutSchedule;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 export interface QZPayUpdateVendorInput {
@@ -39,7 +40,7 @@ export interface QZPayUpdateVendorInput {
     email?: string;
     commissionRate?: number;
     payoutSchedule?: QZPayPayoutSchedule;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 export interface QZPayVendorPayout {

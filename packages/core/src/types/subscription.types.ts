@@ -2,6 +2,7 @@
  * Subscription types for QZPay
  */
 import type { QZPayBillingInterval, QZPayCancelAt, QZPayProrationBehavior, QZPaySubscriptionStatus } from '../constants/index.js';
+import type { QZPayMetadata } from './common.types.js';
 
 export interface QZPaySubscription {
     id: string;
@@ -20,7 +21,7 @@ export interface QZPaySubscription {
     cancelAtPeriodEnd: boolean;
     providerSubscriptionIds: Record<string, string>;
     promoCodeId?: string | null;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     livemode: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -32,7 +33,7 @@ export interface QZPayCreateSubscriptionInput {
     planId: string;
     quantity?: number;
     trialDays?: number;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
     promoCodeId?: string;
 }
 
@@ -40,7 +41,7 @@ export interface QZPayUpdateSubscriptionInput {
     planId?: string;
     quantity?: number;
     prorationBehavior?: QZPayProrationBehavior;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
     status?: QZPaySubscriptionStatus;
     canceledAt?: Date;
     cancelAt?: Date;
@@ -60,7 +61,7 @@ export interface QZPaySubscriptionItem {
     subscriptionId: string;
     priceId: string;
     quantity: number;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     createdAt: Date;
     updatedAt: Date;
 }

@@ -13,6 +13,9 @@ export * from './billing-from-env.js';
 // Constants
 export * from './constants/index.js';
 
+// Errors
+export * from './errors/index.js';
+
 // Events
 export * from './events/index.js';
 

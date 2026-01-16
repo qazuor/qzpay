@@ -5,6 +5,7 @@
  */
 
 import type { QZPayBillingInterval } from '../constants/index.js';
+import type { QZPayMetadata } from './common.types.js';
 
 /**
  * Add-on definition
@@ -54,7 +55,7 @@ export interface QZPayAddOn {
     }>;
 
     /** Custom metadata */
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
 
     /** Timestamps */
     createdAt: Date;
@@ -96,7 +97,7 @@ export interface QZPaySubscriptionAddOn {
     expiresAt: Date | null;
 
     /** Custom metadata */
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
 
     /** Timestamps */
     createdAt: Date;
@@ -123,7 +124,7 @@ export interface QZPayCreateAddOnInput {
         value: number;
         action: 'set' | 'increment';
     }>;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 /**
@@ -143,7 +144,7 @@ export interface QZPayUpdateAddOnInput {
         value: number;
         action: 'set' | 'increment';
     }>;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 /**
@@ -153,7 +154,7 @@ export interface QZPayAddSubscriptionAddOnInput {
     subscriptionId: string;
     addOnId: string;
     quantity?: number;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 /**

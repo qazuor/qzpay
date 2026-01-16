@@ -2,6 +2,7 @@
  * Promo code types for QZPay
  */
 import type { QZPayCurrency, QZPayDiscountCondition, QZPayDiscountStackingMode, QZPayDiscountType } from '../constants/index.js';
+import type { QZPayMetadata } from './common.types.js';
 
 export interface QZPayPromoCode {
     id: string;
@@ -19,7 +20,7 @@ export interface QZPayPromoCode {
     applicablePlanIds: string[];
     applicableProductIds: string[];
     active: boolean;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     createdAt: Date;
     updatedAt: Date;
     deletedAt: Date | null;
@@ -43,7 +44,7 @@ export interface QZPayCreatePromoCodeInput {
     validUntil?: Date;
     applicablePlanIds?: string[];
     applicableProductIds?: string[];
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 export interface QZPayAppliedDiscount {

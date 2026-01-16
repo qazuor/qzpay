@@ -2,6 +2,7 @@
  * Payment types for QZPay
  */
 import type { QZPayCurrency, QZPayPaymentStatus } from '../constants/index.js';
+import type { QZPayMetadata } from './common.types.js';
 
 export interface QZPayPayment {
     id: string;
@@ -15,7 +16,7 @@ export interface QZPayPayment {
     providerPaymentIds: Record<string, string>;
     failureCode: string | null;
     failureMessage: string | null;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     livemode: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -28,7 +29,7 @@ export interface QZPayCreatePaymentInput {
     paymentMethodId?: string;
     subscriptionId?: string;
     invoiceId?: string;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
     /** Card token for providers that require tokenization (e.g., MercadoPago) */
     token?: string;
     /** Saved card ID for recurring payments without re-tokenization */

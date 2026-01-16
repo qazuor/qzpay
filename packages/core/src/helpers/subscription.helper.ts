@@ -73,6 +73,9 @@ export interface QZPayProrationResult {
 
 /**
  * Check if subscription is in an active state
+ *
+ * @param subscription - Subscription to check
+ * @returns True if subscription is active or trialing and not deleted
  */
 export function qzpayIsSubscriptionActive(subscription: QZPaySubscription): boolean {
     const activeStatuses: QZPaySubscriptionStatus[] = [QZPAY_SUBSCRIPTION_STATUS.ACTIVE, QZPAY_SUBSCRIPTION_STATUS.TRIALING];
@@ -81,6 +84,9 @@ export function qzpayIsSubscriptionActive(subscription: QZPaySubscription): bool
 
 /**
  * Check if subscription is in trial
+ *
+ * @param subscription - Subscription to check
+ * @returns True if subscription is in trialing status and not deleted
  */
 export function qzpayIsSubscriptionInTrial(subscription: QZPaySubscription): boolean {
     return subscription.status === QZPAY_SUBSCRIPTION_STATUS.TRIALING && subscription.deletedAt === null;
@@ -88,6 +94,9 @@ export function qzpayIsSubscriptionInTrial(subscription: QZPaySubscription): boo
 
 /**
  * Check if subscription is past due
+ *
+ * @param subscription - Subscription to check
+ * @returns True if subscription is past due and not deleted
  */
 export function qzpayIsSubscriptionPastDue(subscription: QZPaySubscription): boolean {
     return subscription.status === QZPAY_SUBSCRIPTION_STATUS.PAST_DUE && subscription.deletedAt === null;
@@ -95,6 +104,9 @@ export function qzpayIsSubscriptionPastDue(subscription: QZPaySubscription): boo
 
 /**
  * Check if subscription is canceled
+ *
+ * @param subscription - Subscription to check
+ * @returns True if subscription has canceled status
  */
 export function qzpayIsSubscriptionCanceled(subscription: QZPaySubscription): boolean {
     return subscription.status === QZPAY_SUBSCRIPTION_STATUS.CANCELED;
@@ -102,6 +114,9 @@ export function qzpayIsSubscriptionCanceled(subscription: QZPaySubscription): bo
 
 /**
  * Check if subscription is paused
+ *
+ * @param subscription - Subscription to check
+ * @returns True if subscription is paused and not deleted
  */
 export function qzpayIsSubscriptionPaused(subscription: QZPaySubscription): boolean {
     return subscription.status === QZPAY_SUBSCRIPTION_STATUS.PAUSED && subscription.deletedAt === null;
@@ -109,6 +124,9 @@ export function qzpayIsSubscriptionPaused(subscription: QZPaySubscription): bool
 
 /**
  * Check if subscription will renew
+ *
+ * @param subscription - Subscription to check
+ * @returns True if subscription is active and not scheduled for cancellation
  */
 export function qzpayWillSubscriptionRenew(subscription: QZPaySubscription): boolean {
     if (!qzpayIsSubscriptionActive(subscription)) {
@@ -125,6 +143,9 @@ export function qzpayWillSubscriptionRenew(subscription: QZPaySubscription): boo
 
 /**
  * Check if subscription is scheduled for cancellation
+ *
+ * @param subscription - Subscription to check
+ * @returns True if subscription has cancelAtPeriodEnd flag or cancelAt date set
  */
 export function qzpayIsSubscriptionScheduledForCancellation(subscription: QZPaySubscription): boolean {
     return subscription.cancelAtPeriodEnd || subscription.cancelAt !== null;
@@ -132,6 +153,9 @@ export function qzpayIsSubscriptionScheduledForCancellation(subscription: QZPayS
 
 /**
  * Get subscription status details
+ *
+ * @param subscription - Subscription to analyze
+ * @returns Object with boolean flags for all subscription states
  */
 export function qzpayGetSubscriptionStatusDetails(subscription: QZPaySubscription): QZPaySubscriptionStatusDetails {
     const status = subscription.status;
@@ -154,6 +178,9 @@ export function qzpayGetSubscriptionStatusDetails(subscription: QZPaySubscriptio
 
 /**
  * Get trial information
+ *
+ * @param subscription - Subscription to analyze
+ * @returns Trial details including dates and remaining days
  */
 export function qzpayGetTrialInfo(subscription: QZPaySubscription): QZPayTrialInfo {
     if (subscription.trialStart === null || subscription.trialEnd === null) {
@@ -187,6 +214,8 @@ export function qzpayGetTrialInfo(subscription: QZPaySubscription): QZPayTrialIn
 
 /**
  * Get current period information
+ *
+ * @throws {Error} If the period has invalid dates (start >= end)
  */
 export function qzpayGetPeriodInfo(subscription: QZPaySubscription): QZPayPeriodInfo {
     const { currentPeriodStart, currentPeriodEnd } = subscription;
@@ -197,6 +226,12 @@ export function qzpayGetPeriodInfo(subscription: QZPaySubscription): QZPayPeriod
     const remainingMs = Math.max(0, currentPeriodEnd.getTime() - now.getTime());
 
     const daysInPeriod = Math.ceil(totalMs / (1000 * 60 * 60 * 24));
+
+    // Validate that period has valid duration
+    if (daysInPeriod <= 0) {
+        throw new Error('Cannot calculate proration: period has no days (daysInPeriod <= 0)');
+    }
+
     const daysElapsed = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
     const daysRemaining = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
     const percentComplete = totalMs > 0 ? Math.min(100, Math.round((elapsedMs / totalMs) * 100)) : 0;
@@ -213,6 +248,10 @@ export function qzpayGetPeriodInfo(subscription: QZPaySubscription): QZPayPeriod
 
 /**
  * Get renewal information
+ *
+ * @param subscription - Subscription to analyze
+ * @param price - Optional price object for calculating renewal amount
+ * @returns Renewal details including dates, amounts, and cancellation info
  */
 export function qzpayGetRenewalInfo(subscription: QZPaySubscription, price?: QZPayPrice | null): QZPaySubscriptionRenewalInfo {
     const willRenew = qzpayWillSubscriptionRenew(subscription);
@@ -257,6 +296,11 @@ export function qzpayGetRenewalInfo(subscription: QZPaySubscription, price?: QZP
 
 /**
  * Calculate next billing date
+ *
+ * @param currentPeriodEnd - Current period end date
+ * @param interval - Billing interval (day, week, month, year)
+ * @param intervalCount - Number of intervals
+ * @returns Next billing date
  */
 export function qzpayCalculateNextBillingDate(currentPeriodEnd: Date, interval: QZPayBillingInterval, intervalCount: number): Date {
     return qzpayAddInterval(currentPeriodEnd, interval, intervalCount);
@@ -264,6 +308,11 @@ export function qzpayCalculateNextBillingDate(currentPeriodEnd: Date, interval: 
 
 /**
  * Calculate proration for plan change
+ *
+ * @param subscription - Subscription being changed
+ * @param currentPrice - Current price configuration
+ * @param newPrice - New price configuration
+ * @returns Proration details including unused amount, credits, and charges
  */
 export function qzpayCalculateSubscriptionProration(
     subscription: QZPaySubscription,
@@ -297,6 +346,9 @@ export function qzpayCalculateSubscriptionProration(
 
 /**
  * Check if subscription can be upgraded
+ *
+ * @param subscription - Subscription to check
+ * @returns True if subscription is active and not canceling
  */
 export function qzpayCanUpgradeSubscription(subscription: QZPaySubscription): boolean {
     // Must be active and not canceling
@@ -311,6 +363,9 @@ export function qzpayCanUpgradeSubscription(subscription: QZPaySubscription): bo
 
 /**
  * Check if subscription can be downgraded
+ *
+ * @param subscription - Subscription to check
+ * @returns True if subscription is active and not canceling
  */
 export function qzpayCanDowngradeSubscription(subscription: QZPaySubscription): boolean {
     // Same conditions as upgrade for now
@@ -319,6 +374,9 @@ export function qzpayCanDowngradeSubscription(subscription: QZPaySubscription): 
 
 /**
  * Check if subscription can be paused
+ *
+ * @param subscription - Subscription to check
+ * @returns True if subscription is active (not in trial) and not deleted
  */
 export function qzpayCanPauseSubscription(subscription: QZPaySubscription): boolean {
     // Must be active and not in trial
@@ -327,6 +385,9 @@ export function qzpayCanPauseSubscription(subscription: QZPaySubscription): bool
 
 /**
  * Check if subscription can be resumed
+ *
+ * @param subscription - Subscription to check
+ * @returns True if subscription is paused and not deleted
  */
 export function qzpayCanResumeSubscription(subscription: QZPaySubscription): boolean {
     return subscription.status === QZPAY_SUBSCRIPTION_STATUS.PAUSED && subscription.deletedAt === null;
@@ -334,6 +395,9 @@ export function qzpayCanResumeSubscription(subscription: QZPaySubscription): boo
 
 /**
  * Check if subscription can be reactivated
+ *
+ * @param subscription - Subscription to check
+ * @returns True if subscription is canceled and not deleted
  */
 export function qzpayCanReactivateSubscription(subscription: QZPaySubscription): boolean {
     return subscription.status === QZPAY_SUBSCRIPTION_STATUS.CANCELED && subscription.deletedAt === null;
@@ -341,6 +405,10 @@ export function qzpayCanReactivateSubscription(subscription: QZPaySubscription):
 
 /**
  * Get subscriptions approaching renewal (within N days)
+ *
+ * @param subscriptions - Array of subscriptions to filter
+ * @param daysThreshold - Number of days threshold (default: 7)
+ * @returns Array of subscriptions renewing within threshold
  */
 export function qzpayGetSubscriptionsApproachingRenewal(subscriptions: QZPaySubscription[], daysThreshold = 7): QZPaySubscription[] {
     return subscriptions.filter((sub) => {
@@ -354,6 +422,10 @@ export function qzpayGetSubscriptionsApproachingRenewal(subscriptions: QZPaySubs
 
 /**
  * Get subscriptions approaching trial end (within N days)
+ *
+ * @param subscriptions - Array of subscriptions to filter
+ * @param daysThreshold - Number of days threshold (default: 3)
+ * @returns Array of trial subscriptions ending within threshold
  */
 export function qzpayGetSubscriptionsApproachingTrialEnd(subscriptions: QZPaySubscription[], daysThreshold = 3): QZPaySubscription[] {
     return subscriptions.filter((sub) => {
@@ -367,6 +439,9 @@ export function qzpayGetSubscriptionsApproachingTrialEnd(subscriptions: QZPaySub
 
 /**
  * Get overdue subscriptions (past current period end but still active)
+ *
+ * @param subscriptions - Array of subscriptions to filter
+ * @returns Array of active subscriptions past their period end
  */
 export function qzpayGetOverdueSubscriptions(subscriptions: QZPaySubscription[]): QZPaySubscription[] {
     const now = new Date();
@@ -377,6 +452,9 @@ export function qzpayGetOverdueSubscriptions(subscriptions: QZPaySubscription[])
 
 /**
  * Sort subscriptions by renewal date (soonest first)
+ *
+ * @param subscriptions - Array of subscriptions to sort
+ * @returns New array sorted by currentPeriodEnd ascending
  */
 export function qzpaySortSubscriptionsByRenewal(subscriptions: QZPaySubscription[]): QZPaySubscription[] {
     return [...subscriptions].sort((a, b) => {
@@ -386,6 +464,9 @@ export function qzpaySortSubscriptionsByRenewal(subscriptions: QZPaySubscription
 
 /**
  * Group subscriptions by status
+ *
+ * @param subscriptions - Array of subscriptions to group
+ * @returns Object mapping status to array of subscriptions
  */
 export function qzpayGroupSubscriptionsByStatus(subscriptions: QZPaySubscription[]): Record<QZPaySubscriptionStatus, QZPaySubscription[]> {
     const groups: Record<string, QZPaySubscription[]> = {};

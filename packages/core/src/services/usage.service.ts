@@ -155,7 +155,6 @@ export function qzpayRecordUsageEvent(input: QZPayRecordUsageInput): { event: QZ
 /**
  * Query usage for a customer
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Complex business logic for usage event filtering and aggregation
 export function qzpayQueryUsage(
     events: QZPayUsageEvent[],
     meters: QZPayUsageMeter[],

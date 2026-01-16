@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { qzpayIsValidIso4217Currency } from '../src/constants/currency.js';
 import {
+    QZPAY_METADATA_LIMITS,
     qzpayAddInterval,
     qzpayAddMoney,
     qzpayApplyFixedDiscount,
     qzpayApplyPercentageDiscount,
     qzpayAssert,
     qzpayAssertDefined,
+    qzpayAssertValidMetadata,
     qzpayCalculateProration,
     qzpayCentsToDecimal,
     qzpayCreateIdempotencyHash,
@@ -22,8 +25,10 @@ import {
     qzpayGenerateSecureToken,
     qzpayHashString,
     qzpayIsFuture,
+    qzpayIsNonNegativeAmount,
     qzpayIsNonNegativeInteger,
     qzpayIsPast,
+    qzpayIsPositiveAmount,
     qzpayIsPositiveInteger,
     qzpayIsRequiredString,
     qzpayIsToday,
@@ -314,6 +319,28 @@ describe('money.utils', () => {
             const result = qzpayCalculateProration(3000, 30, 15);
             expect(result).toBe(1500);
         });
+
+        it('should throw error when totalDays is 0', () => {
+            expect(() => qzpayCalculateProration(3000, 0, 15)).toThrow(
+                'Cannot calculate proration: period has no days (daysInPeriod <= 0)'
+            );
+        });
+
+        it('should throw error when totalDays is negative', () => {
+            expect(() => qzpayCalculateProration(3000, -10, 15)).toThrow(
+                'Cannot calculate proration: period has no days (daysInPeriod <= 0)'
+            );
+        });
+
+        it('should handle zero usedDays', () => {
+            const result = qzpayCalculateProration(3000, 30, 0);
+            expect(result).toBe(0);
+        });
+
+        it('should handle usedDays equal to totalDays', () => {
+            const result = qzpayCalculateProration(3000, 30, 30);
+            expect(result).toBe(3000);
+        });
     });
 
     describe('qzpaySplitAmount', () => {
@@ -482,6 +509,34 @@ describe('validation.utils', () => {
         it('should reject email with spaces', () => {
             expect(qzpayIsValidEmail('test @example.com')).toBe(false);
         });
+
+        it('should validate email with plus addressing', () => {
+            expect(qzpayIsValidEmail('user+tag@example.com')).toBe(true);
+        });
+
+        it('should validate email with dots in local part', () => {
+            expect(qzpayIsValidEmail('first.last@example.com')).toBe(true);
+        });
+
+        it('should validate email with numbers', () => {
+            expect(qzpayIsValidEmail('user123@example456.com')).toBe(true);
+        });
+
+        it('should validate email with hyphens in domain', () => {
+            expect(qzpayIsValidEmail('user@my-domain.com')).toBe(true);
+        });
+
+        it('should reject email without domain', () => {
+            expect(qzpayIsValidEmail('user@')).toBe(false);
+        });
+
+        it('should reject email without local part', () => {
+            expect(qzpayIsValidEmail('@example.com')).toBe(false);
+        });
+
+        it('should reject email with double @', () => {
+            expect(qzpayIsValidEmail('user@@example.com')).toBe(false);
+        });
     });
 
     describe('qzpayIsValidCurrency', () => {
@@ -497,6 +552,42 @@ describe('validation.utils', () => {
         it('should accept lowercase currencies (case-insensitive)', () => {
             expect(qzpayIsValidCurrency('usd')).toBe(true);
             expect(qzpayIsValidCurrency('eur')).toBe(true);
+        });
+    });
+
+    describe('qzpayIsValidIso4217Currency', () => {
+        it('should validate all ISO 4217 currencies', () => {
+            expect(qzpayIsValidIso4217Currency('USD')).toBe(true);
+            expect(qzpayIsValidIso4217Currency('EUR')).toBe(true);
+            expect(qzpayIsValidIso4217Currency('JPY')).toBe(true);
+            expect(qzpayIsValidIso4217Currency('GBP')).toBe(true);
+            expect(qzpayIsValidIso4217Currency('CHF')).toBe(true);
+        });
+
+        it('should validate Latin American currencies', () => {
+            expect(qzpayIsValidIso4217Currency('ARS')).toBe(true);
+            expect(qzpayIsValidIso4217Currency('BRL')).toBe(true);
+            expect(qzpayIsValidIso4217Currency('MXN')).toBe(true);
+            expect(qzpayIsValidIso4217Currency('CLP')).toBe(true);
+            expect(qzpayIsValidIso4217Currency('COP')).toBe(true);
+        });
+
+        it('should be case-insensitive', () => {
+            expect(qzpayIsValidIso4217Currency('usd')).toBe(true);
+            expect(qzpayIsValidIso4217Currency('Eur')).toBe(true);
+            expect(qzpayIsValidIso4217Currency('jPy')).toBe(true);
+        });
+
+        it('should reject invalid currency codes', () => {
+            expect(qzpayIsValidIso4217Currency('FAKE')).toBe(false);
+            expect(qzpayIsValidIso4217Currency('ABC')).toBe(false);
+            expect(qzpayIsValidIso4217Currency('12')).toBe(false);
+        });
+
+        it('should validate special ISO codes', () => {
+            expect(qzpayIsValidIso4217Currency('XXX')).toBe(true); // No currency
+            expect(qzpayIsValidIso4217Currency('XAU')).toBe(true); // Gold
+            expect(qzpayIsValidIso4217Currency('XAG')).toBe(true); // Silver
         });
     });
 
@@ -535,6 +626,70 @@ describe('validation.utils', () => {
 
         it('should return false for floats', () => {
             expect(qzpayIsNonNegativeInteger(1.5)).toBe(false);
+        });
+    });
+
+    describe('qzpayIsPositiveAmount', () => {
+        it('should return true for positive integers', () => {
+            expect(qzpayIsPositiveAmount(1)).toBe(true);
+            expect(qzpayIsPositiveAmount(100)).toBe(true);
+            expect(qzpayIsPositiveAmount(1000)).toBe(true);
+        });
+
+        it('should return true for positive decimals', () => {
+            expect(qzpayIsPositiveAmount(0.01)).toBe(true);
+            expect(qzpayIsPositiveAmount(19.99)).toBe(true);
+            expect(qzpayIsPositiveAmount(100.5)).toBe(true);
+        });
+
+        it('should return false for zero', () => {
+            expect(qzpayIsPositiveAmount(0)).toBe(false);
+        });
+
+        it('should return false for negative amounts', () => {
+            expect(qzpayIsPositiveAmount(-1)).toBe(false);
+            expect(qzpayIsPositiveAmount(-0.01)).toBe(false);
+            expect(qzpayIsPositiveAmount(-100)).toBe(false);
+        });
+
+        it('should return false for NaN', () => {
+            expect(qzpayIsPositiveAmount(Number.NaN)).toBe(false);
+        });
+
+        it('should return false for non-numbers', () => {
+            expect(qzpayIsPositiveAmount('100' as unknown as number)).toBe(false);
+            expect(qzpayIsPositiveAmount(null as unknown as number)).toBe(false);
+            expect(qzpayIsPositiveAmount(undefined as unknown as number)).toBe(false);
+        });
+    });
+
+    describe('qzpayIsNonNegativeAmount', () => {
+        it('should return true for zero', () => {
+            expect(qzpayIsNonNegativeAmount(0)).toBe(true);
+        });
+
+        it('should return true for positive integers', () => {
+            expect(qzpayIsNonNegativeAmount(1)).toBe(true);
+            expect(qzpayIsNonNegativeAmount(100)).toBe(true);
+        });
+
+        it('should return true for positive decimals', () => {
+            expect(qzpayIsNonNegativeAmount(0.01)).toBe(true);
+            expect(qzpayIsNonNegativeAmount(19.99)).toBe(true);
+        });
+
+        it('should return false for negative amounts', () => {
+            expect(qzpayIsNonNegativeAmount(-1)).toBe(false);
+            expect(qzpayIsNonNegativeAmount(-0.01)).toBe(false);
+            expect(qzpayIsNonNegativeAmount(-100)).toBe(false);
+        });
+
+        it('should return false for NaN', () => {
+            expect(qzpayIsNonNegativeAmount(Number.NaN)).toBe(false);
+        });
+
+        it('should return false for non-numbers', () => {
+            expect(qzpayIsNonNegativeAmount('100' as unknown as number)).toBe(false);
         });
     });
 
@@ -733,6 +888,454 @@ describe('validation.utils', () => {
 
         it('should not throw on assertValid when valid', () => {
             expect(() => qzpayCreateValidator({ name: 'John' }).required('name').assertValid()).not.toThrow();
+        });
+
+        it('should validate positive amounts', () => {
+            const resultInvalid = qzpayCreateValidator({ amount: -100 }).positiveAmount('amount').validate();
+            expect(resultInvalid.valid).toBe(false);
+            expect(resultInvalid.errors[0]).toContain('amount');
+
+            const resultZero = qzpayCreateValidator({ amount: 0 }).positiveAmount('amount').validate();
+            expect(resultZero.valid).toBe(false);
+
+            const resultValid = qzpayCreateValidator({ amount: 100 }).positiveAmount('amount').validate();
+            expect(resultValid.valid).toBe(true);
+
+            const resultDecimal = qzpayCreateValidator({ amount: 19.99 }).positiveAmount('amount').validate();
+            expect(resultDecimal.valid).toBe(true);
+        });
+
+        it('should validate non-negative amounts', () => {
+            const resultInvalid = qzpayCreateValidator({ amount: -100 }).nonNegativeAmount('amount').validate();
+            expect(resultInvalid.valid).toBe(false);
+            expect(resultInvalid.errors[0]).toContain('cannot be negative');
+
+            const resultZero = qzpayCreateValidator({ amount: 0 }).nonNegativeAmount('amount').validate();
+            expect(resultZero.valid).toBe(true);
+
+            const resultValid = qzpayCreateValidator({ amount: 100 }).nonNegativeAmount('amount').validate();
+            expect(resultValid.valid).toBe(true);
+        });
+
+        it('should validate ISO 4217 currency codes', () => {
+            const resultValid = qzpayCreateValidator({ currency: 'USD' }).iso4217Currency('currency').validate();
+            expect(resultValid.valid).toBe(true);
+
+            const resultValidJpy = qzpayCreateValidator({ currency: 'JPY' }).iso4217Currency('currency').validate();
+            expect(resultValidJpy.valid).toBe(true);
+
+            const resultInvalid = qzpayCreateValidator({ currency: 'FAKE' }).iso4217Currency('currency').validate();
+            expect(resultInvalid.valid).toBe(false);
+            expect(resultInvalid.errors[0]).toContain('ISO 4217');
+        });
+
+        it('should support custom messages for amount validations', () => {
+            const result = qzpayCreateValidator({ amount: -100 }).positiveAmount('amount', 'Amount cannot be negative or zero').validate();
+            expect(result.errors).toContain('Amount cannot be negative or zero');
+
+            const result2 = qzpayCreateValidator({ discount: -10 }).nonNegativeAmount('discount', 'Discount must be positive').validate();
+            expect(result2.errors).toContain('Discount must be positive');
+        });
+    });
+
+    describe('qzpayAssertValidMetadata', () => {
+        describe('when given valid metadata', () => {
+            it('should accept string values', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    userId: 'user_123',
+                    tier: 'premium'
+                });
+
+                expect(metadata).toEqual({
+                    userId: 'user_123',
+                    tier: 'premium'
+                });
+            });
+
+            it('should accept number values', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    count: 42,
+                    price: 19.99,
+                    zero: 0
+                });
+
+                expect(metadata).toEqual({
+                    count: 42,
+                    price: 19.99,
+                    zero: 0
+                });
+            });
+
+            it('should accept boolean values', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    isActive: true,
+                    hasAccess: false
+                });
+
+                expect(metadata).toEqual({
+                    isActive: true,
+                    hasAccess: false
+                });
+            });
+
+            it('should accept null values', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    deletedAt: null,
+                    note: null
+                });
+
+                expect(metadata).toEqual({
+                    deletedAt: null,
+                    note: null
+                });
+            });
+
+            it('should accept mixed primitive types', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    userId: 'user_123',
+                    count: 42,
+                    isActive: true,
+                    deletedAt: null
+                });
+
+                expect(metadata).toEqual({
+                    userId: 'user_123',
+                    count: 42,
+                    isActive: true,
+                    deletedAt: null
+                });
+            });
+
+            it('should accept empty object', () => {
+                const metadata = qzpayAssertValidMetadata({});
+                expect(metadata).toEqual({});
+            });
+
+            it('should accept string at maximum length', () => {
+                const longString = 'a'.repeat(QZPAY_METADATA_LIMITS.MAX_VALUE_LENGTH);
+                const metadata = qzpayAssertValidMetadata({
+                    description: longString
+                });
+
+                expect(metadata.description).toBe(longString);
+            });
+
+            it('should accept metadata with maximum number of keys', () => {
+                const maxKeys = Object.fromEntries([...Array(QZPAY_METADATA_LIMITS.MAX_KEYS)].map((_, i) => [`key${i}`, i]));
+                const metadata = qzpayAssertValidMetadata(maxKeys);
+
+                expect(Object.keys(metadata).length).toBe(QZPAY_METADATA_LIMITS.MAX_KEYS);
+            });
+
+            it('should accept negative numbers', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    temperature: -10,
+                    balance: -99.99
+                });
+
+                expect(metadata).toEqual({
+                    temperature: -10,
+                    balance: -99.99
+                });
+            });
+        });
+
+        describe('when given metadata with undefined values', () => {
+            it('should remove undefined values (sanitize)', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    userId: 'user_123',
+                    removedField: undefined
+                });
+
+                expect(metadata).toEqual({
+                    userId: 'user_123'
+                });
+                expect(metadata).not.toHaveProperty('removedField');
+            });
+
+            it('should remove multiple undefined values', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    field1: 'value',
+                    field2: undefined,
+                    field3: 42,
+                    field4: undefined
+                });
+
+                expect(metadata).toEqual({
+                    field1: 'value',
+                    field3: 42
+                });
+            });
+
+            it('should handle all undefined values', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    field1: undefined,
+                    field2: undefined
+                });
+
+                expect(metadata).toEqual({});
+            });
+        });
+
+        describe('when given invalid metadata', () => {
+            it('should reject nested objects', () => {
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        user: { id: '123', name: 'John' }
+                    })
+                ).toThrow(TypeError);
+
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        user: { id: '123', name: 'John' }
+                    })
+                ).toThrow(/object is not allowed/);
+            });
+
+            it('should reject arrays', () => {
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        tags: ['premium', 'active']
+                    })
+                ).toThrow(TypeError);
+
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        tags: ['premium', 'active']
+                    })
+                ).toThrow(/array is not allowed/);
+            });
+
+            it('should reject functions', () => {
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        callback: () => console.log('test')
+                    })
+                ).toThrow(TypeError);
+
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        callback: () => console.log('test')
+                    })
+                ).toThrow(/function is not allowed/);
+            });
+
+            it('should reject Symbol values', () => {
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        sym: Symbol('test')
+                    })
+                ).toThrow(TypeError);
+            });
+
+            it('should reject Date objects', () => {
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        createdAt: new Date()
+                    })
+                ).toThrow(TypeError);
+            });
+
+            it('should reject NaN', () => {
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        value: Number.NaN
+                    })
+                ).toThrow(TypeError);
+
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        value: Number.NaN
+                    })
+                ).toThrow(/cannot be NaN/);
+            });
+
+            it('should reject Infinity', () => {
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        value: Number.POSITIVE_INFINITY
+                    })
+                ).toThrow(TypeError);
+
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        value: Number.POSITIVE_INFINITY
+                    })
+                ).toThrow(/cannot be Infinity/);
+            });
+
+            it('should reject negative Infinity', () => {
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        value: Number.NEGATIVE_INFINITY
+                    })
+                ).toThrow(TypeError);
+            });
+
+            it('should reject null as metadata object', () => {
+                expect(() => qzpayAssertValidMetadata(null as unknown as Record<string, unknown>)).toThrow(TypeError);
+            });
+
+            it('should reject non-object metadata', () => {
+                expect(() => qzpayAssertValidMetadata('not an object' as unknown as Record<string, unknown>)).toThrow(TypeError);
+                expect(() => qzpayAssertValidMetadata(123 as unknown as Record<string, unknown>)).toThrow(TypeError);
+            });
+        });
+
+        describe('when metadata exceeds limits', () => {
+            it('should reject metadata with too many keys', () => {
+                const tooManyKeys = Object.fromEntries([...Array(QZPAY_METADATA_LIMITS.MAX_KEYS + 1)].map((_, i) => [`key${i}`, i]));
+
+                expect(() => qzpayAssertValidMetadata(tooManyKeys)).toThrow(RangeError);
+
+                expect(() => qzpayAssertValidMetadata(tooManyKeys)).toThrow(
+                    new RegExp(`exceeds maximum of ${QZPAY_METADATA_LIMITS.MAX_KEYS} keys`)
+                );
+            });
+
+            it('should reject string value that is too long', () => {
+                const tooLongString = 'a'.repeat(QZPAY_METADATA_LIMITS.MAX_VALUE_LENGTH + 1);
+
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        description: tooLongString
+                    })
+                ).toThrow(RangeError);
+
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        description: tooLongString
+                    })
+                ).toThrow(new RegExp(`exceeds maximum length of ${QZPAY_METADATA_LIMITS.MAX_VALUE_LENGTH} characters`));
+            });
+
+            it('should include current count in error message for too many keys', () => {
+                const tooManyKeys = Object.fromEntries([...Array(QZPAY_METADATA_LIMITS.MAX_KEYS + 5)].map((_, i) => [`key${i}`, i]));
+
+                expect(() => qzpayAssertValidMetadata(tooManyKeys)).toThrow(/current: 51/);
+            });
+
+            it('should include current length in error message for string too long', () => {
+                const length = QZPAY_METADATA_LIMITS.MAX_VALUE_LENGTH + 10;
+                const tooLongString = 'a'.repeat(length);
+
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        description: tooLongString
+                    })
+                ).toThrow(new RegExp(`current: ${length}`));
+            });
+
+            it('should include key name in error messages', () => {
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        myCustomField: ['array']
+                    })
+                ).toThrow(/key 'myCustomField'/);
+
+                const tooLong = 'a'.repeat(501);
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        longDescription: tooLong
+                    })
+                ).toThrow(/key 'longDescription'/);
+            });
+        });
+
+        describe('edge cases', () => {
+            it('should count keys correctly after removing undefined', () => {
+                // 51 keys total, but 2 are undefined, so only 49 valid keys
+                const metadata: Record<string, unknown> = Object.fromEntries(
+                    [...Array(QZPAY_METADATA_LIMITS.MAX_KEYS - 1)].map((_, i) => [`key${i}`, i])
+                );
+                metadata.undefinedKey1 = undefined;
+                metadata.undefinedKey2 = undefined;
+
+                // Should not throw because undefined values are not counted
+                expect(() => qzpayAssertValidMetadata(metadata)).not.toThrow();
+            });
+
+            it('should handle empty strings', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    emptyString: ''
+                });
+
+                expect(metadata.emptyString).toBe('');
+            });
+
+            it('should handle zero', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    zero: 0
+                });
+
+                expect(metadata.zero).toBe(0);
+            });
+
+            it('should handle false', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    isFalse: false
+                });
+
+                expect(metadata.isFalse).toBe(false);
+            });
+
+            it('should return a new object (not mutate original)', () => {
+                const original = {
+                    userId: 'user_123',
+                    removedField: undefined
+                };
+
+                const sanitized = qzpayAssertValidMetadata(original);
+
+                // Original should still have undefined
+                expect(original).toHaveProperty('removedField');
+                // Sanitized should not
+                expect(sanitized).not.toHaveProperty('removedField');
+                // Should be different objects
+                expect(sanitized).not.toBe(original);
+            });
+
+            it('should handle special string characters', () => {
+                const metadata = qzpayAssertValidMetadata({
+                    emoji: '🚀',
+                    unicode: '你好世界',
+                    newlines: 'line1\nline2',
+                    tabs: 'col1\tcol2',
+                    quotes: 'He said "hello"',
+                    backslash: 'path\\to\\file'
+                });
+
+                expect(metadata.emoji).toBe('🚀');
+                expect(metadata.unicode).toBe('你好世界');
+                expect(metadata.newlines).toBe('line1\nline2');
+                expect(metadata.tabs).toBe('col1\tcol2');
+                expect(metadata.quotes).toBe('He said "hello"');
+                expect(metadata.backslash).toBe('path\\to\\file');
+            });
+
+            it('should count emoji correctly in string length', () => {
+                // Note: Emoji like 🚀 is a surrogate pair (2 chars in JS)
+                const emojiLength = '🚀'.length; // This is 2
+                const repeatCount = Math.floor(QZPAY_METADATA_LIMITS.MAX_VALUE_LENGTH / emojiLength);
+                const emoji = '🚀'.repeat(repeatCount);
+
+                const metadata = qzpayAssertValidMetadata({
+                    emojis: emoji
+                });
+
+                expect(metadata.emojis).toBe(emoji);
+                expect(emoji.length).toBeLessThanOrEqual(QZPAY_METADATA_LIMITS.MAX_VALUE_LENGTH);
+
+                // Adding one more emoji should exceed the limit
+                const tooManyEmojis = `${emoji}🚀`;
+                expect(tooManyEmojis.length).toBeGreaterThan(QZPAY_METADATA_LIMITS.MAX_VALUE_LENGTH);
+
+                expect(() =>
+                    qzpayAssertValidMetadata({
+                        emojis: tooManyEmojis
+                    })
+                ).toThrow(RangeError);
+            });
         });
     });
 });

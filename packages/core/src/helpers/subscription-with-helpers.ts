@@ -137,6 +137,20 @@ const DEFAULT_GRACE_PERIOD_DAYS = 7;
 
 /**
  * Create a subscription with helper methods
+ *
+ * Wraps a plain subscription object with convenience methods for checking status,
+ * calculating dates, and accessing entitlements/limits.
+ *
+ * @param subscription - Plain subscription object to wrap
+ * @param config - Optional grace period configuration
+ * @returns Subscription object with helper methods attached
+ * @example
+ * ```typescript
+ * const subscription = qzpayCreateSubscriptionWithHelpers(plainSub, { gracePeriodDays: 5 });
+ * if (subscription.hasAccess()) {
+ *   console.log('Customer has access');
+ * }
+ * ```
  */
 export function qzpayCreateSubscriptionWithHelpers(
     subscription: QZPaySubscription,
@@ -264,6 +278,9 @@ export function qzpayCreateSubscriptionWithHelpers(
 
 /**
  * Check if an object is a QZPaySubscriptionWithHelpers
+ *
+ * @param obj - Object to check
+ * @returns True if object has helper methods attached
  */
 export function qzpayIsSubscriptionWithHelpers(obj: unknown): obj is QZPaySubscriptionWithHelpers {
     return (
@@ -276,8 +293,12 @@ export function qzpayIsSubscriptionWithHelpers(obj: unknown): obj is QZPaySubscr
 
 /**
  * Ensure a subscription has helpers attached
- * If already wrapped, returns as-is
- * If plain subscription, wraps it
+ *
+ * If already wrapped, returns as-is. If plain subscription, wraps it.
+ *
+ * @param subscription - Subscription object (plain or wrapped)
+ * @param config - Optional grace period configuration
+ * @returns Subscription with helpers guaranteed to be attached
  */
 export function qzpayEnsureSubscriptionHelpers(
     subscription: QZPaySubscription | QZPaySubscriptionWithHelpers,

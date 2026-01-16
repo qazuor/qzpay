@@ -2,6 +2,7 @@
  * Invoice types for QZPay
  */
 import type { QZPayCurrency, QZPayInvoiceStatus } from '../constants/index.js';
+import type { QZPayMetadata } from './common.types.js';
 
 export interface QZPayInvoice {
     id: string;
@@ -22,7 +23,7 @@ export interface QZPayInvoice {
     periodEnd: Date | null;
     lines: QZPayInvoiceLine[];
     providerInvoiceIds: Record<string, string>;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     livemode: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -38,7 +39,7 @@ export interface QZPayInvoiceLine {
     priceId: string | null;
     periodStart: Date | null;
     periodEnd: Date | null;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
 }
 
 export interface QZPayCreateInvoiceInput {
@@ -46,7 +47,7 @@ export interface QZPayCreateInvoiceInput {
     subscriptionId?: string;
     dueDate?: Date;
     lines: QZPayCreateInvoiceLineInput[];
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 export interface QZPayCreateInvoiceLineInput {

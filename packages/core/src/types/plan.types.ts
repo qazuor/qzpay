@@ -2,6 +2,7 @@
  * Plan and Price types for QZPay
  */
 import type { QZPayBillingInterval, QZPayCurrency } from '../constants/index.js';
+import type { QZPayMetadata } from './common.types.js';
 
 export interface QZPayPlan {
     id: string;
@@ -12,7 +13,7 @@ export interface QZPayPlan {
     features: QZPayPlanFeature[];
     entitlements: string[];
     limits: Record<string, number>;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     createdAt: Date;
     updatedAt: Date;
     deletedAt: Date | null;
@@ -29,7 +30,7 @@ export interface QZPayPrice {
     trialDays: number | null;
     active: boolean;
     providerPriceIds: Record<string, string>;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -46,7 +47,7 @@ export interface QZPayCreatePlanInput {
     features?: QZPayPlanFeature[];
     entitlements?: string[];
     limits?: Record<string, number>;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 export interface QZPayCreatePriceInput {
@@ -57,7 +58,7 @@ export interface QZPayCreatePriceInput {
     billingInterval: QZPayBillingInterval;
     intervalCount?: number;
     trialDays?: number;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
 }
 
 export interface QZPayProduct {
@@ -66,7 +67,7 @@ export interface QZPayProduct {
     description: string | null;
     active: boolean;
     prices: QZPayProductPrice[];
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     createdAt: Date;
     updatedAt: Date;
     deletedAt: Date | null;
@@ -80,7 +81,7 @@ export interface QZPayProductPrice {
     unitAmount: number;
     active: boolean;
     providerPriceIds: Record<string, string>;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     createdAt: Date;
     updatedAt: Date;
 }

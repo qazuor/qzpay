@@ -2,6 +2,7 @@
  * Checkout types for QZPay
  */
 import type { QZPayCheckoutMode, QZPayCurrency } from '../constants/index.js';
+import type { QZPayMetadata } from './common.types.js';
 
 export interface QZPayCheckoutSession {
     id: string;
@@ -17,7 +18,7 @@ export interface QZPayCheckoutSession {
     paymentId: string | null;
     subscriptionId: string | null;
     providerSessionIds: Record<string, string>;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
     livemode: boolean;
     createdAt: Date;
     completedAt: Date | null;
@@ -38,8 +39,9 @@ export interface QZPayCreateCheckoutInput {
     customerEmail?: string;
     promoCodeId?: string;
     allowPromoCodes?: boolean;
-    metadata?: Record<string, unknown>;
+    metadata?: QZPayMetadata;
     expiresInMinutes?: number;
+    notificationUrl?: string;
 }
 
 export interface QZPayCheckoutResult {

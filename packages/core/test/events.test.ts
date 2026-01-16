@@ -42,6 +42,19 @@ describe('QZPayEventEmitter', () => {
             });
             expect(emitter).toBeInstanceOf(QZPayEventEmitter);
         });
+
+        it('should create emitter with logger', () => {
+            const logger = {
+                debug: vi.fn(),
+                info: vi.fn(),
+                warn: vi.fn(),
+                error: vi.fn()
+            };
+            const emitter = new QZPayEventEmitter({
+                logger
+            });
+            expect(emitter).toBeInstanceOf(QZPayEventEmitter);
+        });
     });
 
     describe('on/off', () => {
@@ -172,6 +185,48 @@ describe('QZPayEventEmitter', () => {
 
             expect(onError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ type: 'customer.created' }));
         });
+
+        it('should use logger.error when handler throws error', async () => {
+            const logger = {
+                debug: vi.fn(),
+                info: vi.fn(),
+                warn: vi.fn(),
+                error: vi.fn()
+            };
+            const emitter = new QZPayEventEmitter({ logger });
+
+            emitter.on('customer.created', () => {
+                throw new Error('Handler error');
+            });
+
+            await emitter.emit('customer.created', mockCustomer);
+
+            expect(logger.error).toHaveBeenCalledWith(
+                expect.stringContaining('Error in event handler for customer.created'),
+                expect.objectContaining({
+                    error: expect.any(Error),
+                    event: expect.objectContaining({ type: 'customer.created' })
+                })
+            );
+        });
+
+        it('should fallback to console.error when no logger provided', async () => {
+            const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            const emitter = new QZPayEventEmitter();
+
+            emitter.on('customer.created', () => {
+                throw new Error('Handler error');
+            });
+
+            await emitter.emit('customer.created', mockCustomer);
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith(
+                expect.stringContaining('[QZPay] Error in event handler for customer.created'),
+                expect.any(Error)
+            );
+
+            consoleErrorSpy.mockRestore();
+        });
     });
 
     describe('emitSync', () => {
@@ -269,6 +324,43 @@ describe('QZPayEventEmitter', () => {
             const emitter = new QZPayEventEmitter();
 
             await expect(emitter.waitFor('customer.created', { timeout: 50 })).rejects.toThrow('Timeout');
+        });
+    });
+
+    describe('maxListeners', () => {
+        it('should use logger.warn when maxListeners is exceeded', () => {
+            const logger = {
+                debug: vi.fn(),
+                info: vi.fn(),
+                warn: vi.fn(),
+                error: vi.fn()
+            };
+            const emitter = new QZPayEventEmitter({ maxListeners: 2, logger });
+
+            emitter.on('customer.created', vi.fn());
+            emitter.on('customer.created', vi.fn());
+            emitter.on('customer.created', vi.fn());
+
+            expect(logger.warn).toHaveBeenCalledWith(
+                expect.stringContaining('MaxListenersExceededWarning'),
+                expect.objectContaining({
+                    eventType: 'customer.created',
+                    listenerCount: 2
+                })
+            );
+        });
+
+        it('should fallback to console.warn when no logger provided', () => {
+            const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            const emitter = new QZPayEventEmitter({ maxListeners: 2 });
+
+            emitter.on('customer.created', vi.fn());
+            emitter.on('customer.created', vi.fn());
+            emitter.on('customer.created', vi.fn());
+
+            expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('[QZPay] MaxListenersExceededWarning'));
+
+            consoleWarnSpy.mockRestore();
         });
     });
 });

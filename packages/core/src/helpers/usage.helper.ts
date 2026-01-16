@@ -16,6 +16,12 @@ import type {
 
 /**
  * Calculate the amount for a given quantity using tiered pricing
+ *
+ * Supports multiple pricing models: tiered_volume, tiered_graduated, package, per_unit, flat_fee.
+ *
+ * @param quantity - Quantity to calculate amount for
+ * @param price - Metered price configuration with tiers
+ * @returns Object with total amount and tier breakdown
  */
 export function qzpayCalculateTieredAmount(
     quantity: number,
@@ -196,6 +202,12 @@ function calculatePackagePricing(quantity: number, tiers: QZPayPricingTier[]): {
 
 /**
  * Aggregate usage events for a billing period
+ *
+ * Supports aggregation types: sum, max, last, count.
+ *
+ * @param events - Array of usage events to aggregate
+ * @param meter - Meter configuration with aggregation type
+ * @returns Aggregated quantity value
  */
 export function qzpayAggregateUsageEvents(events: QZPayUsageEvent[], meter: QZPayUsageMeter): number {
     if (events.length === 0) return 0;
@@ -223,6 +235,18 @@ export function qzpayAggregateUsageEvents(events: QZPayUsageEvent[], meter: QZPa
 
 /**
  * Create a usage summary from events and pricing
+ *
+ * Aggregates events, calculates amounts with tiered pricing, and applies min/max constraints.
+ *
+ * @param customerId - Customer identifier
+ * @param subscriptionId - Subscription identifier (or null for unattached usage)
+ * @param meterKey - Meter key identifier
+ * @param events - Array of usage events for the period
+ * @param meter - Meter configuration
+ * @param price - Metered price configuration
+ * @param periodStart - Billing period start date
+ * @param periodEnd - Billing period end date
+ * @returns Complete usage summary with calculated amount
  */
 export function qzpayCreateUsageSummary(
     customerId: string,
@@ -262,6 +286,14 @@ export function qzpayCreateUsageSummary(
 
 /**
  * Get billing period dates for a subscription
+ *
+ * Calculates the current billing period containing the reference date.
+ *
+ * @param subscriptionStart - Subscription start date
+ * @param billingInterval - Billing interval type
+ * @param intervalCount - Number of intervals per billing period
+ * @param referenceDate - Date to find period for (default: now)
+ * @returns Object with periodStart and periodEnd dates
  */
 export function qzpayGetBillingPeriod(
     subscriptionStart: Date,
@@ -305,6 +337,12 @@ export function qzpayGetBillingPeriod(
 
 /**
  * Format usage amount for display
+ *
+ * Converts cents to currency format with locale-specific formatting.
+ *
+ * @param amount - Amount in cents
+ * @param currency - Currency code (e.g., 'usd', 'eur')
+ * @returns Formatted currency string
  */
 export function qzpayFormatUsageAmount(amount: number, currency: QZPayCurrency): string {
     const formatter = new Intl.NumberFormat('en-US', {
@@ -317,6 +355,10 @@ export function qzpayFormatUsageAmount(amount: number, currency: QZPayCurrency):
 
 /**
  * Format usage quantity for display
+ *
+ * @param quantity - Quantity value
+ * @param unit - Unit label (e.g., 'requests', 'GB')
+ * @returns Formatted quantity string with unit
  */
 export function qzpayFormatUsageQuantity(quantity: number, unit: string): string {
     const formatter = new Intl.NumberFormat('en-US', {
@@ -327,6 +369,11 @@ export function qzpayFormatUsageQuantity(quantity: number, unit: string): string
 
 /**
  * Validate usage event data
+ *
+ * Checks for required fields and valid quantity values.
+ *
+ * @param input - Usage event data to validate
+ * @returns Validation result with array of error messages
  */
 export function qzpayValidateUsageEvent(input: {
     customerId: string;

@@ -2,6 +2,8 @@
  * Limits types for QZPay (usage-based billing)
  */
 
+import type { QZPayMetadata } from './common.types.js';
+
 export interface QZPayLimit {
     id: string;
     key: string;
@@ -53,5 +55,5 @@ export interface QZPayUsageRecord {
     quantity: number;
     action: 'increment' | 'decrement' | 'set';
     timestamp: Date;
-    metadata: Record<string, unknown>;
+    metadata: QZPayMetadata;
 }

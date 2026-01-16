@@ -3,6 +3,7 @@
  */
 import type { QZPayBillingEvent } from '../constants/index.js';
 import type { QZPayEvent, QZPayEventHandler, QZPayEventMap, QZPayTypedEventHandler } from '../types/events.types.js';
+import type { QZPayLogger } from '../types/logger.types.js';
 import { qzpayGenerateId } from '../utils/hash.utils.js';
 
 /**
@@ -14,6 +15,11 @@ interface QZPayEventListener<K extends keyof QZPayEventMap = keyof QZPayEventMap
 }
 
 /**
+ * Default maximum listeners per event type
+ */
+const DEFAULT_MAX_LISTENERS = 10;
+
+/**
  * Event emitter options
  */
 export interface QZPayEventEmitterOptions {
@@ -23,7 +29,9 @@ export interface QZPayEventEmitterOptions {
     livemode?: boolean;
 
     /**
-     * Maximum number of listeners per event (0 = unlimited)
+     * Maximum number of listeners per event type.
+     * Set to 0 for unlimited (not recommended in production).
+     * @default 10
      */
     maxListeners?: number;
 
@@ -31,6 +39,11 @@ export interface QZPayEventEmitterOptions {
      * Custom error handler for async event handlers
      */
     onError?: (error: Error, event: QZPayEvent) => void;
+
+    /**
+     * Optional logger for event emitter warnings and errors
+     */
+    logger?: QZPayLogger;
 }
 
 /**
@@ -39,18 +52,27 @@ export interface QZPayEventEmitterOptions {
 export class QZPayEventEmitter {
     private readonly listeners = new Map<keyof QZPayEventMap, QZPayEventListener[]>();
     private readonly wildcardListeners: QZPayEventListener<keyof QZPayEventMap>[] = [];
-    private readonly options: Required<QZPayEventEmitterOptions>;
+    private readonly options: Required<Omit<QZPayEventEmitterOptions, 'logger'>> & Pick<QZPayEventEmitterOptions, 'logger'>;
+    private readonly logger: QZPayLogger | undefined;
 
     constructor(options: QZPayEventEmitterOptions = {}) {
-        this.options = {
+        this.logger = options.logger ?? undefined;
+
+        const baseOptions = {
             livemode: options.livemode ?? false,
-            maxListeners: options.maxListeners ?? 0,
+            maxListeners: options.maxListeners ?? DEFAULT_MAX_LISTENERS,
             onError:
                 options.onError ??
                 ((error, event) => {
-                    console.error(`[QZPay] Error in event handler for ${event.type}:`, error);
+                    if (this.logger) {
+                        this.logger.error(`Error in event handler for ${event.type}:`, { error, event });
+                    } else {
+                        console.error(`[QZPay] Error in event handler for ${event.type}:`, error);
+                    }
                 })
         };
+
+        this.options = options.logger ? { ...baseOptions, logger: options.logger } : baseOptions;
     }
 
     /**
@@ -293,7 +315,12 @@ export class QZPayEventEmitter {
         }
 
         if (this.options.maxListeners > 0 && eventListeners.length >= this.options.maxListeners) {
-            console.warn(`[QZPay] MaxListenersExceededWarning: ${eventType} has ${eventListeners.length} listeners`);
+            const message = `MaxListenersExceededWarning: ${eventType} has ${eventListeners.length} listeners`;
+            if (this.logger) {
+                this.logger.warn(message, { eventType, listenerCount: eventListeners.length });
+            } else {
+                console.warn(`[QZPay] ${message}`);
+            }
         }
 
         const listener: QZPayEventListener = {

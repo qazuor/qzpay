@@ -3,6 +3,7 @@
  * All types use the QZPay prefix for clarity
  */
 
+export * from './common.types.js';
 export * from './addon.types.js';
 export * from './checkout.types.js';
 export * from './config.types.js';

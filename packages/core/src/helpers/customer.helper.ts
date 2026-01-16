@@ -45,6 +45,9 @@ export interface QZPayCustomerStats {
 
 /**
  * Check if customer has an active subscription
+ *
+ * @param subscriptions - Array of customer subscriptions to check
+ * @returns True if customer has at least one active subscription
  */
 export function qzpayCustomerHasActiveSubscription(subscriptions: QZPaySubscription[]): boolean {
     return subscriptions.some((sub) => sub.status === QZPAY_SUBSCRIPTION_STATUS.ACTIVE && sub.deletedAt === null);
@@ -52,6 +55,9 @@ export function qzpayCustomerHasActiveSubscription(subscriptions: QZPaySubscript
 
 /**
  * Check if customer has a trial subscription
+ *
+ * @param subscriptions - Array of customer subscriptions to check
+ * @returns True if customer has at least one trialing subscription
  */
 export function qzpayCustomerHasTrialSubscription(subscriptions: QZPaySubscription[]): boolean {
     return subscriptions.some((sub) => sub.status === QZPAY_SUBSCRIPTION_STATUS.TRIALING && sub.deletedAt === null);
@@ -59,6 +65,9 @@ export function qzpayCustomerHasTrialSubscription(subscriptions: QZPaySubscripti
 
 /**
  * Check if customer has a past due subscription
+ *
+ * @param subscriptions - Array of customer subscriptions to check
+ * @returns True if customer has at least one past due subscription
  */
 export function qzpayCustomerHasPastDueSubscription(subscriptions: QZPaySubscription[]): boolean {
     return subscriptions.some((sub) => sub.status === QZPAY_SUBSCRIPTION_STATUS.PAST_DUE && sub.deletedAt === null);
@@ -66,6 +75,9 @@ export function qzpayCustomerHasPastDueSubscription(subscriptions: QZPaySubscrip
 
 /**
  * Check if customer has unpaid invoices
+ *
+ * @param invoices - Array of customer invoices to check
+ * @returns True if customer has open or uncollectible invoices
  */
 export function qzpayCustomerHasUnpaidInvoices(invoices: QZPayInvoice[]): boolean {
     const unpaidStatuses: QZPayInvoiceStatus[] = [QZPAY_INVOICE_STATUS.OPEN, QZPAY_INVOICE_STATUS.UNCOLLECTIBLE];
@@ -74,6 +86,9 @@ export function qzpayCustomerHasUnpaidInvoices(invoices: QZPayInvoice[]): boolea
 
 /**
  * Get customer's active subscriptions
+ *
+ * @param subscriptions - Array of customer subscriptions
+ * @returns Array of active or trialing subscriptions
  */
 export function qzpayGetCustomerActiveSubscriptions(subscriptions: QZPaySubscription[]): QZPaySubscription[] {
     const activeStatuses: QZPaySubscriptionStatus[] = [QZPAY_SUBSCRIPTION_STATUS.ACTIVE, QZPAY_SUBSCRIPTION_STATUS.TRIALING];
@@ -82,6 +97,9 @@ export function qzpayGetCustomerActiveSubscriptions(subscriptions: QZPaySubscrip
 
 /**
  * Get customer's churned subscriptions
+ *
+ * @param subscriptions - Array of customer subscriptions
+ * @returns Array of canceled subscriptions
  */
 export function qzpayGetCustomerChurnedSubscriptions(subscriptions: QZPaySubscription[]): QZPaySubscription[] {
     return subscriptions.filter((sub) => sub.status === QZPAY_SUBSCRIPTION_STATUS.CANCELED && sub.deletedAt === null);
@@ -89,6 +107,9 @@ export function qzpayGetCustomerChurnedSubscriptions(subscriptions: QZPaySubscri
 
 /**
  * Calculate customer total spent
+ *
+ * @param payments - Array of customer payments
+ * @returns Total amount from successful payments in cents
  */
 export function qzpayCalculateCustomerTotalSpent(payments: QZPayPayment[]): number {
     return payments.filter((p) => p.status === 'succeeded').reduce((sum, p) => sum + p.amount, 0);
@@ -96,6 +117,13 @@ export function qzpayCalculateCustomerTotalSpent(payments: QZPayPayment[]): numb
 
 /**
  * Calculate customer lifetime value (LTV)
+ *
+ * Calculates projected annual value based on average monthly spend.
+ * For customers active less than 1 month, projects current spending over 12 months.
+ *
+ * @param payments - Array of customer payments
+ * @param customer - Customer object with createdAt date
+ * @returns Projected annual lifetime value in cents
  */
 export function qzpayCalculateCustomerLTV(payments: QZPayPayment[], customer: QZPayCustomer): number {
     const totalSpent = qzpayCalculateCustomerTotalSpent(payments);
@@ -111,6 +139,13 @@ export function qzpayCalculateCustomerLTV(payments: QZPayPayment[], customer: QZ
 
 /**
  * Determine customer lifecycle state
+ *
+ * States: new (< 7 days, no subs), trial, active, at_risk (past due or unpaid), churned, inactive
+ *
+ * @param customer - Customer object
+ * @param subscriptions - Array of customer subscriptions
+ * @param invoices - Array of customer invoices
+ * @returns Current lifecycle state
  */
 export function qzpayGetCustomerLifecycleState(
     customer: QZPayCustomer,
@@ -155,6 +190,15 @@ export function qzpayGetCustomerLifecycleState(
 
 /**
  * Determine customer risk level
+ *
+ * High: past due subscription or >30% payment failure rate
+ * Medium: unpaid invoices or >10% payment failure rate
+ * Low: otherwise
+ *
+ * @param subscriptions - Array of customer subscriptions
+ * @param invoices - Array of customer invoices
+ * @param payments - Array of customer payments
+ * @returns Risk level: 'low', 'medium', or 'high'
  */
 export function qzpayGetCustomerRiskLevel(
     subscriptions: QZPaySubscription[],
@@ -180,6 +224,12 @@ export function qzpayGetCustomerRiskLevel(
 
 /**
  * Get comprehensive customer health assessment
+ *
+ * @param customer - Customer object
+ * @param subscriptions - Array of customer subscriptions
+ * @param invoices - Array of customer invoices
+ * @param payments - Array of customer payments
+ * @returns Complete health assessment with state, flags, and risk level
  */
 export function qzpayGetCustomerHealth(
     customer: QZPayCustomer,
@@ -205,6 +255,11 @@ export function qzpayGetCustomerHealth(
 
 /**
  * Get customer statistics
+ *
+ * @param subscriptions - Array of customer subscriptions
+ * @param invoices - Array of customer invoices
+ * @param payments - Array of customer payments
+ * @returns Comprehensive statistics including counts, amounts, and averages
  */
 export function qzpayGetCustomerStats(
     subscriptions: QZPaySubscription[],
@@ -239,6 +294,13 @@ export function qzpayGetCustomerStats(
 
 /**
  * Check if customer is eligible for upgrade offers
+ *
+ * Requirements: active subscription, customer for 30+ days, 2+ successful payments, no recent failures
+ *
+ * @param customer - Customer object
+ * @param subscriptions - Array of customer subscriptions
+ * @param payments - Array of customer payments
+ * @returns True if customer is eligible for upgrade offers
  */
 export function qzpayIsCustomerEligibleForUpgrade(
     customer: QZPayCustomer,
@@ -273,6 +335,12 @@ export function qzpayIsCustomerEligibleForUpgrade(
 
 /**
  * Check if customer should receive retention offer
+ *
+ * Triggers: subscription scheduled for cancellation, past due subscription, or 2+ unpaid invoices
+ *
+ * @param subscriptions - Array of customer subscriptions
+ * @param invoices - Array of customer invoices
+ * @returns True if retention offer should be presented
  */
 export function qzpayShouldOfferRetention(subscriptions: QZPaySubscription[], invoices: QZPayInvoice[]): boolean {
     // Has subscription scheduled for cancellation

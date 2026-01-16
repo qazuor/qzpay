@@ -29,6 +29,10 @@ export * from './payment.service.js';
 
 // Payment method service helpers
 export * from './payment-method.service.js';
+
+// Saved card service (unified interface)
+export * from './saved-card.service.js';
+
 // Resilience service helpers (circuit breaker, retry, bulkhead)
 export * from './resilience.service.js';
 // Security service helpers (rate limiting, idempotency, IP restrictions)
@@ -39,3 +43,5 @@ export * from './usage.service.js';
 export * from './metrics.service.js';
 // Health check service
 export * from './health.service.js';
+// Subscription lifecycle service (renewals, trial conversions, retries)
+export * from './subscription-lifecycle.service.js';

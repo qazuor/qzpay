@@ -56,6 +56,9 @@ export interface QZPayPlanRecommendation {
 
 /**
  * Get active prices from a plan
+ *
+ * @param plan - Plan to extract prices from
+ * @returns Array of active prices only
  */
 export function qzpayGetActivePrices(plan: QZPayPlan): QZPayPrice[] {
     return plan.prices.filter((price) => price.active);
@@ -63,6 +66,11 @@ export function qzpayGetActivePrices(plan: QZPayPlan): QZPayPrice[] {
 
 /**
  * Get price by interval
+ *
+ * @param plan - Plan to search
+ * @param interval - Billing interval to match
+ * @param currency - Optional currency filter
+ * @returns First matching price or null if not found
  */
 export function qzpayGetPriceByInterval(plan: QZPayPlan, interval: QZPayBillingInterval, currency?: QZPayCurrency): QZPayPrice | null {
     const prices = qzpayGetActivePrices(plan);
@@ -77,6 +85,12 @@ export function qzpayGetPriceByInterval(plan: QZPayPlan, interval: QZPayBillingI
 
 /**
  * Get cheapest price from a plan
+ *
+ * Compares prices by monthly equivalent to find the best value.
+ *
+ * @param plan - Plan to search
+ * @param currency - Optional currency filter
+ * @returns Cheapest price based on monthly equivalent, or null if no prices
  */
 export function qzpayGetCheapestPrice(plan: QZPayPlan, currency?: QZPayCurrency): QZPayPrice | null {
     const prices = qzpayGetActivePrices(plan).filter((p) => !currency || p.currency === currency);
@@ -95,6 +109,11 @@ export function qzpayGetCheapestPrice(plan: QZPayPlan, currency?: QZPayCurrency)
 
 /**
  * Get monthly equivalent of a price
+ *
+ * Converts any billing interval to approximate monthly cost.
+ *
+ * @param price - Price to convert
+ * @returns Monthly equivalent amount in cents
  */
 export function qzpayGetMonthlyEquivalent(price: QZPayPrice): number {
     const { unitAmount, billingInterval, intervalCount } = price;
@@ -115,6 +134,11 @@ export function qzpayGetMonthlyEquivalent(price: QZPayPrice): number {
 
 /**
  * Get annual equivalent of a price
+ *
+ * Converts any billing interval to approximate annual cost.
+ *
+ * @param price - Price to convert
+ * @returns Annual equivalent amount in cents
  */
 export function qzpayGetAnnualEquivalent(price: QZPayPrice): number {
     const { unitAmount, billingInterval, intervalCount } = price;
@@ -135,6 +159,11 @@ export function qzpayGetAnnualEquivalent(price: QZPayPrice): number {
 
 /**
  * Compare prices across intervals
+ *
+ * Calculates monthly/annual equivalents and savings vs monthly baseline.
+ *
+ * @param prices - Array of prices to compare
+ * @returns Array of comparisons with savings calculations
  */
 export function qzpayComparePrices(prices: QZPayPrice[]): QZPayPriceComparison[] {
     // Get monthly price as baseline
@@ -160,6 +189,10 @@ export function qzpayComparePrices(prices: QZPayPrice[]): QZPayPriceComparison[]
 
 /**
  * Check if plan has a specific feature
+ *
+ * @param plan - Plan to check
+ * @param featureName - Feature name to search for (case-insensitive)
+ * @returns True if feature is included in plan
  */
 export function qzpayPlanHasFeature(plan: QZPayPlan, featureName: string): boolean {
     return plan.features.some((f) => f.name.toLowerCase() === featureName.toLowerCase() && f.included);
@@ -167,6 +200,10 @@ export function qzpayPlanHasFeature(plan: QZPayPlan, featureName: string): boole
 
 /**
  * Check if plan has a specific entitlement
+ *
+ * @param plan - Plan to check
+ * @param entitlementKey - Entitlement key to search for
+ * @returns True if entitlement is included in plan
  */
 export function qzpayPlanHasEntitlement(plan: QZPayPlan, entitlementKey: string): boolean {
     return plan.entitlements.includes(entitlementKey);
@@ -174,6 +211,9 @@ export function qzpayPlanHasEntitlement(plan: QZPayPlan, entitlementKey: string)
 
 /**
  * Get included features from a plan
+ *
+ * @param plan - Plan to extract features from
+ * @returns Array of features marked as included
  */
 export function qzpayGetIncludedFeatures(plan: QZPayPlan): QZPayPlanFeature[] {
     return plan.features.filter((f) => f.included);
@@ -181,6 +221,9 @@ export function qzpayGetIncludedFeatures(plan: QZPayPlan): QZPayPlanFeature[] {
 
 /**
  * Get excluded features from a plan
+ *
+ * @param plan - Plan to extract features from
+ * @returns Array of features marked as not included
  */
 export function qzpayGetExcludedFeatures(plan: QZPayPlan): QZPayPlanFeature[] {
     return plan.features.filter((f) => !f.included);
@@ -188,6 +231,10 @@ export function qzpayGetExcludedFeatures(plan: QZPayPlan): QZPayPlanFeature[] {
 
 /**
  * Get limit value for a plan
+ *
+ * @param plan - Plan to query
+ * @param limitKey - Limit key to retrieve
+ * @returns Limit value or null if not defined
  */
 export function qzpayGetPlanLimit(plan: QZPayPlan, limitKey: string): number | null {
     return plan.limits[limitKey] ?? null;
@@ -262,6 +309,13 @@ function determineTierRelationship(
 
 /**
  * Compare two plans
+ *
+ * Analyzes price differences, feature changes, entitlement changes, and limit changes.
+ *
+ * @param currentPlan - Current plan
+ * @param newPlan - New plan to compare against
+ * @param currency - Optional currency filter for price comparison
+ * @returns Comprehensive comparison including upgrade/downgrade determination
  */
 export function qzpayComparePlans(currentPlan: QZPayPlan, newPlan: QZPayPlan, currency?: QZPayCurrency): QZPayPlanComparison {
     // Get prices for comparison
@@ -327,6 +381,10 @@ export function qzpayComparePlans(currentPlan: QZPayPlan, newPlan: QZPayPlan, cu
 
 /**
  * Find plans with specific features
+ *
+ * @param plans - Array of plans to search
+ * @param requiredFeatures - Array of feature names that must be included
+ * @returns Plans that include all required features
  */
 export function qzpayFindPlansWithFeatures(plans: QZPayPlan[], requiredFeatures: string[]): QZPayPlan[] {
     return plans.filter((plan) => {
@@ -336,6 +394,10 @@ export function qzpayFindPlansWithFeatures(plans: QZPayPlan[], requiredFeatures:
 
 /**
  * Find plans with specific entitlements
+ *
+ * @param plans - Array of plans to search
+ * @param requiredEntitlements - Array of entitlement keys that must be included
+ * @returns Plans that include all required entitlements
  */
 export function qzpayFindPlansWithEntitlements(plans: QZPayPlan[], requiredEntitlements: string[]): QZPayPlan[] {
     return plans.filter((plan) => {
@@ -345,6 +407,12 @@ export function qzpayFindPlansWithEntitlements(plans: QZPayPlan[], requiredEntit
 
 /**
  * Find plans within a price range (monthly equivalent)
+ *
+ * @param plans - Array of plans to filter
+ * @param minPrice - Minimum monthly price in cents
+ * @param maxPrice - Maximum monthly price in cents
+ * @param currency - Optional currency filter
+ * @returns Plans with monthly equivalent within range
  */
 export function qzpayFindPlansInPriceRange(plans: QZPayPlan[], minPrice: number, maxPrice: number, currency?: QZPayCurrency): QZPayPlan[] {
     return plans.filter((plan) => {
@@ -357,6 +425,10 @@ export function qzpayFindPlansInPriceRange(plans: QZPayPlan[], minPrice: number,
 
 /**
  * Sort plans by price (cheapest first)
+ *
+ * @param plans - Array of plans to sort
+ * @param currency - Optional currency filter
+ * @returns New array sorted by monthly equivalent ascending
  */
 export function qzpaySortPlansByPrice(plans: QZPayPlan[], currency?: QZPayCurrency): QZPayPlan[] {
     return [...plans].sort((a, b) => {
@@ -373,6 +445,9 @@ export function qzpaySortPlansByPrice(plans: QZPayPlan[], currency?: QZPayCurren
 
 /**
  * Sort plans by feature count (most features first)
+ *
+ * @param plans - Array of plans to sort
+ * @returns New array sorted by included feature count descending
  */
 export function qzpaySortPlansByFeatures(plans: QZPayPlan[]): QZPayPlan[] {
     return [...plans].sort((a, b) => {
@@ -384,6 +459,16 @@ export function qzpaySortPlansByFeatures(plans: QZPayPlan[]): QZPayPlan[] {
 
 /**
  * Get recommended plan based on requirements
+ *
+ * Scores plans based on required features (must have), desired features (bonus points),
+ * total feature count, and price efficiency.
+ *
+ * @param plans - Array of plans to evaluate
+ * @param requiredFeatures - Features that must be included (heavy penalty if missing)
+ * @param desiredFeatures - Features that are nice to have (bonus points)
+ * @param maxMonthlyPrice - Optional maximum monthly price filter
+ * @param currency - Optional currency filter
+ * @returns Best matching plan with score and reasoning, or null if no candidates
  */
 export function qzpayRecommendPlan(
     plans: QZPayPlan[],
@@ -457,6 +542,11 @@ export function qzpayRecommendPlan(
 
 /**
  * Get feature comparison matrix for multiple plans
+ *
+ * Creates a matrix showing which plans include which features.
+ *
+ * @param plans - Array of plans to compare
+ * @returns Map of feature name to Map of plan ID to inclusion boolean
  */
 export function qzpayGetFeatureMatrix(plans: QZPayPlan[]): Map<string, Map<string, boolean>> {
     // Collect all unique features
