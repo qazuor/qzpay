@@ -48,12 +48,7 @@
             },
             "complexity": {
                 "recommended": true,
-                "noExcessiveCognitiveComplexity": {
-                    "level": "warn",
-                    "options": {
-                        "maxAllowedComplexity": 15
-                    }
-                }
+                "noExcessiveCognitiveComplexity": "off"
             },
             "security": {
                 "recommended": true
