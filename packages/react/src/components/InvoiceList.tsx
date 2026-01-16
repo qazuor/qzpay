@@ -87,13 +87,13 @@ export function InvoiceList({
 
     if (isLoading) {
         return (
-            <div
+            <output
                 className={className}
                 data-testid="invoice-list-loading"
-                role="status"
                 aria-live="polite"
                 aria-busy="true"
                 style={{
+                    display: 'block',
                     padding: '24px',
                     borderRadius: '12px',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -103,7 +103,7 @@ export function InvoiceList({
                 }}
             >
                 Loading invoices...
-            </div>
+            </output>
         );
     }
 

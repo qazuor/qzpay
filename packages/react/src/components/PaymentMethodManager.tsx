@@ -147,9 +147,9 @@ export function PaymentMethodManager({
 
     if (isLoading) {
         return (
-            <div className={className} data-testid="payment-method-manager-loading" role="status" aria-live="polite" aria-busy="true">
+            <output className={className} data-testid="payment-method-manager-loading" aria-live="polite" aria-busy="true">
                 Loading payment methods...
-            </div>
+            </output>
         );
     }
 
@@ -202,8 +202,10 @@ export function PaymentMethodManager({
                 </div>
             )}
 
-            <div role="list" aria-label="Payment methods" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {/* biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Payment method rendering requires multiple conditional displays */}
+            <ul
+                aria-label="Payment methods"
+                style={{ display: 'flex', flexDirection: 'column', gap: '12px', listStyle: 'none', margin: 0, padding: 0 }}
+            >
                 {paymentMethods.map((method) => {
                     const { title, subtitle } = formatPaymentMethod(method);
                     const icon = getCardIcon(method);
@@ -212,9 +214,8 @@ export function PaymentMethodManager({
                     const isProcessing = processingId === method.id;
 
                     return (
-                        <div
+                        <li
                             key={method.id}
-                            role="listitem"
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -344,10 +345,10 @@ export function PaymentMethodManager({
                                     </button>
                                 )}
                             </div>
-                        </div>
+                        </li>
                     );
                 })}
-            </div>
+            </ul>
 
             {showAddButton && onAddPaymentMethod && (
                 <button

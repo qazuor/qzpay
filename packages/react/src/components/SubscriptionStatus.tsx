@@ -59,12 +59,12 @@ function getStatusColor(status: string): string {
 export function SubscriptionStatus({ subscription, showCancelButton = false, onCancel, className }: SubscriptionStatusProps): ReactNode {
     if (!subscription) {
         return (
-            <div
+            <output
                 className={className}
                 data-testid="subscription-status-empty"
-                role="status"
                 aria-live="polite"
                 style={{
+                    display: 'block',
                     padding: '24px',
                     borderRadius: '12px',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -74,20 +74,20 @@ export function SubscriptionStatus({ subscription, showCancelButton = false, onC
                 }}
             >
                 No active subscription
-            </div>
+            </output>
         );
     }
 
     const statusColor = getStatusColor(subscription.status);
 
     return (
-        <div
+        <output
             className={className}
             data-testid="subscription-status"
-            role="status"
             aria-live="polite"
             aria-label="Subscription status"
             style={{
+                display: 'block',
                 padding: '24px',
                 borderRadius: '12px',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -225,6 +225,6 @@ export function SubscriptionStatus({ subscription, showCancelButton = false, onC
                     Cancel Subscription
                 </button>
             )}
-        </div>
+        </output>
     );
 }

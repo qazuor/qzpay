@@ -135,26 +135,150 @@ function PlanSelector({ onSelect }) {
 
 ## Available Hooks
 
-### Data Hooks
-- `useCustomer(id)` - Get single customer
-- `useCustomers(options)` - List customers
-- `useSubscriptions(customerId)` - List subscriptions
-- `useSubscription(id)` - Get single subscription
-- `usePayments(customerId)` - List payments
-- `usePayment(id)` - Get single payment
-- `useInvoices(customerId)` - List invoices
-- `useInvoice(id)` - Get single invoice
-- `usePlans()` - List plans
-- `usePlan(id)` - Get single plan
+### Context Hooks
+- `useQZPayContext()` - Get the full QZPay context (billing instance, customer, etc.)
+- `useQZPay()` - Get the billing instance directly
+- `useQZPayLivemode()` - Check if running in live mode
+- `useCurrentCustomer()` - Get the current customer from context
 
-### Mutation Hooks
-- `useCreateCustomer()`
-- `useUpdateCustomer()`
-- `useCreateSubscription()`
-- `useCancelSubscription()`
-- `useProcessPayment()`
-- `useRefundPayment()`
-- `useCreateInvoice()`
+### Data Hooks
+- `useCustomer(customerId)` - Get customer by ID with helper methods
+- `useSubscription(customerId, options?)` - Get active subscription with helpers
+- `usePlans()` - Get available plans with pricing
+- `useEntitlements(customerId)` - Check feature entitlements
+- `useLimits(customerId)` - Check usage limits
+- `usePayment(customerId, options?)` - Process payments
+- `useInvoices(customerId, options?)` - List customer invoices
+
+### Utility Hooks
+- `useIsomorphicLayoutEffect()` - SSR-safe useLayoutEffect
+
+## Components
+
+### PricingTable
+
+Display pricing plans with selection:
+
+```tsx
+import { PricingTable } from '@qazuor/qzpay-react';
+
+<PricingTable
+  plans={plans}
+  currentPlanId={subscription?.planId}
+  onSelect={(plan) => handlePlanSelect(plan)}
+  currency="USD"
+/>
+```
+
+### SubscriptionStatus
+
+Display subscription status with actions:
+
+```tsx
+import { SubscriptionStatus } from '@qazuor/qzpay-react';
+
+<SubscriptionStatus
+  subscription={subscription}
+  onCancel={() => handleCancel()}
+  onPause={() => handlePause()}
+  onResume={() => handleResume()}
+/>
+```
+
+### EntitlementGate
+
+Conditionally render content based on entitlements:
+
+```tsx
+import { EntitlementGate } from '@qazuor/qzpay-react';
+
+<EntitlementGate
+  customerId="cus_123"
+  entitlementKey="advanced_analytics"
+  fallback={<UpgradePrompt />}
+>
+  <AdvancedAnalyticsDashboard />
+</EntitlementGate>
+```
+
+### LimitGate
+
+Conditionally render content based on usage limits:
+
+```tsx
+import { LimitGate } from '@qazuor/qzpay-react';
+
+<LimitGate
+  customerId="cus_123"
+  limitKey="api_calls"
+  fallback={<LimitReachedMessage />}
+>
+  <APICallButton />
+</LimitGate>
+```
+
+### PaymentForm
+
+Collect payment information:
+
+```tsx
+import { PaymentForm } from '@qazuor/qzpay-react';
+
+<PaymentForm
+  amount={2999}
+  currency="USD"
+  onSubmit={async (data) => {
+    await processPayment(data);
+  }}
+  onSuccess={() => showSuccessMessage()}
+  onError={(error) => showErrorMessage(error)}
+/>
+```
+
+### CheckoutButton
+
+Quick checkout button:
+
+```tsx
+import { CheckoutButton } from '@qazuor/qzpay-react';
+
+<CheckoutButton
+  planId="plan_pro"
+  customerId="cus_123"
+  onSuccess={(result) => redirectToSuccess(result)}
+>
+  Subscribe to Pro
+</CheckoutButton>
+```
+
+### InvoiceList
+
+Display customer invoices:
+
+```tsx
+import { InvoiceList } from '@qazuor/qzpay-react';
+
+<InvoiceList
+  customerId="cus_123"
+  onDownload={(invoice) => downloadInvoicePdf(invoice)}
+  onPay={(invoice) => payInvoice(invoice)}
+/>
+```
+
+### PaymentMethodManager
+
+Manage customer payment methods:
+
+```tsx
+import { PaymentMethodManager } from '@qazuor/qzpay-react';
+
+<PaymentMethodManager
+  customerId="cus_123"
+  onAdd={() => openAddPaymentMethodModal()}
+  onRemove={(pm) => removePaymentMethod(pm)}
+  onSetDefault={(pm) => setDefaultPaymentMethod(pm)}
+/>
+```
 
 ## Theme System
 

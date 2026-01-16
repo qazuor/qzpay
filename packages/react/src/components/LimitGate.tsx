@@ -48,24 +48,39 @@ export function LimitGate({ limitKey, customerId, children, fallback = null, loa
     const [checking, setChecking] = useState(true);
 
     useEffect(() => {
+        let cancelled = false;
+
         const check = async () => {
             if (!effectiveCustomerId) {
-                setWithinLimit(false);
-                setChecking(false);
+                if (!cancelled) {
+                    setWithinLimit(false);
+                    setChecking(false);
+                }
                 return;
             }
 
             try {
                 const result = await checkLimit(limitKey);
-                setWithinLimit(result.allowed);
+                if (!cancelled) {
+                    setWithinLimit(result.allowed);
+                }
             } catch {
-                setWithinLimit(false);
+                if (!cancelled) {
+                    setWithinLimit(false);
+                }
             } finally {
-                setChecking(false);
+                if (!cancelled) {
+                    setChecking(false);
+                }
             }
         };
 
         void check();
+
+        // Cleanup function to prevent race conditions
+        return () => {
+            cancelled = true;
+        };
     }, [effectiveCustomerId, limitKey, checkLimit]);
 
     // No customer ID available

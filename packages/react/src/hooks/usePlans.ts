@@ -4,7 +4,7 @@ import type { QZPayPlan, QZPayPrice } from '@qazuor/qzpay-core';
  *
  * Hook for accessing plans and prices
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQZPay } from '../context/QZPayContext.js';
 import type { UsePlansReturn } from '../types.js';
 
@@ -35,18 +35,40 @@ export function usePlans(activeOnly = true): UsePlansReturn {
     const [data, setData] = useState<QZPayPlan[] | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
+    const isMountedRef = useRef(true);
+    const requestIdRef = useRef(0);
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     const fetchPlans = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
+        // Increment request ID to track this specific request
+        const currentRequestId = ++requestIdRef.current;
+
+        if (isMountedRef.current) {
+            setIsLoading(true);
+            setError(null);
+        }
 
         try {
             const plans = activeOnly ? await billing.plans.getActive() : (await billing.plans.list()).data;
-            setData(plans);
+
+            // Only update if this is still the most recent request
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setData(plans);
+            }
         } catch (err) {
-            setError(err instanceof Error ? err : new Error('Failed to fetch plans'));
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setError(err instanceof Error ? err : new Error('Failed to fetch plans'));
+            }
         } finally {
-            setIsLoading(false);
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setIsLoading(false);
+            }
         }
     }, [billing, activeOnly]);
 

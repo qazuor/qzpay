@@ -49,9 +49,8 @@ describe('useLimits', () => {
 
             await waitFor(() => {
                 expect(result.current.error).toBeDefined();
+                expect(result.current.error?.message).toBe('Fetch failed');
             });
-
-            expect(result.current.error?.message).toBe('Fetch failed');
         });
     });
 

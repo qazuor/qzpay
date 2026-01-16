@@ -58,7 +58,6 @@ function formatPaymentMethod(method: QZPayPaymentMethod): string {
  * />
  * ```
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Payment form requires complex state management and validation
 export function PaymentForm({
     customerId,
     amount,
@@ -120,9 +119,9 @@ export function PaymentForm({
 
     if (isLoadingPaymentMethods) {
         return (
-            <div className={className} data-testid="payment-form-loading" role="status" aria-live="polite" aria-busy="true">
+            <output className={className} data-testid="payment-form-loading" aria-live="polite" aria-busy="true">
                 Loading payment methods...
-            </div>
+            </output>
         );
     }
 

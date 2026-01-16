@@ -4,7 +4,7 @@ import type { QZPaySubscription } from '@qazuor/qzpay-core';
  *
  * Hook for managing subscriptions
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQZPay } from '../context/QZPayContext.js';
 import type { UseSubscriptionOptions, UseSubscriptionReturn } from '../types.js';
 
@@ -47,28 +47,56 @@ export function useSubscription(options: UseSubscriptionOptions = {}): UseSubscr
     const [data, setData] = useState<QZPaySubscription | QZPaySubscription[] | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
+    const isMountedRef = useRef(true);
+    const requestIdRef = useRef(0);
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     const fetchData = useCallback(async () => {
         if (!customerId && !subscriptionId) {
-            setData(null);
+            if (isMountedRef.current) {
+                setData(null);
+            }
             return;
         }
 
-        setIsLoading(true);
-        setError(null);
+        // Increment request ID to track this specific request
+        const currentRequestId = ++requestIdRef.current;
+
+        if (isMountedRef.current) {
+            setIsLoading(true);
+            setError(null);
+        }
 
         try {
             if (subscriptionId) {
                 const subscription = await billing.subscriptions.get(subscriptionId);
-                setData(subscription);
+
+                // Only update if this is still the most recent request
+                if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                    setData(subscription);
+                }
             } else if (customerId) {
                 const subscriptions = await billing.subscriptions.getByCustomerId(customerId);
-                setData(subscriptions);
+
+                // Only update if this is still the most recent request
+                if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                    setData(subscriptions);
+                }
             }
         } catch (err) {
-            setError(err instanceof Error ? err : new Error('Failed to fetch subscriptions'));
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setError(err instanceof Error ? err : new Error('Failed to fetch subscriptions'));
+            }
         } finally {
-            setIsLoading(false);
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setIsLoading(false);
+            }
         }
     }, [billing, customerId, subscriptionId]);
 
@@ -85,8 +113,10 @@ export function useSubscription(options: UseSubscriptionOptions = {}): UseSubscr
             trialDays?: number | undefined;
             promoCodeId?: string | undefined;
         }): Promise<QZPaySubscription> => {
-            setIsLoading(true);
-            setError(null);
+            if (isMountedRef.current) {
+                setIsLoading(true);
+                setError(null);
+            }
 
             try {
                 const createInput = {
@@ -100,17 +130,21 @@ export function useSubscription(options: UseSubscriptionOptions = {}): UseSubscr
                 const subscription = await billing.subscriptions.create(createInput);
 
                 // Update local state if we're tracking this customer
-                if (customerId === input.customerId && Array.isArray(data)) {
+                if (isMountedRef.current && customerId === input.customerId && Array.isArray(data)) {
                     setData([...data, subscription]);
                 }
 
                 return subscription;
             } catch (err) {
                 const error = err instanceof Error ? err : new Error('Failed to create subscription');
-                setError(error);
+                if (isMountedRef.current) {
+                    setError(error);
+                }
                 throw error;
             } finally {
-                setIsLoading(false);
+                if (isMountedRef.current) {
+                    setIsLoading(false);
+                }
             }
         },
         [billing, customerId, data]
@@ -118,8 +152,10 @@ export function useSubscription(options: UseSubscriptionOptions = {}): UseSubscr
 
     const cancel = useCallback(
         async (subId: string, cancelOptions?: { cancelAtPeriodEnd?: boolean | undefined }): Promise<QZPaySubscription> => {
-            setIsLoading(true);
-            setError(null);
+            if (isMountedRef.current) {
+                setIsLoading(true);
+                setError(null);
+            }
 
             try {
                 const options =
@@ -127,19 +163,25 @@ export function useSubscription(options: UseSubscriptionOptions = {}): UseSubscr
                 const subscription = await billing.subscriptions.cancel(subId, options);
 
                 // Update local state
-                if (subscriptionId === subId) {
-                    setData(subscription);
-                } else if (Array.isArray(data)) {
-                    setData(data.map((s) => (s.id === subId ? subscription : s)));
+                if (isMountedRef.current) {
+                    if (subscriptionId === subId) {
+                        setData(subscription);
+                    } else if (Array.isArray(data)) {
+                        setData(data.map((s) => (s.id === subId ? subscription : s)));
+                    }
                 }
 
                 return subscription;
             } catch (err) {
                 const error = err instanceof Error ? err : new Error('Failed to cancel subscription');
-                setError(error);
+                if (isMountedRef.current) {
+                    setError(error);
+                }
                 throw error;
             } finally {
-                setIsLoading(false);
+                if (isMountedRef.current) {
+                    setIsLoading(false);
+                }
             }
         },
         [billing, subscriptionId, data]
@@ -147,26 +189,34 @@ export function useSubscription(options: UseSubscriptionOptions = {}): UseSubscr
 
     const pause = useCallback(
         async (subId: string): Promise<QZPaySubscription> => {
-            setIsLoading(true);
-            setError(null);
+            if (isMountedRef.current) {
+                setIsLoading(true);
+                setError(null);
+            }
 
             try {
                 const subscription = await billing.subscriptions.pause(subId);
 
                 // Update local state
-                if (subscriptionId === subId) {
-                    setData(subscription);
-                } else if (Array.isArray(data)) {
-                    setData(data.map((s) => (s.id === subId ? subscription : s)));
+                if (isMountedRef.current) {
+                    if (subscriptionId === subId) {
+                        setData(subscription);
+                    } else if (Array.isArray(data)) {
+                        setData(data.map((s) => (s.id === subId ? subscription : s)));
+                    }
                 }
 
                 return subscription;
             } catch (err) {
                 const error = err instanceof Error ? err : new Error('Failed to pause subscription');
-                setError(error);
+                if (isMountedRef.current) {
+                    setError(error);
+                }
                 throw error;
             } finally {
-                setIsLoading(false);
+                if (isMountedRef.current) {
+                    setIsLoading(false);
+                }
             }
         },
         [billing, subscriptionId, data]
@@ -174,26 +224,34 @@ export function useSubscription(options: UseSubscriptionOptions = {}): UseSubscr
 
     const resume = useCallback(
         async (subId: string): Promise<QZPaySubscription> => {
-            setIsLoading(true);
-            setError(null);
+            if (isMountedRef.current) {
+                setIsLoading(true);
+                setError(null);
+            }
 
             try {
                 const subscription = await billing.subscriptions.resume(subId);
 
                 // Update local state
-                if (subscriptionId === subId) {
-                    setData(subscription);
-                } else if (Array.isArray(data)) {
-                    setData(data.map((s) => (s.id === subId ? subscription : s)));
+                if (isMountedRef.current) {
+                    if (subscriptionId === subId) {
+                        setData(subscription);
+                    } else if (Array.isArray(data)) {
+                        setData(data.map((s) => (s.id === subId ? subscription : s)));
+                    }
                 }
 
                 return subscription;
             } catch (err) {
                 const error = err instanceof Error ? err : new Error('Failed to resume subscription');
-                setError(error);
+                if (isMountedRef.current) {
+                    setError(error);
+                }
                 throw error;
             } finally {
-                setIsLoading(false);
+                if (isMountedRef.current) {
+                    setIsLoading(false);
+                }
             }
         },
         [billing, subscriptionId, data]

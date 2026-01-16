@@ -4,7 +4,7 @@ import type { QZPayCurrency, QZPayPayment } from '@qazuor/qzpay-core';
  *
  * Hook for processing and managing payments
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQZPay } from '../context/QZPayContext.js';
 import type { UsePaymentOptions, UsePaymentReturn } from '../types.js';
 
@@ -46,29 +46,55 @@ export function usePayment(options: UsePaymentOptions = {}): UsePaymentReturn {
     const [data, setData] = useState<QZPayPayment[] | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
+    const isMountedRef = useRef(true);
+    const requestIdRef = useRef(0);
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     const fetchPayments = useCallback(async () => {
         if (!customerId) {
-            setData(null);
+            if (isMountedRef.current) {
+                setData(null);
+            }
             return;
         }
 
-        setIsLoading(true);
-        setError(null);
+        // Increment request ID to track this specific request
+        const currentRequestId = ++requestIdRef.current;
+
+        if (isMountedRef.current) {
+            setIsLoading(true);
+            setError(null);
+        }
 
         try {
             const payments = await billing.payments.getByCustomerId(customerId);
-            setData(payments);
+
+            // Only update if this is still the most recent request
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setData(payments);
+            }
         } catch (err) {
-            setError(err instanceof Error ? err : new Error('Failed to fetch payments'));
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setError(err instanceof Error ? err : new Error('Failed to fetch payments'));
+            }
         } finally {
-            setIsLoading(false);
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setIsLoading(false);
+            }
         }
     }, [billing, customerId]);
 
     useEffect(() => {
         void fetchPayments();
     }, [fetchPayments]);
+
+    const isProcessingRef = useRef(false);
 
     const process = useCallback(
         async (input: {
@@ -78,8 +104,17 @@ export function usePayment(options: UsePaymentOptions = {}): UsePaymentReturn {
             invoiceId?: string | undefined;
             paymentMethodId?: string | undefined;
         }): Promise<QZPayPayment> => {
-            setIsLoading(true);
-            setError(null);
+            // Prevent double-submit
+            if (isProcessingRef.current) {
+                throw new Error('Payment is already being processed');
+            }
+
+            isProcessingRef.current = true;
+
+            if (isMountedRef.current) {
+                setIsLoading(true);
+                setError(null);
+            }
 
             try {
                 const processInput = {
@@ -92,17 +127,22 @@ export function usePayment(options: UsePaymentOptions = {}): UsePaymentReturn {
                 const payment = await billing.payments.process(processInput);
 
                 // Update local state if we're tracking this customer
-                if (customerId === input.customerId && Array.isArray(data)) {
+                if (isMountedRef.current && customerId === input.customerId && Array.isArray(data)) {
                     setData([payment, ...data]);
                 }
 
                 return payment;
             } catch (err) {
                 const error = err instanceof Error ? err : new Error('Failed to process payment');
-                setError(error);
+                if (isMountedRef.current) {
+                    setError(error);
+                }
                 throw error;
             } finally {
-                setIsLoading(false);
+                isProcessingRef.current = false;
+                if (isMountedRef.current) {
+                    setIsLoading(false);
+                }
             }
         },
         [billing, customerId, data]
@@ -110,8 +150,10 @@ export function usePayment(options: UsePaymentOptions = {}): UsePaymentReturn {
 
     const refund = useCallback(
         async (paymentId: string, amount?: number): Promise<QZPayPayment> => {
-            setIsLoading(true);
-            setError(null);
+            if (isMountedRef.current) {
+                setIsLoading(true);
+                setError(null);
+            }
 
             try {
                 const refundInput = {
@@ -121,17 +163,21 @@ export function usePayment(options: UsePaymentOptions = {}): UsePaymentReturn {
                 const payment = await billing.payments.refund(refundInput);
 
                 // Update local state
-                if (Array.isArray(data)) {
+                if (isMountedRef.current && Array.isArray(data)) {
                     setData(data.map((p) => (p.id === paymentId ? payment : p)));
                 }
 
                 return payment;
             } catch (err) {
                 const error = err instanceof Error ? err : new Error('Failed to refund payment');
-                setError(error);
+                if (isMountedRef.current) {
+                    setError(error);
+                }
                 throw error;
             } finally {
-                setIsLoading(false);
+                if (isMountedRef.current) {
+                    setIsLoading(false);
+                }
             }
         },
         [billing, data]

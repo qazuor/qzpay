@@ -4,7 +4,7 @@ import type { QZPayCustomerEntitlement } from '@qazuor/qzpay-core';
  *
  * Hook for checking customer entitlements
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQZPay } from '../context/QZPayContext.js';
 import type { UseEntitlementsOptions, UseEntitlementsReturn } from '../types.js';
 
@@ -40,23 +40,47 @@ export function useEntitlements(options: UseEntitlementsOptions): UseEntitlement
     const [data, setData] = useState<QZPayCustomerEntitlement[] | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
+    const isMountedRef = useRef(true);
+    const requestIdRef = useRef(0);
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     const fetchEntitlements = useCallback(async () => {
         if (!customerId) {
-            setData(null);
+            if (isMountedRef.current) {
+                setData(null);
+            }
             return;
         }
 
-        setIsLoading(true);
-        setError(null);
+        // Increment request ID to track this specific request
+        const currentRequestId = ++requestIdRef.current;
+
+        if (isMountedRef.current) {
+            setIsLoading(true);
+            setError(null);
+        }
 
         try {
             const entitlements = await billing.entitlements.getByCustomerId(customerId);
-            setData(entitlements);
+
+            // Only update if this is still the most recent request
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setData(entitlements);
+            }
         } catch (err) {
-            setError(err instanceof Error ? err : new Error('Failed to fetch entitlements'));
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setError(err instanceof Error ? err : new Error('Failed to fetch entitlements'));
+            }
         } finally {
-            setIsLoading(false);
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setIsLoading(false);
+            }
         }
     }, [billing, customerId]);
 

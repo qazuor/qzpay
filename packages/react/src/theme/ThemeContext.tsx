@@ -2,7 +2,8 @@
  * Theme Context for QZPay React components
  */
 import type { CSSProperties } from 'react';
-import { type ReactNode, createContext, useContext, useEffect, useMemo } from 'react';
+import { type ReactNode, createContext, useContext, useMemo } from 'react';
+import { useIsomorphicLayoutEffect } from '../hooks/useIsomorphicLayoutEffect.js';
 import { qzpayDefaultTheme, qzpayMergeTheme } from './default-theme.js';
 import type { QZPayPartialTheme, QZPayTheme } from './theme.types.js';
 
@@ -177,8 +178,9 @@ export function QZPayThemeProvider({
     const cssVariables = useMemo(() => generateCSSVariables(theme), [theme]);
 
     // Apply to document root if requested
-    useEffect(() => {
-        if (applyToRoot && typeof document !== 'undefined') {
+    // Uses useIsomorphicLayoutEffect to avoid SSR warnings
+    useIsomorphicLayoutEffect(() => {
+        if (applyToRoot && typeof window !== 'undefined') {
             const root = document.documentElement;
             const vars = cssVariables.split('; ');
             for (const variable of vars) {

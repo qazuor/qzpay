@@ -297,7 +297,6 @@ describe('useQZPayTheme', () => {
     });
 
     describe('theme object structure', () => {
-        // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Test component verifies multiple theme properties
         function ThemeStructureTest() {
             const theme = useQZPayTheme();
             return (

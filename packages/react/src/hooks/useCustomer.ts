@@ -4,7 +4,7 @@ import type { QZPayCustomer } from '@qazuor/qzpay-core';
  *
  * Hook for managing customer data
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQZPay } from '../context/QZPayContext.js';
 import type { UseCustomerReturn } from '../types.js';
 
@@ -39,23 +39,47 @@ export function useCustomer(customerId: string | undefined): UseCustomerReturn {
     const [data, setData] = useState<QZPayCustomer | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
+    const isMountedRef = useRef(true);
+    const requestIdRef = useRef(0);
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     const fetchCustomer = useCallback(async () => {
         if (!customerId) {
-            setData(null);
+            if (isMountedRef.current) {
+                setData(null);
+            }
             return;
         }
 
-        setIsLoading(true);
-        setError(null);
+        // Increment request ID to track this specific request
+        const currentRequestId = ++requestIdRef.current;
+
+        if (isMountedRef.current) {
+            setIsLoading(true);
+            setError(null);
+        }
 
         try {
             const customer = await billing.customers.get(customerId);
-            setData(customer);
+
+            // Only update if this is still the most recent request
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setData(customer);
+            }
         } catch (err) {
-            setError(err instanceof Error ? err : new Error('Failed to fetch customer'));
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setError(err instanceof Error ? err : new Error('Failed to fetch customer'));
+            }
         } finally {
-            setIsLoading(false);
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setIsLoading(false);
+            }
         }
     }, [billing, customerId]);
 
@@ -69,19 +93,27 @@ export function useCustomer(customerId: string | undefined): UseCustomerReturn {
                 throw new Error('Customer ID is required to update');
             }
 
-            setIsLoading(true);
-            setError(null);
+            if (isMountedRef.current) {
+                setIsLoading(true);
+                setError(null);
+            }
 
             try {
                 const updated = await billing.customers.update(customerId, updateData);
-                setData(updated);
+                if (isMountedRef.current) {
+                    setData(updated);
+                }
                 return updated;
             } catch (err) {
                 const error = err instanceof Error ? err : new Error('Failed to update customer');
-                setError(error);
+                if (isMountedRef.current) {
+                    setError(error);
+                }
                 throw error;
             } finally {
-                setIsLoading(false);
+                if (isMountedRef.current) {
+                    setIsLoading(false);
+                }
             }
         },
         [billing, customerId]

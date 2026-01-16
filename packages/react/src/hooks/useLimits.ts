@@ -4,7 +4,7 @@ import type { QZPayCustomerLimit } from '@qazuor/qzpay-core';
  *
  * Hook for checking and managing customer limits
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQZPay } from '../context/QZPayContext.js';
 import type { QZPayLimitCheckResult, UseLimitsOptions, UseLimitsReturn } from '../types.js';
 
@@ -39,23 +39,47 @@ export function useLimits(options: UseLimitsOptions): UseLimitsReturn {
     const [data, setData] = useState<QZPayCustomerLimit[] | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
+    const isMountedRef = useRef(true);
+    const requestIdRef = useRef(0);
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     const fetchLimits = useCallback(async () => {
         if (!customerId) {
-            setData(null);
+            if (isMountedRef.current) {
+                setData(null);
+            }
             return;
         }
 
-        setIsLoading(true);
-        setError(null);
+        // Increment request ID to track this specific request
+        const currentRequestId = ++requestIdRef.current;
+
+        if (isMountedRef.current) {
+            setIsLoading(true);
+            setError(null);
+        }
 
         try {
             const limits = await billing.limits.getByCustomerId(customerId);
-            setData(limits);
+
+            // Only update if this is still the most recent request
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setData(limits);
+            }
         } catch (err) {
-            setError(err instanceof Error ? err : new Error('Failed to fetch limits'));
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setError(err instanceof Error ? err : new Error('Failed to fetch limits'));
+            }
         } finally {
-            setIsLoading(false);
+            if (isMountedRef.current && currentRequestId === requestIdRef.current) {
+                setIsLoading(false);
+            }
         }
     }, [billing, customerId]);
 
@@ -94,7 +118,7 @@ export function useLimits(options: UseLimitsOptions): UseLimitsReturn {
             const limit = await billing.limits.increment(customerId, key, amount);
 
             // Update local state
-            if (data) {
+            if (isMountedRef.current && data) {
                 setData(data.map((l) => (l.limitKey === key ? limit : l)));
             }
 

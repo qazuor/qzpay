@@ -61,7 +61,6 @@ export function CheckoutButton({
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Checkout flow requires multiple validation and state transitions
     const handleClick = async () => {
         if (!onCheckout) {
             setError('No checkout handler provided');

@@ -21,7 +21,8 @@ export {
     useEntitlements,
     useLimits,
     usePayment,
-    useInvoices
+    useInvoices,
+    useIsomorphicLayoutEffect
 } from './hooks/index.js';
 
 // Components
