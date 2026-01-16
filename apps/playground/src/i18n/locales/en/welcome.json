@@ -3,7 +3,9 @@
     "badge": "Interactive Billing Sandbox",
     "title": "QZPay Playground",
     "subtitle": "Explore, test, and understand the QZPay billing library in a safe sandbox environment. No backend setup, no real payments, just pure learning.",
-    "getStarted": "Get Started"
+    "getStarted": "Get Started",
+    "startTour": "Guided Tour",
+    "tourDescription": "Take a guided tour to learn how to use all the playground features"
   },
   "whatIsQzpay": {
     "title": "What is QZPay?",

@@ -18,7 +18,9 @@
     },
     "errors": {
       "importFailed": "Error al importar datos. Formato de archivo inválido."
-    }
+    },
+    "importSuccess": "Datos importados exitosamente",
+    "confirmReset": "¿Estás seguro de que quieres reiniciar todos los datos? Esto no se puede deshacer."
   },
   "sidebar": {
     "sections": {

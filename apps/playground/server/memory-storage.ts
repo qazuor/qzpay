@@ -1,3 +1,4 @@
+import type { QZPayStorageAdapter } from '@qazuor/qzpay-core';
 /**
  * In-Memory Storage Adapter for Playground Server
  *
@@ -5,7 +6,6 @@
  * The frontend maintains the source of truth in localStorage.
  */
 import { createMemoryStorageAdapter } from '@qazuor/qzpay-dev';
-import type { QZPayStorageAdapter } from '@qazuor/qzpay-core';
 
 /**
  * Create an in-memory storage adapter for the playground server

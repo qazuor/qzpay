@@ -37,7 +37,9 @@
       "nameHelp": "Optional display name for the customer",
       "createCustomer": "Create Customer"
     },
-    "confirmDelete": "Are you sure you want to delete this customer?"
+    "confirmDelete": "Are you sure you want to delete this customer?",
+    "created": "Customer created successfully",
+    "deleted": "Customer deleted successfully"
   },
   "subscriptions": {
     "title": "Subscriptions",
@@ -157,7 +159,10 @@
       "confirmUpgrade": "Confirm Upgrade",
       "confirmDowngrade": "Confirm Downgrade"
     },
-    "confirmCancel": "Are you sure you want to cancel this subscription?"
+    "confirmCancel": "Are you sure you want to cancel this subscription?",
+    "created": "Subscription created successfully",
+    "canceled": "Subscription canceled successfully",
+    "renewed": "Subscription renewed successfully"
   },
   "payments": {
     "title": "Payments",
@@ -207,6 +212,45 @@
     "viewPayments": {
       "title": "View related payments",
       "description": "Check the Payments section to see the transactions for these invoices."
+    }
+  },
+  "savedCards": {
+    "title": "Saved Cards",
+    "description": "Manage saved payment methods for customers",
+    "helpTitle": "About Saved Cards",
+    "helpContent": "Saved cards allow customers to make payments without re-entering card details. Cards are securely stored with the payment provider.",
+    "helpPoint1": "Cards are saved when customers check 'Save for future payments' during checkout",
+    "helpPoint2": "Only the last 4 digits and expiration date are visible for security",
+    "helpPoint3": "Saved cards can be used for recurring subscriptions and one-time payments",
+    "refresh": "Refresh cards",
+    "selectCustomer": "Select Customer",
+    "loadingCustomers": "Loading customers...",
+    "loadingCards": "Loading saved cards...",
+    "deleteCard": "Delete card",
+    "confirmDelete": "Are you sure you want to delete this saved card?",
+    "expires": "Expires",
+    "noCustomers": {
+      "title": "No customers found",
+      "description": "Create at least one customer to manage their saved cards."
+    },
+    "empty": {
+      "title": "No saved cards",
+      "description": "This customer hasn't saved any payment methods yet. Cards are saved automatically when customers make a payment with the 'Save for future payments' option enabled."
+    },
+    "tips": {
+      "tip1": "Make a payment with 'Save for future payments' enabled to add a card",
+      "tip2": "Saved cards can be used for subscription renewals automatically",
+      "tip3": "Cards are stored securely with MercadoPago - only metadata is visible"
+    },
+    "info": {
+      "title": "How to save cards",
+      "description": "Go to Payments and create a payment. Check the 'Save this card for future payments' option during checkout."
+    },
+    "notSupported": {
+      "title": "Feature Not Available",
+      "description": "Saved Cards management is currently only available with specific payment providers and backend configuration.",
+      "requirement1": "Payment provider must be set to MercadoPago",
+      "requirement2": "Backend server must be connected (configured in Setup)"
     }
   }
 }

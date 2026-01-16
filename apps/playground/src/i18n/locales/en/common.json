@@ -9,7 +9,8 @@
     "confirm": "Confirm",
     "create": "Create",
     "clear": "Clear",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "continue": "Continue"
   },
   "labels": {
     "active": "Active",
@@ -47,6 +48,15 @@
   "billingNotInitialized": {
     "title": "Billing Not Initialized",
     "description": "Please configure and initialize billing from the Setup page first."
+  },
+  "errorBoundary": {
+    "title": "Something Went Wrong",
+    "description": "An unexpected error occurred in the application. Please try reloading the page.",
+    "errorDetails": "ERROR DETAILS",
+    "reload": "Reload Page",
+    "tip1": "Check the browser console for more details",
+    "tip2": "If the problem persists, try clearing your browser cache",
+    "tip3": "Report the issue on GitHub if the error continues"
   },
   "tips": "TIPS"
 }

@@ -53,6 +53,11 @@
       "placeholder": "sk_test_...",
       "help": "Find this in your <link>Stripe Dashboard → API Keys</link> (make sure you're in Test Mode)"
     },
+    "stripePublishable": {
+      "label": "Stripe Publishable Key",
+      "placeholder": "pk_test_...",
+      "help": "Find this in the same <link>Stripe Dashboard</link> under 'Publishable key'. Required for card payments."
+    },
     "mercadopago": {
       "label": "MercadoPago Access Token",
       "placeholder": "APP_USR-...",

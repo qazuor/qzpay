@@ -3,7 +3,9 @@
     "badge": "Sandbox interactivo de facturación",
     "title": "QZPay Playground",
     "subtitle": "Explora, prueba y comprende la biblioteca de facturación QZPay en un entorno sandbox seguro. Sin configuración de backend, sin pagos reales, solo aprendizaje.",
-    "getStarted": "Comenzar"
+    "getStarted": "Comenzar",
+    "startTour": "Tour Guiado",
+    "tourDescription": "Realiza un tour guiado para aprender a usar todas las funcionalidades del playground"
   },
   "whatIsQzpay": {
     "title": "¿Qué es QZPay?",

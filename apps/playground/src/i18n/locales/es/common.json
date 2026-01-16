@@ -9,7 +9,8 @@
     "confirm": "Confirmar",
     "create": "Crear",
     "clear": "Limpiar",
-    "refresh": "Actualizar"
+    "refresh": "Actualizar",
+    "continue": "Continuar"
   },
   "labels": {
     "active": "Activo",
@@ -47,6 +48,15 @@
   "billingNotInitialized": {
     "title": "Facturación no inicializada",
     "description": "Por favor configura e inicializa la facturación desde la página de Configuración primero."
+  },
+  "errorBoundary": {
+    "title": "Algo Salió Mal",
+    "description": "Ocurrió un error inesperado en la aplicación. Por favor intenta recargar la página.",
+    "errorDetails": "DETALLES DEL ERROR",
+    "reload": "Recargar Página",
+    "tip1": "Revisa la consola del navegador para más detalles",
+    "tip2": "Si el problema persiste, intenta limpiar la caché del navegador",
+    "tip3": "Reporta el problema en GitHub si el error continúa"
   },
   "tips": "CONSEJOS"
 }

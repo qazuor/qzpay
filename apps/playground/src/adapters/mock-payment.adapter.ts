@@ -1,16 +1,11 @@
+import type { QZPayPaymentAdapter } from '@qazuor/qzpay-core';
 /**
  * Mock Payment Adapter for QZPay Playground
  *
  * This is a wrapper around @qazuor/qzpay-dev that integrates with
  * the playground's time simulation system via useConfigStore.
  */
-import {
-    createMockPaymentAdapter as createDevMockPaymentAdapter,
-    TEST_CARDS,
-    CARD_ERRORS,
-    getPaymentOutcome,
-} from '@qazuor/qzpay-dev';
-import type { QZPayPaymentAdapter } from '@qazuor/qzpay-core';
+import { CARD_ERRORS, TEST_CARDS, createMockPaymentAdapter as createDevMockPaymentAdapter, getPaymentOutcome } from '@qazuor/qzpay-dev';
 import { useConfigStore } from '../stores/config.store';
 
 // Re-export test cards for convenience
@@ -26,7 +21,7 @@ let adapterInstance: ReturnType<typeof createDevMockPaymentAdapter> | null = nul
 function getAdapterInstance(): ReturnType<typeof createDevMockPaymentAdapter> {
     if (!adapterInstance) {
         adapterInstance = createDevMockPaymentAdapter({
-            getCurrentTime: () => useConfigStore.getState().getCurrentTime(),
+            getCurrentTime: () => useConfigStore.getState().getCurrentTime()
         });
     }
     return adapterInstance;

@@ -37,7 +37,9 @@
       "nameHelp": "Nombre de visualización opcional para el cliente",
       "createCustomer": "Crear cliente"
     },
-    "confirmDelete": "¿Estás seguro de que quieres eliminar este cliente?"
+    "confirmDelete": "¿Estás seguro de que quieres eliminar este cliente?",
+    "created": "Cliente creado exitosamente",
+    "deleted": "Cliente eliminado exitosamente"
   },
   "subscriptions": {
     "title": "Suscripciones",
@@ -157,7 +159,10 @@
       "confirmUpgrade": "Confirmar Mejora",
       "confirmDowngrade": "Confirmar Reducción"
     },
-    "confirmCancel": "¿Estás seguro de que quieres cancelar esta suscripción?"
+    "confirmCancel": "¿Estás seguro de que quieres cancelar esta suscripción?",
+    "created": "Suscripción creada exitosamente",
+    "canceled": "Suscripción cancelada exitosamente",
+    "renewed": "Suscripción renovada exitosamente"
   },
   "payments": {
     "title": "Pagos",
@@ -207,6 +212,45 @@
     "viewPayments": {
       "title": "Ver pagos relacionados",
       "description": "Revisa la sección de Pagos para ver las transacciones de estas facturas."
+    }
+  },
+  "savedCards": {
+    "title": "Tarjetas guardadas",
+    "description": "Gestiona métodos de pago guardados de clientes",
+    "helpTitle": "Acerca de las tarjetas guardadas",
+    "helpContent": "Las tarjetas guardadas permiten a los clientes realizar pagos sin volver a ingresar los datos de la tarjeta. Las tarjetas se almacenan de forma segura con el proveedor de pagos.",
+    "helpPoint1": "Las tarjetas se guardan cuando los clientes marcan 'Guardar para futuros pagos' durante el checkout",
+    "helpPoint2": "Solo los últimos 4 dígitos y la fecha de vencimiento son visibles por seguridad",
+    "helpPoint3": "Las tarjetas guardadas pueden usarse para suscripciones recurrentes y pagos únicos",
+    "refresh": "Actualizar tarjetas",
+    "selectCustomer": "Seleccionar cliente",
+    "loadingCustomers": "Cargando clientes...",
+    "loadingCards": "Cargando tarjetas guardadas...",
+    "deleteCard": "Eliminar tarjeta",
+    "confirmDelete": "¿Estás seguro de que quieres eliminar esta tarjeta guardada?",
+    "expires": "Vence",
+    "noCustomers": {
+      "title": "No se encontraron clientes",
+      "description": "Crea al menos un cliente para gestionar sus tarjetas guardadas."
+    },
+    "empty": {
+      "title": "Sin tarjetas guardadas",
+      "description": "Este cliente aún no ha guardado ningún método de pago. Las tarjetas se guardan automáticamente cuando los clientes realizan un pago con la opción 'Guardar para futuros pagos' habilitada."
+    },
+    "tips": {
+      "tip1": "Realiza un pago con 'Guardar para futuros pagos' habilitado para agregar una tarjeta",
+      "tip2": "Las tarjetas guardadas pueden usarse para renovaciones de suscripciones automáticamente",
+      "tip3": "Las tarjetas se almacenan de forma segura con MercadoPago - solo los metadatos son visibles"
+    },
+    "info": {
+      "title": "Cómo guardar tarjetas",
+      "description": "Ve a Pagos y crea un pago. Marca la opción 'Guardar esta tarjeta para futuros pagos' durante el checkout."
+    },
+    "notSupported": {
+      "title": "Funcionalidad no disponible",
+      "description": "La gestión de tarjetas guardadas actualmente solo está disponible con proveedores de pago específicos y configuración de backend.",
+      "requirement1": "El proveedor de pagos debe estar configurado como MercadoPago",
+      "requirement2": "El servidor backend debe estar conectado (configurado en Setup)"
     }
   }
 }

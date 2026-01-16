@@ -53,6 +53,11 @@
       "placeholder": "sk_test_...",
       "help": "Encuéntrala en tu <link>Dashboard de Stripe → Claves API</link> (asegúrate de estar en modo de prueba)"
     },
+    "stripePublishable": {
+      "label": "Clave publicable de Stripe",
+      "placeholder": "pk_test_...",
+      "help": "Encuéntrala en el mismo <link>Dashboard de Stripe</link> bajo 'Clave publicable'. Requerida para pagos con tarjeta."
+    },
     "mercadopago": {
       "label": "Token de acceso de MercadoPago",
       "placeholder": "APP_USR-...",

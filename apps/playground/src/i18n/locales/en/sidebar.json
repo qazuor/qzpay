@@ -1,4 +1,26 @@
 {
+  "sections": {
+    "setup": "Setup",
+    "catalog": "Catalog",
+    "simulate": "Simulate",
+    "components": "Components"
+  },
+  "items": {
+    "configuration": "Configuration",
+    "plans": "Plans",
+    "prices": "Prices",
+    "addons": "Add-ons",
+    "products": "Products",
+    "promos": "Promos",
+    "entitlements": "Entitlements",
+    "limits": "Limits",
+    "customers": "Customers",
+    "subscriptions": "Subscriptions",
+    "payments": "Payments",
+    "savedCards": "Saved Cards",
+    "invoices": "Invoices",
+    "reactComponents": "React Components"
+  },
   "tabs": {
     "reference": "Quick Ref",
     "events": "Events",

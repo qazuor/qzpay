@@ -1,3 +1,6 @@
+/* Driver.js tour styles - must be at top */
+@import 'driver.js/dist/driver.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -295,4 +298,102 @@ body {
 *:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* ========== Driver.js Tour Styles ========== */
+
+/* Custom popover styles for QZPay tour */
+.driver-popover.qzpay-tour-popover {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  color: var(--color-text);
+  max-width: 380px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-title {
+  color: var(--color-text);
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-description {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-progress-text {
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-navigation-btns {
+  gap: 0.5rem;
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-prev-btn,
+.driver-popover.qzpay-tour-popover .driver-popover-next-btn {
+  background-color: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  transition: all 0.2s;
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-prev-btn:hover,
+.driver-popover.qzpay-tour-popover .driver-popover-next-btn:hover {
+  background-color: var(--color-text-muted);
+  border-color: var(--color-text-muted);
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-next-btn {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-next-btn:hover {
+  background-color: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-close-btn {
+  color: var(--color-text-muted);
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-close-btn:hover {
+  color: var(--color-text);
+}
+
+/* Arrow styling */
+.driver-popover.qzpay-tour-popover .driver-popover-arrow {
+  border-color: var(--color-surface);
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-arrow-side-left {
+  border-right-color: var(--color-surface);
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-arrow-side-right {
+  border-left-color: var(--color-surface);
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-arrow-side-top {
+  border-bottom-color: var(--color-surface);
+}
+
+.driver-popover.qzpay-tour-popover .driver-popover-arrow-side-bottom {
+  border-top-color: var(--color-surface);
+}
+
+/* Highlighted element styling */
+.driver-active-element {
+  outline: 2px solid var(--color-accent) !important;
+  outline-offset: 4px;
 }
