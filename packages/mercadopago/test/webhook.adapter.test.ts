@@ -140,7 +140,7 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
             const adapter = new QZPayMercadoPagoWebhookAdapter(secret);
 
             const payload = JSON.stringify({ id: 123, data: { id: 'test_id' } });
-            const timestamp = '1234567890';
+            const timestamp = Math.floor(Date.now() / 1000).toString();
 
             // Create the expected signature
             const signedPayload = `id:test_id;request-id:${timestamp};ts:${timestamp};`;

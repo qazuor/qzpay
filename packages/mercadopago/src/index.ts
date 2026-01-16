@@ -15,6 +15,11 @@ export {
     QZPayMercadoPagoCheckoutAdapter,
     QZPayMercadoPagoPriceAdapter,
     QZPayMercadoPagoWebhookAdapter,
+    // CardToken adapter
+    QZPayMercadoPagoCardTokenAdapterImpl,
+    type QZPayMercadoPagoCardTokenAdapter,
+    // Webhook config
+    type QZPayMercadoPagoWebhookConfig,
     // IPN Handler
     QZPayMercadoPagoIPNHandler,
     // Webhook utilities
@@ -77,6 +82,21 @@ export {
     isCustomerExistsError,
     wrapAdapterMethod
 } from './utils/error-mapper.js';
+
+// Retry utilities
+export {
+    type RetryConfig,
+    DEFAULT_RETRY_CONFIG,
+    isRetriableError,
+    withRetry,
+    createRetryWrapper
+} from './utils/retry.utils.js';
+
+// Sanitization utilities
+export { sanitizeEmail, sanitizeName, sanitizePhone, sanitizeOptional } from './utils/sanitize.utils.js';
+
+// Saved card service
+export { createSavedCardService, MercadoPagoSavedCardService } from './services/saved-card.service.js';
 
 // Re-export MercadoPago types for convenience
 export type { MercadoPagoConfig } from 'mercadopago';

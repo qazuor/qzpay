@@ -11,150 +11,199 @@ import type {
 import { type MercadoPagoConfig, Payment, PaymentRefund } from 'mercadopago';
 import type { QZPayMPSplitPaymentConfig, QZPayMPSplitPaymentResult } from '../types.js';
 import { MERCADOPAGO_PAYMENT_STATUS } from '../types.js';
-import { wrapAdapterMethod } from '../utils/error-mapper.js';
+import { mapMercadoPagoError } from '../utils/error-mapper.js';
+import { type RetryConfig, withRetry } from '../utils/retry.utils.js';
+import { sanitizeEmail } from '../utils/sanitize.utils.js';
+import { QZPayMercadoPagoCardTokenAdapterImpl } from './card-token.adapter.js';
 
 export class QZPayMercadoPagoPaymentAdapter implements QZPayPaymentPaymentAdapter {
     private readonly paymentApi: Payment;
     private readonly refundApi: PaymentRefund;
+    private readonly cardTokenAdapter: QZPayMercadoPagoCardTokenAdapterImpl;
 
-    constructor(client: MercadoPagoConfig) {
+    constructor(
+        client: MercadoPagoConfig,
+        private readonly retryConfig?: Partial<RetryConfig>
+    ) {
         this.paymentApi = new Payment(client);
         this.refundApi = new PaymentRefund(client);
+        this.cardTokenAdapter = new QZPayMercadoPagoCardTokenAdapterImpl(client);
     }
 
     async create(providerCustomerId: string, input: QZPayCreatePaymentInput): Promise<QZPayProviderPayment> {
-        return wrapAdapterMethod('Create payment', async () => {
-            // Determine payment method based on input
-            const paymentMethodId = input.paymentMethodId;
+        return withRetry(
+            async () => {
+                try {
+                    // Determine payment method based on input
+                    const paymentMethodId = input.paymentMethodId;
 
-            // Build payer object - email is required for card payments
-            // Note: payer.id is only used when NOT using a token (for saved cards flow)
-            // For token payments, we only need the email and identification
-            const payer: {
-                id?: string;
-                email?: string;
-                identification?: { type: string; number: string };
-            } = {};
-            if (input.payerEmail) {
-                payer.email = input.payerEmail;
-            }
-            // Add identification if provided (required for some countries like Argentina)
-            if (input.payerIdentification) {
-                payer.identification = {
-                    type: input.payerIdentification.type,
-                    number: input.payerIdentification.number
-                };
-            }
-            // Only set payer.id if not using a token (to avoid conflicts)
-            if (!input.token) {
-                payer.id = providerCustomerId;
-            }
+                    // Build payer object - email is required for card payments
+                    // Note: payer.id is only used when NOT using a token (for saved cards flow)
+                    // For token payments, we only need the email and identification
+                    const payer: {
+                        id?: string;
+                        email?: string;
+                        identification?: { type: string; number: string };
+                    } = {};
+                    if (input.payerEmail) {
+                        // Sanitize email before sending to MercadoPago
+                        payer.email = sanitizeEmail(input.payerEmail);
+                    }
+                    // Add identification if provided (required for some countries like Argentina)
+                    if (input.payerIdentification) {
+                        payer.identification = {
+                            type: input.payerIdentification.type,
+                            // Trim identification number to remove whitespace
+                            number: input.payerIdentification.number.trim()
+                        };
+                    }
+                    // Only set payer.id if not using a token (to avoid conflicts)
+                    if (!input.token) {
+                        payer.id = providerCustomerId;
+                    }
 
-            // Build base payment body
-            const body: Parameters<Payment['create']>[0]['body'] = {
-                transaction_amount: input.amount / 100, // MercadoPago uses decimal, not cents
-                description: 'QZPay Payment',
-                payer,
-                metadata: {
-                    qzpay_customer_id: providerCustomerId,
-                    ...(input.metadata as Record<string, string> | undefined)
+                    // Build base payment body
+                    const body: Parameters<Payment['create']>[0]['body'] = {
+                        transaction_amount: input.amount / 100, // MercadoPago uses decimal, not cents
+                        description: 'QZPay Payment',
+                        payer,
+                        metadata: {
+                            qzpay_customer_id: providerCustomerId,
+                            ...(input.metadata as Record<string, string> | undefined)
+                        }
+                    };
+
+                    // Card payment with token (first payment - tokenization)
+                    if (input.token) {
+                        body.token = input.token;
+                        body.installments = input.installments ?? 1;
+                        if (paymentMethodId) {
+                            body.payment_method_id = paymentMethodId;
+                        }
+                    }
+                    // Recurring payment with saved card_id
+                    // For saved cards in MercadoPago, we need to generate a new token from the card_id
+                    // using the CardToken API
+                    else if (input.cardId) {
+                        // Generate a new token from the saved card ID
+                        const cardToken = await this.cardTokenAdapter.create(input.cardId);
+
+                        // Use the generated token for the payment
+                        body.token = cardToken;
+                        body.installments = input.installments ?? 1;
+                        if (paymentMethodId) {
+                            body.payment_method_id = paymentMethodId;
+                        }
+
+                        // Store the original card_id in metadata for tracking
+                        body.metadata = {
+                            ...body.metadata,
+                            saved_card_id: input.cardId
+                        };
+                    }
+                    // Fallback to account_money if no card/token
+                    else {
+                        body.payment_method_id = paymentMethodId ?? 'account_money';
+                    }
+
+                    // Add idempotency key to prevent duplicate payments
+                    const idempotencyKey = `qzpay_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                    const response = await this.paymentApi.create({
+                        body,
+                        requestOptions: {
+                            idempotencyKey
+                        }
+                    });
+
+                    return this.mapToProviderPayment(response);
+                } catch (error) {
+                    throw mapMercadoPagoError(error, 'Create payment');
                 }
-            };
-
-            // Card payment with token (first payment - tokenization)
-            if (input.token) {
-                body.token = input.token;
-                body.installments = input.installments ?? 1;
-                if (paymentMethodId) {
-                    body.payment_method_id = paymentMethodId;
-                }
-            }
-            // Recurring payment with saved card_id
-            // For saved cards in MercadoPago, we need to pass the card_id via metadata
-            // The actual implementation requires creating a new token from card_id using CardToken API
-            // This would typically be done by the frontend before calling this endpoint
-            else if (input.cardId) {
-                // Use the saved card via metadata - this signals to use saved card flow
-                body.metadata = {
-                    ...body.metadata,
-                    saved_card_id: input.cardId
-                };
-                body.installments = input.installments ?? 1;
-                if (paymentMethodId) {
-                    body.payment_method_id = paymentMethodId;
-                }
-
-                // Note: For production, you would need to:
-                // 1. Call CardToken API with card_id to get a new token
-                // 2. Use that token here
-                // For now, we'll indicate this is a saved card payment via metadata
-                // The backend integration should handle the token generation
-            }
-            // Fallback to account_money if no card/token
-            else {
-                body.payment_method_id = paymentMethodId ?? 'account_money';
-            }
-
-            // Add idempotency key to prevent duplicate payments
-            const idempotencyKey = `qzpay_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-            const response = await this.paymentApi.create({
-                body,
-                requestOptions: {
-                    idempotencyKey
-                }
-            });
-
-            return this.mapToProviderPayment(response);
-        });
+            },
+            this.retryConfig,
+            'Create payment'
+        );
     }
 
     async capture(providerPaymentId: string): Promise<QZPayProviderPayment> {
-        return wrapAdapterMethod('Capture payment', async () => {
-            const response = await this.paymentApi.capture({
-                id: Number(providerPaymentId)
-            });
+        return withRetry(
+            async () => {
+                try {
+                    const response = await this.paymentApi.capture({
+                        id: Number(providerPaymentId)
+                    });
 
-            return this.mapToProviderPayment(response);
-        });
+                    return this.mapToProviderPayment(response);
+                } catch (error) {
+                    throw mapMercadoPagoError(error, 'Capture payment');
+                }
+            },
+            this.retryConfig,
+            'Capture payment'
+        );
     }
 
     async cancel(providerPaymentId: string): Promise<void> {
-        return wrapAdapterMethod('Cancel payment', async () => {
-            await this.paymentApi.cancel({
-                id: Number(providerPaymentId)
-            });
-        });
+        return withRetry(
+            async () => {
+                try {
+                    await this.paymentApi.cancel({
+                        id: Number(providerPaymentId)
+                    });
+                } catch (error) {
+                    throw mapMercadoPagoError(error, 'Cancel payment');
+                }
+            },
+            this.retryConfig,
+            'Cancel payment'
+        );
     }
 
     async refund(input: QZPayRefundInput, providerPaymentId: string): Promise<QZPayProviderRefund> {
-        return wrapAdapterMethod('Refund payment', async () => {
-            const body: Parameters<PaymentRefund['create']>[0]['body'] = {};
+        return withRetry(
+            async () => {
+                try {
+                    const body: Parameters<PaymentRefund['create']>[0]['body'] = {};
 
-            if (input.amount) {
-                body.amount = input.amount / 100;
-            }
+                    if (input.amount) {
+                        body.amount = input.amount / 100;
+                    }
 
-            const response = await this.refundApi.create({
-                payment_id: Number(providerPaymentId),
-                body
-            });
+                    const response = await this.refundApi.create({
+                        payment_id: Number(providerPaymentId),
+                        body
+                    });
 
-            return {
-                id: String(response.id),
-                status: response.status ?? 'pending',
-                amount: Math.round((response.amount ?? 0) * 100) // Convert back to cents
-            };
-        });
+                    return {
+                        id: String(response.id),
+                        status: response.status ?? 'pending',
+                        amount: Math.round((response.amount ?? 0) * 100) // Convert back to cents
+                    };
+                } catch (error) {
+                    throw mapMercadoPagoError(error, 'Refund payment');
+                }
+            },
+            this.retryConfig,
+            'Refund payment'
+        );
     }
 
     async retrieve(providerPaymentId: string): Promise<QZPayProviderPayment> {
-        return wrapAdapterMethod('Retrieve payment', async () => {
-            const response = await this.paymentApi.get({
-                id: Number(providerPaymentId)
-            });
+        return withRetry(
+            async () => {
+                try {
+                    const response = await this.paymentApi.get({
+                        id: Number(providerPaymentId)
+                    });
 
-            return this.mapToProviderPayment(response);
-        });
+                    return this.mapToProviderPayment(response);
+                } catch (error) {
+                    throw mapMercadoPagoError(error, 'Retrieve payment');
+                }
+            },
+            this.retryConfig,
+            'Retrieve payment'
+        );
     }
 
     private mapToProviderPayment(payment: Awaited<ReturnType<Payment['get']>>): QZPayProviderPayment {

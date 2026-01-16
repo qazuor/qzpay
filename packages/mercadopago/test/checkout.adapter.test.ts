@@ -14,6 +14,7 @@ import {
 vi.mock('mercadopago', () => ({
     Preference: vi.fn(),
     PreApprovalPlan: vi.fn(),
+    CardToken: vi.fn().mockImplementation(() => ({ create: vi.fn() })),
     MercadoPagoConfig: vi.fn()
 }));
 
@@ -231,6 +232,44 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
                     items: [expect.objectContaining({ title: 'Item 1' })]
                 })
             });
+        });
+
+        it('should set notification_url when provided', async () => {
+            mockPreferenceApi.create.mockResolvedValue(createMockMPPreference());
+
+            await adapter.create(
+                {
+                    mode: 'payment',
+                    successUrl: 'https://example.com/success',
+                    cancelUrl: 'https://example.com/cancel',
+                    lineItems: [],
+                    notificationUrl: 'https://example.com/webhooks/mercadopago'
+                },
+                ['price_1']
+            );
+
+            expect(mockPreferenceApi.create).toHaveBeenCalledWith({
+                body: expect.objectContaining({
+                    notification_url: 'https://example.com/webhooks/mercadopago'
+                })
+            });
+        });
+
+        it('should not set notification_url when not provided', async () => {
+            mockPreferenceApi.create.mockResolvedValue(createMockMPPreference());
+
+            await adapter.create(
+                {
+                    mode: 'payment',
+                    successUrl: 'https://example.com/success',
+                    cancelUrl: 'https://example.com/cancel',
+                    lineItems: []
+                },
+                ['price_1']
+            );
+
+            const call = mockPreferenceApi.create.mock.calls[0]?.[0] as { body: Record<string, unknown> };
+            expect(call.body.notification_url).toBeUndefined();
         });
     });
 

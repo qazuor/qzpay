@@ -14,6 +14,7 @@ import {
 vi.mock('mercadopago', () => ({
     PreApproval: vi.fn(),
     Customer: vi.fn(),
+    CardToken: vi.fn().mockImplementation(() => ({ create: vi.fn() })),
     MercadoPagoConfig: vi.fn()
 }));
 

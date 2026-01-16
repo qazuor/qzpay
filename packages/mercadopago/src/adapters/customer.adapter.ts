@@ -9,6 +9,7 @@ import type {
  */
 import { Customer, type MercadoPagoConfig } from 'mercadopago';
 import { isCustomerExistsError, wrapAdapterMethod } from '../utils/error-mapper.js';
+import { sanitizeEmail, sanitizeName } from '../utils/sanitize.utils.js';
 
 export class QZPayMercadoPagoCustomerAdapter implements QZPayPaymentCustomerAdapter {
     private readonly customerApi: Customer;
@@ -19,13 +20,17 @@ export class QZPayMercadoPagoCustomerAdapter implements QZPayPaymentCustomerAdap
 
     async create(input: QZPayProviderCreateCustomerInput): Promise<string> {
         return wrapAdapterMethod('Create customer', async () => {
+            // Sanitize email (required field)
+            const sanitizedEmail = sanitizeEmail(input.email);
+
             const body: Parameters<Customer['create']>[0]['body'] = {
-                email: input.email
+                email: sanitizedEmail
             };
 
             // Add name fields only if present
             if (input.name) {
-                const [firstName, ...lastNameParts] = input.name.split(' ');
+                const sanitizedName = sanitizeName(input.name);
+                const [firstName, ...lastNameParts] = sanitizedName.split(' ');
                 if (firstName) {
                     body.first_name = firstName;
                 }
@@ -58,7 +63,9 @@ export class QZPayMercadoPagoCustomerAdapter implements QZPayPaymentCustomerAdap
 
     async findByEmail(email: string): Promise<string | null> {
         return wrapAdapterMethod('Find customer by email', async () => {
-            const response = await this.customerApi.search({ options: { email } });
+            // Sanitize email before search
+            const sanitizedEmail = sanitizeEmail(email);
+            const response = await this.customerApi.search({ options: { email: sanitizedEmail } });
             const results = response.results;
 
             if (results && results.length > 0) {
@@ -77,11 +84,12 @@ export class QZPayMercadoPagoCustomerAdapter implements QZPayPaymentCustomerAdap
             const body: Parameters<Customer['update']>[0]['body'] = {};
 
             if (input.email !== undefined) {
-                body.email = input.email;
+                body.email = sanitizeEmail(input.email);
             }
 
             if (input.name !== undefined && input.name !== null) {
-                const [firstName, ...lastNameParts] = input.name.split(' ');
+                const sanitizedName = sanitizeName(input.name);
+                const [firstName, ...lastNameParts] = sanitizedName.split(' ');
                 if (firstName) {
                     body.first_name = firstName;
                 }

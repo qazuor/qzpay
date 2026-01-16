@@ -7,7 +7,12 @@ export { QZPayMercadoPagoPaymentAdapter } from './payment.adapter.js';
 export { QZPayMercadoPagoCheckoutAdapter } from './checkout.adapter.js';
 export { QZPayMercadoPagoPriceAdapter } from './price.adapter.js';
 export {
+    QZPayMercadoPagoCardTokenAdapterImpl,
+    type QZPayMercadoPagoCardTokenAdapter
+} from './card-token.adapter.js';
+export {
     QZPayMercadoPagoWebhookAdapter,
+    type QZPayMercadoPagoWebhookConfig,
     QZPayMercadoPagoIPNHandler,
     // Webhook data extractors
     extractMPPaymentEventData,

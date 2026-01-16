@@ -54,6 +54,11 @@ export class QZPayMercadoPagoCheckoutAdapter implements QZPayPaymentCheckoutAdap
                 }
             };
 
+            // Add optional notification URL
+            if (input.notificationUrl) {
+                body.notification_url = input.notificationUrl;
+            }
+
             // Add optional payer
             if (input.customerEmail) {
                 body.payer = { email: input.customerEmail };

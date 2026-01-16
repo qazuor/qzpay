@@ -28,6 +28,11 @@ export class QZPayMercadoPagoAdapter implements QZPayPaymentAdapter {
     private readonly client: MercadoPagoConfig;
 
     constructor(config: QZPayMercadoPagoConfig) {
+        // Validate access token format
+        if (!config.accessToken.startsWith('APP_USR-') && !config.accessToken.startsWith('TEST-')) {
+            throw new Error("Invalid MercadoPago access token format. Expected token starting with 'APP_USR-' or 'TEST-'");
+        }
+
         // Initialize MercadoPago client
         const clientOptions: ConstructorParameters<typeof MercadoPagoConfig>[0] = {
             accessToken: config.accessToken,
@@ -52,10 +57,11 @@ export class QZPayMercadoPagoAdapter implements QZPayPaymentAdapter {
 
         this.client = new MercadoPagoConfig(clientOptions);
 
-        // Initialize sub-adapters
+        // Initialize sub-adapters with retry configuration
+        const retryConfig = config.retry;
         this.customers = new QZPayMercadoPagoCustomerAdapter(this.client);
         this.subscriptions = new QZPayMercadoPagoSubscriptionAdapter(this.client);
-        this.payments = new QZPayMercadoPagoPaymentAdapter(this.client);
+        this.payments = new QZPayMercadoPagoPaymentAdapter(this.client, retryConfig);
         this.checkout = new QZPayMercadoPagoCheckoutAdapter(this.client, this.isSandbox(config.accessToken));
         this.prices = new QZPayMercadoPagoPriceAdapter(this.client);
         this.webhooks = new QZPayMercadoPagoWebhookAdapter(config.webhookSecret);

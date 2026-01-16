@@ -48,12 +48,16 @@ const billing = new QZPayBilling({
 
 ### Payment Processing
 
+#### First-time Payment (with token)
+
 ```typescript
-// Create a payment
+// Create a payment with a token (generated on frontend)
 const payment = await mpAdapter.payments.create('customer_mp_id', {
   amount: 10000, // $100.00 in cents
   currency: 'ARS',
-  paymentMethodId: 'visa' // or 'master', 'pix', etc.
+  token: 'card_token_from_frontend', // From MercadoPago.js
+  paymentMethodId: 'visa', // or 'master', 'pix', etc.
+  saveCard: true // Optional: save card for future use
 });
 
 // Retrieve payment status
@@ -68,6 +72,48 @@ await mpAdapter.payments.refund({ amount: 5000 }, payment.id);
 // Cancel a payment
 await mpAdapter.payments.cancel(payment.id);
 ```
+
+#### Recurring Payment (with saved card)
+
+```typescript
+// Charge a previously saved card
+// The adapter automatically generates a new token from the card_id
+const payment = await mpAdapter.payments.create('customer_mp_id', {
+  amount: 10000, // $100.00 in cents
+  currency: 'ARS',
+  cardId: 'saved_card_id_123', // Previously saved card
+  paymentMethodId: 'visa', // Optional
+  installments: 1 // Optional
+});
+```
+
+### Checkout Sessions
+
+```typescript
+// Create a checkout session with optional notification URL
+const checkout = await mpAdapter.checkout.create(
+  {
+    mode: 'payment',
+    successUrl: 'https://example.com/success',
+    cancelUrl: 'https://example.com/cancel',
+    lineItems: [{ priceId: 'price_1', quantity: 1, description: 'Product' }],
+    notificationUrl: 'https://example.com/webhooks/mercadopago', // Optional webhook URL
+    customerEmail: 'customer@example.com', // Optional
+    expiresInMinutes: 30 // Optional expiration
+  },
+  ['price_1'] // Provider price IDs
+);
+
+console.log('Checkout URL:', checkout.url);
+
+// Retrieve checkout session
+const session = await mpAdapter.checkout.retrieve(checkout.id);
+
+// Expire a checkout session
+await mpAdapter.checkout.expire(checkout.id);
+```
+
+**Notification URL**: When provided, MercadoPago will send IPN (Instant Payment Notification) events to this URL for payment status updates. This is useful for tracking payment completion server-side.
 
 ### Subscriptions (Preapprovals)
 
@@ -158,6 +204,218 @@ app.post('/webhooks/mercadopago', async (c) => {
 });
 ```
 
+### Saved Card Service
+
+Unified service for saving and managing payment cards with a consistent API.
+
+```typescript
+import { createSavedCardService } from '@qazuor/qzpay-mercadopago';
+
+// Create the service
+const cardService = createSavedCardService({
+  provider: 'mercadopago',
+  mercadopagoAccessToken: process.env.MERCADOPAGO_ACCESS_TOKEN!,
+  getProviderCustomerId: async (customerId) => {
+    // Resolve your local customer ID to MercadoPago customer ID
+    const customer = await db.customers.findById(customerId);
+    return customer.mercadopagoCustomerId;
+  },
+});
+
+// Save a card from token (created on frontend with MercadoPago.js)
+const card = await cardService.save({
+  customerId: 'local_cus_123',
+  token: 'card_token_xxx', // From MercadoPago.createCardToken()
+  setAsDefault: true, // Note: App must track this separately
+});
+
+console.log(`Card saved: ${card.brand} ending in ${card.last4}`);
+console.log(`First 6 digits: ${card.firstSixDigits}`); // Available in MercadoPago
+
+// List all saved cards
+const cards = await cardService.list('local_cus_123');
+cards.forEach((card) => {
+  console.log(`${card.brand} ${card.firstSixDigits}****${card.last4}`);
+});
+
+// Remove a card
+await cardService.remove('local_cus_123', 'card_id_xxx');
+
+// Note: setDefault() throws an error for MercadoPago
+// You must track the default card in your application database
+```
+
+#### Frontend Integration
+
+```javascript
+// Create card token on frontend using MercadoPago.js
+const mp = new MercadoPago('PUBLIC_KEY');
+const cardForm = mp.cardForm({
+  amount: '100.5',
+  iframe: true,
+  form: {
+    id: 'form-checkout',
+    cardNumber: {
+      id: 'form-checkout__cardNumber',
+      placeholder: 'Card number',
+    },
+    expirationDate: {
+      id: 'form-checkout__expirationDate',
+      placeholder: 'MM/YY',
+    },
+    securityCode: {
+      id: 'form-checkout__securityCode',
+      placeholder: 'CVV',
+    },
+    cardholderName: {
+      id: 'form-checkout__cardholderName',
+      placeholder: 'Cardholder name',
+    },
+    issuer: {
+      id: 'form-checkout__issuer',
+      placeholder: 'Issuer',
+    },
+    installments: {
+      id: 'form-checkout__installments',
+      placeholder: 'Installments',
+    },
+    identificationType: {
+      id: 'form-checkout__identificationType',
+      placeholder: 'Document type',
+    },
+    identificationNumber: {
+      id: 'form-checkout__identificationNumber',
+      placeholder: 'Document number',
+    },
+  },
+  callbacks: {
+    onFormMounted: error => {
+      if (error) return console.warn('Form mounted handling error: ', error);
+      console.log('Form mounted');
+    },
+    onSubmit: event => {
+      event.preventDefault();
+      const { token } = cardForm.getCardFormData();
+
+      // Send token to backend
+      fetch('/api/cards/save', {
+        method: 'POST',
+        body: JSON.stringify({
+          customerId: 'local_cus_123',
+          token: token,
+          setAsDefault: true,
+        }),
+      });
+    },
+  },
+});
+```
+
+#### SavedCard Type
+
+```typescript
+interface SavedCard {
+  id: string;                    // Card ID
+  customerId: string;            // Your local customer ID
+  providerCustomerId: string;    // MercadoPago customer ID
+  provider: 'mercadopago';
+  last4: string;                 // Last 4 digits
+  brand: string;                 // visa, master, amex, etc.
+  expMonth: number;              // 1-12
+  expYear: number;               // 4 digits
+  isDefault: boolean;            // Always false (track in your DB)
+  cardholderName?: string;       // Cardholder name
+  firstSixDigits?: string;       // First 6 digits (MercadoPago specific)
+  createdAt: Date;               // When the card was saved
+}
+```
+
+#### Important Notes on Default Payment Method
+
+MercadoPago doesn't have a native concept of default payment method at the API level. This means:
+
+1. The `isDefault` field will always be `false` when listing cards
+2. The `setAsDefault()` method will throw an error
+3. Your application must track the default card ID in your database
+
+**Example Database Schema:**
+
+```typescript
+interface Customer {
+  id: string;
+  email: string;
+  mercadopagoCustomerId: string;
+  defaultMercadoPagoCardId?: string; // Track this yourself
+}
+```
+
+**When Creating Payments:**
+
+```typescript
+// Get customer's default card from your database
+const customer = await db.customers.findById(customerId);
+
+if (!customer.defaultMercadoPagoCardId) {
+  throw new Error('Customer has no default payment method');
+}
+
+// Create payment with explicit card ID
+// The adapter will automatically generate a new token from the saved card
+const payment = await mpAdapter.payments.create(
+  customer.mercadopagoCustomerId,
+  {
+    amount: 1000,
+    currency: 'ARS',
+    cardId: customer.defaultMercadoPagoCardId, // Use your tracked card ID
+  }
+);
+```
+
+#### Card on File Payment Flow
+
+When using saved cards for recurring payments, QZPay automatically handles token generation:
+
+```typescript
+// 1. Customer saves a card (first time)
+const savedCard = await mpAdapter.customers.saveCard(
+  customer.mercadopagoCustomerId,
+  'card_token_from_frontend'
+);
+
+// Store card ID in your database
+await db.update(customers)
+  .set({ defaultMercadoPagoCardId: savedCard.id })
+  .where(eq(customers.id, customerId));
+
+// 2. Later, charge the saved card (recurring payment)
+// The adapter automatically:
+// - Generates a new card token from the saved card_id using CardToken API
+// - Uses that token to create the payment
+const payment = await mpAdapter.payments.create(
+  customer.mercadopagoCustomerId,
+  {
+    amount: 2999, // $29.99 in cents
+    currency: 'ARS',
+    cardId: savedCard.id, // Saved card ID
+    paymentMethodId: 'visa', // Optional
+    installments: 1 // Optional, default 1
+  }
+);
+
+// 3. The payment is processed with the saved card
+console.log(`Payment ${payment.id} - Status: ${payment.status}`);
+```
+
+**Technical Details:**
+
+Under the hood, when you provide `cardId`, the adapter:
+1. Calls the MercadoPago CardToken API with the `card_id`
+2. Receives a new single-use token
+3. Uses that token to create the payment
+4. Stores the original `card_id` in payment metadata for tracking
+
+This is the recommended MercadoPago flow for Card on File payments.
+
 ## Configuration
 
 ```typescript
@@ -207,6 +465,18 @@ MercadoPago has some functional differences compared to Stripe that you should b
 | Searchable metadata | ✅ Yes | ❌ No |
 
 **Workaround**: Store extended customer data in your own database linked by `provider_customer_id`.
+
+### Saved Cards
+
+| Feature | Stripe | MercadoPago |
+|---------|--------|-------------|
+| Save card | ✅ PaymentMethod | ✅ Card token |
+| List saved cards | ✅ Yes | ✅ Yes |
+| Remove card | ✅ Yes | ✅ Yes |
+| Default payment method | ✅ Native API support | ❌ Not supported |
+| First 6 digits | ❌ No | ✅ Available |
+
+**Workaround for default card**: Track the default card ID in your application database. See the "Saved Card Service" section for implementation details.
 
 ### Split Payments (Marketplace)
 

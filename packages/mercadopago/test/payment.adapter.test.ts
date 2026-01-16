@@ -9,6 +9,7 @@ import { createMockMPPayment, createMockMPRefund, createMockPaymentApi, createMo
 vi.mock('mercadopago', () => ({
     Payment: vi.fn(),
     PaymentRefund: vi.fn(),
+    CardToken: vi.fn().mockImplementation(() => ({ create: vi.fn() })),
     MercadoPagoConfig: vi.fn()
 }));
 

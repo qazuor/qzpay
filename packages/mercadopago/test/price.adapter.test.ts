@@ -8,6 +8,7 @@ import { createMockMPPreapprovalPlan, createMockPreApprovalPlanApi } from './hel
 // Mock the mercadopago module
 vi.mock('mercadopago', () => ({
     PreApprovalPlan: vi.fn(),
+    CardToken: vi.fn().mockImplementation(() => ({ create: vi.fn() })),
     MercadoPagoConfig: vi.fn()
 }));
 

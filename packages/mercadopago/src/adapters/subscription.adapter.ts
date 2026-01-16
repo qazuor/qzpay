@@ -11,6 +11,7 @@ import type {
 import { Customer, type MercadoPagoConfig, PreApproval } from 'mercadopago';
 import { MERCADOPAGO_SUBSCRIPTION_STATUS, fromMercadoPagoInterval } from '../types.js';
 import { wrapAdapterMethod } from '../utils/error-mapper.js';
+import { sanitizeEmail } from '../utils/sanitize.utils.js';
 
 export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscriptionAdapter {
     private readonly preapprovalApi: PreApproval;
@@ -34,10 +35,13 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
                 throw new Error('Customer email is required for MercadoPago subscriptions');
             }
 
+            // Sanitize email before creating subscription
+            const sanitizedEmail = sanitizeEmail(customer.email);
+
             const response = await this.preapprovalApi.create({
                 body: {
                     preapproval_plan_id: providerPriceId,
-                    payer_email: customer.email,
+                    payer_email: sanitizedEmail,
                     external_reference: providerCustomerId
                 }
             });

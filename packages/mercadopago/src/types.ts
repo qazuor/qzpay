@@ -2,13 +2,21 @@
  * MercadoPago adapter types
  */
 
+import type { RetryConfig } from './utils/retry.utils.js';
+
 /**
  * MercadoPago configuration
  */
 export interface QZPayMercadoPagoConfig {
     /**
      * MercadoPago Access Token
-     * Format: APP_USR-*
+     * Format: APP_USR-* or TEST-*
+     *
+     * @remarks
+     * Must start with 'APP_USR-' (production) or 'TEST-' (sandbox).
+     * Validated at adapter initialization.
+     *
+     * @throws {Error} If token does not start with 'APP_USR-' or 'TEST-'
      */
     accessToken: string;
 
@@ -32,6 +40,26 @@ export interface QZPayMercadoPagoConfig {
      * Integrator ID for tracking
      */
     integratorId?: string | undefined;
+
+    /**
+     * Retry configuration for transient errors
+     *
+     * @remarks
+     * Automatically retries operations that fail due to:
+     * - Network errors / timeouts
+     * - Rate limiting (429)
+     * - Server errors (5xx)
+     *
+     * Does NOT retry:
+     * - Validation errors (400)
+     * - Authentication errors (401, 403)
+     * - Not found errors (404)
+     * - Card errors
+     * - Duplicate transaction errors
+     *
+     * @default { enabled: true, maxAttempts: 3, initialDelayMs: 1000 }
+     */
+    retry?: Partial<RetryConfig>;
 }
 
 /**

@@ -306,6 +306,11 @@ describe('MercadoPago Payment Adapter Resilience', () => {
         });
 
         it('should handle mixed success and failure', async () => {
+            // Create adapter with retry disabled to test raw error behavior
+            const adapterNoRetry = new QZPayMercadoPagoPaymentAdapter({} as MercadoPagoConfig, { enabled: false });
+            // biome-ignore lint/suspicious/noExplicitAny: Test mock injection
+            (adapterNoRetry as any).paymentApi = mockPaymentApi;
+
             let callCount = 0;
             mockPaymentApi.create.mockImplementation(async () => {
                 callCount++;
@@ -316,10 +321,10 @@ describe('MercadoPago Payment Adapter Resilience', () => {
             });
 
             const results = await Promise.allSettled([
-                adapter.create('cus_123', { amount: 10000, currency: 'ARS' }),
-                adapter.create('cus_123', { amount: 20000, currency: 'ARS' }),
-                adapter.create('cus_123', { amount: 30000, currency: 'ARS' }),
-                adapter.create('cus_123', { amount: 40000, currency: 'ARS' })
+                adapterNoRetry.create('cus_123', { amount: 10000, currency: 'ARS' }),
+                adapterNoRetry.create('cus_123', { amount: 20000, currency: 'ARS' }),
+                adapterNoRetry.create('cus_123', { amount: 30000, currency: 'ARS' }),
+                adapterNoRetry.create('cus_123', { amount: 40000, currency: 'ARS' })
             ]);
 
             const fulfilled = results.filter((r) => r.status === 'fulfilled');
@@ -560,8 +565,10 @@ describe('Error Recovery Scenarios', () => {
                 .mockRejectedValueOnce(new MPBadRequestError('Amount exceeds available balance', 'invalid_amount'))
                 .mockResolvedValueOnce({ id: 999, status: 'approved', amount: 50.0 });
 
+            // Create adapter with retry disabled - bad request errors shouldn't be retried anyway
+            // but disable to ensure consistent test behavior
             const mockClient = {} as MercadoPagoConfig;
-            const adapter = new QZPayMercadoPagoPaymentAdapter(mockClient);
+            const adapter = new QZPayMercadoPagoPaymentAdapter(mockClient, { enabled: false });
             // biome-ignore lint/suspicious/noExplicitAny: Test mock injection
             (adapter as any).paymentApi = mockPaymentApi;
             // biome-ignore lint/suspicious/noExplicitAny: Test mock injection

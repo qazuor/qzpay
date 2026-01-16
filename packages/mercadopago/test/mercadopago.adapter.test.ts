@@ -18,7 +18,8 @@ vi.mock('mercadopago', () => ({
     PaymentRefund: vi.fn().mockImplementation(() => ({})),
     PreApproval: vi.fn().mockImplementation(() => ({})),
     PreApprovalPlan: vi.fn().mockImplementation(() => ({})),
-    Preference: vi.fn().mockImplementation(() => ({}))
+    Preference: vi.fn().mockImplementation(() => ({})),
+    CardToken: vi.fn().mockImplementation(() => ({}))
 }));
 
 describe('QZPayMercadoPagoAdapter', () => {
@@ -38,6 +39,33 @@ describe('QZPayMercadoPagoAdapter', () => {
             expect(adapter.checkout).toBeInstanceOf(QZPayMercadoPagoCheckoutAdapter);
             expect(adapter.prices).toBeInstanceOf(QZPayMercadoPagoPriceAdapter);
             expect(adapter.webhooks).toBeInstanceOf(QZPayMercadoPagoWebhookAdapter);
+        });
+
+        it('should throw error when access token does not start with APP_USR- or TEST-', () => {
+            expect(() => {
+                new QZPayMercadoPagoAdapter({
+                    accessToken: 'invalid_token',
+                    webhookSecret: 'secret_123'
+                });
+            }).toThrow("Invalid MercadoPago access token format. Expected token starting with 'APP_USR-' or 'TEST-'");
+        });
+
+        it('should accept valid APP_USR- access token', () => {
+            const adapter = new QZPayMercadoPagoAdapter({
+                accessToken: 'APP_USR-production-token-123',
+                webhookSecret: 'secret_123'
+            });
+
+            expect(adapter.provider).toBe('mercadopago');
+        });
+
+        it('should accept valid TEST- access token', () => {
+            const adapter = new QZPayMercadoPagoAdapter({
+                accessToken: 'TEST-sandbox-token-123',
+                webhookSecret: 'secret_123'
+            });
+
+            expect(adapter.provider).toBe('mercadopago');
         });
 
         it('should use default timeout when not specified', async () => {

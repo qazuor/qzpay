@@ -18,11 +18,42 @@ import {
     isMP3DSRequired
 } from '../types.js';
 
+/**
+ * Default timestamp tolerance in seconds (5 minutes)
+ * This prevents replay attacks by rejecting webhooks with old timestamps
+ */
+const DEFAULT_TIMESTAMP_TOLERANCE_SECONDS = 300;
+
+export interface QZPayMercadoPagoWebhookConfig {
+    /**
+     * Webhook secret for signature verification
+     */
+    webhookSecret?: string;
+
+    /**
+     * Timestamp tolerance in seconds for replay attack prevention
+     * @default 300 (5 minutes)
+     */
+    timestampToleranceSeconds?: number;
+}
+
 export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapter {
     private readonly webhookSecret: string | undefined;
+    private readonly timestampToleranceSeconds: number;
 
-    constructor(webhookSecret?: string) {
-        this.webhookSecret = webhookSecret;
+    constructor(webhookSecret?: string);
+    constructor(config: QZPayMercadoPagoWebhookConfig);
+    constructor(webhookSecretOrConfig?: string | QZPayMercadoPagoWebhookConfig) {
+        if (typeof webhookSecretOrConfig === 'string') {
+            this.webhookSecret = webhookSecretOrConfig;
+            this.timestampToleranceSeconds = DEFAULT_TIMESTAMP_TOLERANCE_SECONDS;
+        } else if (webhookSecretOrConfig) {
+            this.webhookSecret = webhookSecretOrConfig.webhookSecret;
+            this.timestampToleranceSeconds = webhookSecretOrConfig.timestampToleranceSeconds ?? DEFAULT_TIMESTAMP_TOLERANCE_SECONDS;
+        } else {
+            this.webhookSecret = undefined;
+            this.timestampToleranceSeconds = DEFAULT_TIMESTAMP_TOLERANCE_SECONDS;
+        }
     }
 
     constructEvent(payload: string | Buffer, signature: string): QZPayWebhookEvent {
@@ -30,6 +61,22 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
 
         // Verify signature if secret is configured
         if (this.webhookSecret && !this.verifySignature(payload, signature)) {
+            // Check if the failure is due to timestamp being too old
+            const parts = signature.split(',');
+            const timestamp = parts.find((p) => p.startsWith('ts='))?.slice(3);
+
+            if (timestamp) {
+                const timestampSeconds = Number.parseInt(timestamp, 10);
+                if (!Number.isNaN(timestampSeconds)) {
+                    const currentTimeSeconds = Math.floor(Date.now() / 1000);
+                    const timeDifference = Math.abs(currentTimeSeconds - timestampSeconds);
+
+                    if (timeDifference > this.timestampToleranceSeconds) {
+                        throw new Error('Webhook timestamp too old, possible replay attack');
+                    }
+                }
+            }
+
             throw new Error('Invalid MercadoPago webhook signature');
         }
 
@@ -52,6 +99,19 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
             const sig = parts.find((p) => p.startsWith('v1='))?.slice(3);
 
             if (!timestamp || !sig) {
+                return false;
+            }
+
+            // Validate timestamp to prevent replay attacks
+            const timestampSeconds = Number.parseInt(timestamp, 10);
+            if (Number.isNaN(timestampSeconds)) {
+                return false;
+            }
+
+            const currentTimeSeconds = Math.floor(Date.now() / 1000);
+            const timeDifference = Math.abs(currentTimeSeconds - timestampSeconds);
+
+            if (timeDifference > this.timestampToleranceSeconds) {
                 return false;
             }
 
@@ -88,7 +148,6 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
         };
     }
 
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Event type mapping requires multiple fallback strategies
     private mapEventType(mpEventType: string): string {
         // Try extended map first
         const extendedMap: Record<string, string> = MERCADOPAGO_WEBHOOK_EVENTS_EXTENDED;
