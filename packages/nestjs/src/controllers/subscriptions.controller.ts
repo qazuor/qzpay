@@ -2,39 +2,17 @@
  * Subscriptions REST Controller
  */
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
-import type { QZPayCancelSubscriptionOptions, QZPayCreateSubscriptionServiceInput } from '@qazuor/qzpay-core';
+import type { QZPayCancelSubscriptionOptions, QZPayCreateSubscriptionServiceInput, QZPayMetadata } from '@qazuor/qzpay-core';
+import type { CancelSubscriptionDto } from '../dto/cancel-subscription.dto.js';
+import type { CreateSubscriptionDto } from '../dto/create-subscription.dto.js';
+import type { UpdateSubscriptionDto } from '../dto/update-subscription.dto.js';
 import type { QZPayService } from '../qzpay.service.js';
 
 /**
- * DTO for creating a subscription
+ * Legacy DTO exports for backwards compatibility
+ * @deprecated Use DTOs from ../dto instead
  */
-export interface CreateSubscriptionDto {
-    customerId: string;
-    planId: string;
-    priceId?: string;
-    quantity?: number;
-    trialDays?: number;
-    promoCodeId?: string;
-    metadata?: Record<string, unknown>;
-}
-
-/**
- * DTO for updating a subscription
- */
-export interface UpdateSubscriptionDto {
-    planId?: string;
-    priceId?: string;
-    quantity?: number;
-    metadata?: Record<string, unknown>;
-}
-
-/**
- * DTO for cancelling a subscription
- */
-export interface CancelSubscriptionDto {
-    cancelAtPeriodEnd?: boolean;
-    reason?: string;
-}
+export type { CreateSubscriptionDto, UpdateSubscriptionDto, CancelSubscriptionDto };
 
 /**
  * Subscriptions REST Controller
@@ -77,7 +55,7 @@ export class QZPaySubscriptionsController {
             input.promoCodeId = dto.promoCodeId;
         }
         if (dto.metadata !== undefined) {
-            input.metadata = dto.metadata;
+            input.metadata = dto.metadata as QZPayMetadata;
         }
         return this.qzpay.createSubscription(input);
     }
@@ -97,7 +75,14 @@ export class QZPaySubscriptionsController {
      */
     @Patch(':id')
     async update(@Param('id') id: string, @Body() dto: UpdateSubscriptionDto) {
-        return this.qzpay.updateSubscription(id, dto);
+        const updates: { quantity?: number; metadata?: QZPayMetadata } = {};
+        if (dto.quantity !== undefined) {
+            updates.quantity = dto.quantity;
+        }
+        if (dto.metadata !== undefined) {
+            updates.metadata = dto.metadata as QZPayMetadata;
+        }
+        return this.qzpay.updateSubscription(id, updates);
     }
 
     /**

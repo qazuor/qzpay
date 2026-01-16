@@ -2,29 +2,16 @@
  * Payments REST Controller
  */
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import type { QZPayCurrency, QZPayProcessPaymentInput, QZPayRefundPaymentInput } from '@qazuor/qzpay-core';
+import type { QZPayMetadata, QZPayProcessPaymentInput, QZPayRefundPaymentInput } from '@qazuor/qzpay-core';
+import type { ProcessPaymentDto } from '../dto/process-payment.dto.js';
+import type { RefundPaymentDto } from '../dto/refund-payment.dto.js';
 import type { QZPayService } from '../qzpay.service.js';
 
 /**
- * DTO for processing a payment
+ * Legacy DTO exports for backwards compatibility
+ * @deprecated Use DTOs from ../dto instead
  */
-export interface ProcessPaymentDto {
-    customerId: string;
-    amount: number;
-    currency: QZPayCurrency;
-    invoiceId?: string;
-    subscriptionId?: string;
-    paymentMethodId?: string;
-    metadata?: Record<string, unknown>;
-}
-
-/**
- * DTO for refunding a payment
- */
-export interface RefundPaymentDto {
-    amount?: number;
-    reason?: string;
-}
+export type { ProcessPaymentDto, RefundPaymentDto };
 
 /**
  * Payments REST Controller
@@ -53,7 +40,7 @@ export class QZPayPaymentsController {
         const input: QZPayProcessPaymentInput = {
             customerId: dto.customerId,
             amount: dto.amount,
-            currency: dto.currency
+            currency: dto.currency as QZPayProcessPaymentInput['currency']
         };
         if (dto.invoiceId !== undefined) {
             input.invoiceId = dto.invoiceId;
@@ -65,7 +52,7 @@ export class QZPayPaymentsController {
             input.paymentMethodId = dto.paymentMethodId;
         }
         if (dto.metadata !== undefined) {
-            input.metadata = dto.metadata;
+            input.metadata = dto.metadata as QZPayMetadata;
         }
         return this.qzpay.processPayment(input);
     }

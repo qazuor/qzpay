@@ -2,36 +2,16 @@
  * Invoices REST Controller
  */
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import type { QZPayCreateInvoiceServiceInput } from '@qazuor/qzpay-core';
+import type { QZPayCreateInvoiceServiceInput, QZPayMetadata } from '@qazuor/qzpay-core';
+import type { CreateInvoiceDto, CreateInvoiceLineDto } from '../dto/create-invoice.dto.js';
+import type { MarkPaidDto } from '../dto/mark-paid.dto.js';
 import type { QZPayService } from '../qzpay.service.js';
 
 /**
- * DTO for creating an invoice line item
+ * Legacy DTO exports for backwards compatibility
+ * @deprecated Use DTOs from ../dto instead
  */
-export interface CreateInvoiceLineDto {
-    description: string;
-    quantity: number;
-    unitAmount: number;
-    priceId?: string;
-}
-
-/**
- * DTO for creating an invoice
- */
-export interface CreateInvoiceDto {
-    customerId: string;
-    subscriptionId?: string;
-    lines: CreateInvoiceLineDto[];
-    dueDate?: string;
-    metadata?: Record<string, unknown>;
-}
-
-/**
- * DTO for marking an invoice as paid
- */
-export interface MarkPaidDto {
-    paymentId: string;
-}
+export type { CreateInvoiceDto, CreateInvoiceLineDto, MarkPaidDto };
 
 /**
  * Invoices REST Controller
@@ -68,7 +48,7 @@ export class QZPayInvoicesController {
             input.dueDate = new Date(dto.dueDate);
         }
         if (dto.metadata !== undefined) {
-            input.metadata = dto.metadata;
+            input.metadata = dto.metadata as QZPayMetadata;
         }
         return this.qzpay.createInvoice(input);
     }

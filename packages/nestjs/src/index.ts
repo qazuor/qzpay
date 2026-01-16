@@ -48,8 +48,22 @@ export {
     QZPayWebhooksController
 } from './controllers/index.js';
 
-// Controller DTOs
+// Controller DTOs (deprecated - use DTOs from ./dto instead)
 export type {
+    CreateCustomerDto as LegacyCreateCustomerDto,
+    UpdateCustomerDto as LegacyUpdateCustomerDto,
+    CreateSubscriptionDto as LegacyCreateSubscriptionDto,
+    UpdateSubscriptionDto as LegacyUpdateSubscriptionDto,
+    CancelSubscriptionDto as LegacyCancelSubscriptionDto,
+    ProcessPaymentDto as LegacyProcessPaymentDto,
+    RefundPaymentDto as LegacyRefundPaymentDto,
+    CreateInvoiceDto as LegacyCreateInvoiceDto,
+    CreateInvoiceLineDto as LegacyCreateInvoiceLineDto,
+    MarkPaidDto as LegacyMarkPaidDto
+} from './controllers/index.js';
+
+// DTOs with validation
+export {
     CreateCustomerDto,
     UpdateCustomerDto,
     CreateSubscriptionDto,
@@ -60,7 +74,10 @@ export type {
     CreateInvoiceDto,
     CreateInvoiceLineDto,
     MarkPaidDto
-} from './controllers/index.js';
+} from './dto/index.js';
+
+// Filters
+export { QZPayExceptionFilter } from './filters/index.js';
 
 // Interceptors
 export { QZPayLoggingInterceptor, createQZPayLoggingInterceptor } from './interceptors/index.js';

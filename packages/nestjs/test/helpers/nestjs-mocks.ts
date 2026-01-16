@@ -196,7 +196,10 @@ export function createMockLimit(overrides: Record<string, unknown> = {}) {
  * Create mock execution context for NestJS guards
  */
 export function createMockExecutionContext(requestOverrides: Record<string, unknown> = {}): {
-    switchToHttp: () => { getRequest: () => Record<string, unknown> };
+    switchToHttp: () => {
+        getRequest: () => Record<string, unknown>;
+        getResponse: () => { setHeader: (name: string, value: string) => void };
+    };
     getHandler: () => () => void;
 } {
     const request = {
@@ -205,9 +208,14 @@ export function createMockExecutionContext(requestOverrides: Record<string, unkn
         ...requestOverrides
     };
 
+    const response = {
+        setHeader: vi.fn()
+    };
+
     return {
         switchToHttp: () => ({
-            getRequest: () => request
+            getRequest: () => request,
+            getResponse: () => response
         }),
         getHandler: () => () => {}
     };

@@ -60,20 +60,57 @@ export interface QZPayLoggingOptions {
 }
 
 const DEFAULT_SENSITIVE_FIELDS = [
+    // Card/Payment data
     'cardNumber',
     'card_number',
     'cvv',
     'cvc',
+    'securityCode',
+    'security_code',
+    'expiryDate',
+    'expiry_date',
+    'accountNumber',
+    'account_number',
+    'routingNumber',
+    'routing_number',
+    // Secrets and tokens
     'secret',
     'password',
     'token',
     'signature',
     'apiKey',
     'api_key',
+    'secretKey',
+    'secret_key',
+    'privateKey',
+    'private_key',
     'accessToken',
     'access_token',
     'refreshToken',
-    'refresh_token'
+    'refresh_token',
+    'bearerToken',
+    'bearer_token',
+    'idToken',
+    'id_token',
+    // Auth headers
+    'authorization',
+    'auth',
+    'x-api-key',
+    'x-auth-token',
+    // Webhooks
+    'webhookSecret',
+    'webhook_secret',
+    'webhookSignature',
+    'webhook_signature',
+    'stripeSignature',
+    'stripe_signature',
+    // Provider credentials
+    'stripeSecretKey',
+    'stripe_secret_key',
+    'mercadopagoAccessToken',
+    'mercadopago_access_token',
+    'mpAccessToken',
+    'mp_access_token'
 ];
 
 /**

@@ -2,26 +2,16 @@
  * Customers REST Controller
  */
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
+import type { QZPayMetadata } from '@qazuor/qzpay-core';
+import type { CreateCustomerDto } from '../dto/create-customer.dto.js';
+import type { UpdateCustomerDto } from '../dto/update-customer.dto.js';
 import type { QZPayService } from '../qzpay.service.js';
 
 /**
- * DTO for creating a customer
+ * Legacy DTO exports for backwards compatibility
+ * @deprecated Use DTOs from ../dto instead
  */
-export interface CreateCustomerDto {
-    email: string;
-    externalId: string;
-    name?: string;
-    metadata?: Record<string, unknown>;
-}
-
-/**
- * DTO for updating a customer
- */
-export interface UpdateCustomerDto {
-    email?: string;
-    name?: string;
-    metadata?: Record<string, unknown>;
-}
+export type { CreateCustomerDto, UpdateCustomerDto };
 
 /**
  * Customers REST Controller
@@ -56,7 +46,7 @@ export class QZPayCustomersController {
             email: string;
             externalId: string;
             name?: string | null;
-            metadata?: Record<string, unknown>;
+            metadata?: QZPayMetadata;
         } = {
             email: dto.email,
             externalId: dto.externalId
@@ -65,7 +55,7 @@ export class QZPayCustomersController {
             input.name = dto.name;
         }
         if (dto.metadata !== undefined) {
-            input.metadata = dto.metadata;
+            input.metadata = dto.metadata as QZPayMetadata;
         }
         return this.qzpay.createCustomer(input);
     }
@@ -94,7 +84,14 @@ export class QZPayCustomersController {
      */
     @Patch(':id')
     async update(@Param('id') id: string, @Body() dto: UpdateCustomerDto) {
-        return this.qzpay.updateCustomer(id, dto);
+        const updates: { name?: string | null; metadata?: QZPayMetadata } = {};
+        if (dto.name !== undefined) {
+            updates.name = dto.name;
+        }
+        if (dto.metadata !== undefined) {
+            updates.metadata = dto.metadata as QZPayMetadata;
+        }
+        return this.qzpay.updateCustomer(id, updates);
     }
 
     /**

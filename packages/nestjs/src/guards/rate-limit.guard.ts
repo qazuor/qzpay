@@ -35,6 +35,7 @@ export class RateLimitGuard implements CanActivate {
         }
 
         const request = context.switchToHttp().getRequest<RequestWithCustomer>();
+        const response = context.switchToHttp().getResponse();
         const customerId = request.customer?.id ?? request.user?.customerId;
 
         if (!customerId) {
@@ -42,9 +43,14 @@ export class RateLimitGuard implements CanActivate {
         }
 
         // Check if the limit is reached
-        const canProceed = await this.billing.limits.check(customerId, config.limitKey);
+        const limitCheck = await this.billing.limits.check(customerId, config.limitKey);
 
-        if (!canProceed) {
+        // Add rate limit headers
+        response.setHeader('X-RateLimit-Limit', limitCheck.maxValue.toString());
+        response.setHeader('X-RateLimit-Remaining', Math.max(0, limitCheck.remaining).toString());
+        response.setHeader('X-RateLimit-Current', limitCheck.currentValue.toString());
+
+        if (!limitCheck.allowed) {
             this.logger.warn(`Rate limit exceeded for customer ${customerId} on limit ${config.limitKey}`);
             throw new ForbiddenException(`Rate limit exceeded: ${config.limitKey}`);
         }

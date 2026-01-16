@@ -22,7 +22,12 @@ describe('RateLimitGuard', () => {
 
         it('should allow access and increment when within limit', async () => {
             const mockBilling = createMockBilling();
-            vi.mocked(mockBilling.limits.check).mockResolvedValue(true);
+            vi.mocked(mockBilling.limits.check).mockResolvedValue({
+                allowed: true,
+                currentValue: 50,
+                maxValue: 100,
+                remaining: 50
+            });
             vi.mocked(mockBilling.limits.increment).mockResolvedValue({} as never);
 
             const mockReflector = createMockReflector({
@@ -36,11 +41,22 @@ describe('RateLimitGuard', () => {
             expect(result).toBe(true);
             expect(mockBilling.limits.check).toHaveBeenCalledWith('cus_123', 'api_calls');
             expect(mockBilling.limits.increment).toHaveBeenCalledWith('cus_123', 'api_calls', 1);
+
+            // Verify rate limit headers are set
+            const response = mockContext.switchToHttp().getResponse();
+            expect(response.setHeader).toHaveBeenCalledWith('X-RateLimit-Limit', '100');
+            expect(response.setHeader).toHaveBeenCalledWith('X-RateLimit-Remaining', '50');
+            expect(response.setHeader).toHaveBeenCalledWith('X-RateLimit-Current', '50');
         });
 
         it('should deny access when rate limit exceeded', async () => {
             const mockBilling = createMockBilling();
-            vi.mocked(mockBilling.limits.check).mockResolvedValue(false);
+            vi.mocked(mockBilling.limits.check).mockResolvedValue({
+                allowed: false,
+                currentValue: 100,
+                maxValue: 100,
+                remaining: 0
+            });
 
             const mockReflector = createMockReflector({
                 [RATE_LIMIT_KEY]: { limitKey: 'api_calls' }
@@ -51,6 +67,12 @@ describe('RateLimitGuard', () => {
 
             await expect(guard.canActivate(mockContext as never)).rejects.toThrow(ForbiddenException);
             await expect(guard.canActivate(mockContext as never)).rejects.toThrow('Rate limit exceeded: api_calls');
+
+            // Verify headers are still set even when limit is exceeded
+            const response = mockContext.switchToHttp().getResponse();
+            expect(response.setHeader).toHaveBeenCalledWith('X-RateLimit-Limit', '100');
+            expect(response.setHeader).toHaveBeenCalledWith('X-RateLimit-Remaining', '0');
+            expect(response.setHeader).toHaveBeenCalledWith('X-RateLimit-Current', '100');
         });
 
         it('should throw when no customer context', async () => {
@@ -71,7 +93,12 @@ describe('RateLimitGuard', () => {
 
         it('should use custom increment amount', async () => {
             const mockBilling = createMockBilling();
-            vi.mocked(mockBilling.limits.check).mockResolvedValue(true);
+            vi.mocked(mockBilling.limits.check).mockResolvedValue({
+                allowed: true,
+                currentValue: 50,
+                maxValue: 100,
+                remaining: 50
+            });
             vi.mocked(mockBilling.limits.increment).mockResolvedValue({} as never);
 
             const mockReflector = createMockReflector({
@@ -87,7 +114,12 @@ describe('RateLimitGuard', () => {
 
         it('should still allow access when increment fails', async () => {
             const mockBilling = createMockBilling();
-            vi.mocked(mockBilling.limits.check).mockResolvedValue(true);
+            vi.mocked(mockBilling.limits.check).mockResolvedValue({
+                allowed: true,
+                currentValue: 50,
+                maxValue: 100,
+                remaining: 50
+            });
             vi.mocked(mockBilling.limits.increment).mockRejectedValue(new Error('Increment failed'));
 
             const mockReflector = createMockReflector({
@@ -104,7 +136,12 @@ describe('RateLimitGuard', () => {
 
         it('should use customer.id when available', async () => {
             const mockBilling = createMockBilling();
-            vi.mocked(mockBilling.limits.check).mockResolvedValue(true);
+            vi.mocked(mockBilling.limits.check).mockResolvedValue({
+                allowed: true,
+                currentValue: 50,
+                maxValue: 100,
+                remaining: 50
+            });
             vi.mocked(mockBilling.limits.increment).mockResolvedValue({} as never);
 
             const mockReflector = createMockReflector({
@@ -123,7 +160,12 @@ describe('RateLimitGuard', () => {
 
         it('should fallback to user.customerId when customer.id not available', async () => {
             const mockBilling = createMockBilling();
-            vi.mocked(mockBilling.limits.check).mockResolvedValue(true);
+            vi.mocked(mockBilling.limits.check).mockResolvedValue({
+                allowed: true,
+                currentValue: 50,
+                maxValue: 100,
+                remaining: 50
+            });
             vi.mocked(mockBilling.limits.increment).mockResolvedValue({} as never);
 
             const mockReflector = createMockReflector({
@@ -138,6 +180,30 @@ describe('RateLimitGuard', () => {
             await guard.canActivate(mockContext as never);
 
             expect(mockBilling.limits.check).toHaveBeenCalledWith('cus_from_user', 'api_calls');
+        });
+
+        it('should handle negative remaining gracefully', async () => {
+            const mockBilling = createMockBilling();
+            // Edge case: currentValue exceeds maxValue
+            vi.mocked(mockBilling.limits.check).mockResolvedValue({
+                allowed: false,
+                currentValue: 150,
+                maxValue: 100,
+                remaining: -50
+            });
+
+            const mockReflector = createMockReflector({
+                [RATE_LIMIT_KEY]: { limitKey: 'api_calls' }
+            });
+            const mockContext = createMockExecutionContext();
+
+            const guard = new RateLimitGuard(mockBilling, mockReflector as never);
+
+            await expect(guard.canActivate(mockContext as never)).rejects.toThrow(ForbiddenException);
+
+            // Should clamp negative remaining to 0 in headers
+            const response = mockContext.switchToHttp().getResponse();
+            expect(response.setHeader).toHaveBeenCalledWith('X-RateLimit-Remaining', '0');
         });
     });
 });
