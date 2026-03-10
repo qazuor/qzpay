@@ -47,3 +47,14 @@ export type QZPayMetadataValue = string | number | boolean | null | undefined;
  * @see qzpayAssertValidMetadata
  */
 export type QZPayMetadata = Record<string, QZPayMetadataValue>;
+
+/**
+ * Source type for entitlements and limits.
+ * Tracks where a customer's entitlement or limit originated from.
+ *
+ * - 'subscription': Granted by an active subscription plan
+ * - 'purchase': Granted by a one-time purchase
+ * - 'manual': Granted manually by an admin or system process
+ * - 'addon': Granted by an add-on purchase attached to a subscription
+ */
+export type QZPaySourceType = 'subscription' | 'purchase' | 'manual' | 'addon';

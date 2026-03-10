@@ -2,7 +2,7 @@
  * Limits types for QZPay (usage-based billing)
  */
 
-import type { QZPayMetadata } from './common.types.js';
+import type { QZPayMetadata, QZPaySourceType } from './common.types.js';
 
 export interface QZPayLimit {
     id: string;
@@ -20,7 +20,7 @@ export interface QZPayCustomerLimit {
     maxValue: number;
     currentValue: number;
     resetAt: Date | null;
-    source: 'subscription' | 'purchase' | 'manual';
+    source: QZPaySourceType;
     sourceId: string | null;
 }
 
@@ -45,7 +45,14 @@ export interface QZPaySetLimitInput {
     limitKey: string;
     maxValue: number;
     resetAt?: Date;
-    source?: 'manual';
+    /** Source type for the limit. Defaults to 'manual' in mapper if not provided. */
+    source?: QZPaySourceType;
+    /**
+     * ID of the source entity that set this limit.
+     * Must be a valid UUID. The DB column is uuid type and will reject non-UUID values at runtime.
+     * Typically the QZPaySubscriptionAddOn.id.
+     */
+    sourceId?: string;
 }
 
 export interface QZPayUsageRecord {

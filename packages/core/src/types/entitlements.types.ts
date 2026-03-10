@@ -2,6 +2,8 @@
  * Entitlements types for QZPay
  */
 
+import type { QZPaySourceType } from './common.types.js';
+
 export interface QZPayEntitlement {
     id: string;
     key: string;
@@ -16,7 +18,7 @@ export interface QZPayCustomerEntitlement {
     entitlementKey: string;
     grantedAt: Date;
     expiresAt: Date | null;
-    source: 'subscription' | 'purchase' | 'manual';
+    source: QZPaySourceType;
     sourceId: string | null;
 }
 
@@ -31,7 +33,14 @@ export interface QZPayGrantEntitlementInput {
     customerId: string;
     entitlementKey: string;
     expiresAt?: Date;
-    source?: 'manual';
+    /** Source type for the entitlement grant. Defaults to 'manual' in mapper if not provided. */
+    source?: QZPaySourceType;
+    /**
+     * ID of the source entity that granted this entitlement.
+     * Must be a valid UUID. The DB column is uuid type and will reject non-UUID values at runtime.
+     * Typically the QZPaySubscriptionAddOn.id.
+     */
+    sourceId?: string;
 }
 
 export interface QZPayRevokeEntitlementInput {
