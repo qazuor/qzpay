@@ -35,6 +35,7 @@ import type {
     QZPayPromoCode,
     QZPayPromoCodeStorage,
     QZPaySetLimitInput,
+    QZPaySourceType,
     QZPayStorageAdapter,
     QZPaySubscription,
     QZPaySubscriptionAddOn,
@@ -750,6 +751,10 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 await repo.revoke(customerId, entitlementKey);
             },
 
+            async revokeBySource(source: QZPaySourceType, sourceId: string): Promise<number> {
+                return repo.revokeBySource(source, sourceId);
+            },
+
             async findByCustomerId(customerId: string): Promise<QZPayCustomerEntitlement[]> {
                 const result = await repo.findByCustomerId(customerId);
                 return result.map(mapDrizzleCustomerEntitlementToCore);
@@ -789,6 +794,14 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 const drizzleInput = mapCoreSetLimitToDrizzle(input, livemode);
                 const result = await repo.set(drizzleInput);
                 return mapDrizzleCustomerLimitToCore(result);
+            },
+
+            async delete(customerId: string, limitKey: string): Promise<void> {
+                await repo.delete(customerId, limitKey);
+            },
+
+            async deleteBySource(source: QZPaySourceType, sourceId: string): Promise<number> {
+                return repo.deleteBySource(source, sourceId);
             },
 
             async increment(input: QZPayIncrementLimitInput): Promise<QZPayCustomerLimit> {
