@@ -3,6 +3,7 @@
  *
  * Provides entitlement definition and customer entitlement database operations.
  */
+import type { QZPaySourceType } from '@qazuor/qzpay-core';
 import { and, count, eq, gt, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
@@ -30,7 +31,7 @@ export interface QZPayEntitlementSearchOptions {
 export interface QZPayCustomerEntitlementSearchOptions {
     customerId?: string;
     entitlementKey?: string;
-    source?: 'subscription' | 'purchase' | 'manual';
+    source?: QZPaySourceType;
     includeExpired?: boolean;
     livemode?: boolean;
     limit?: number;

@@ -3,6 +3,7 @@
  *
  * Provides limit definition and customer limit database operations.
  */
+import type { QZPaySourceType } from '@qazuor/qzpay-core';
 import { and, count, eq, isNotNull, lte, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
@@ -30,7 +31,7 @@ export interface QZPayLimitSearchOptions {
 export interface QZPayCustomerLimitSearchOptions {
     customerId?: string;
     limitKey?: string;
-    source?: 'subscription' | 'purchase' | 'manual';
+    source?: QZPaySourceType;
     livemode?: boolean;
     limit?: number;
     offset?: number;
@@ -257,14 +258,9 @@ export class QZPayLimitsRepository {
      * Delete a customer limit
      */
     async delete(customerId: string, limitKey: string): Promise<void> {
-        const result = await this.db
+        await this.db
             .delete(billingCustomerLimits)
-            .where(and(eq(billingCustomerLimits.customerId, customerId), eq(billingCustomerLimits.limitKey, limitKey)))
-            .returning();
-
-        if (result.length === 0) {
-            throw new Error(`Customer limit not found for customer ${customerId} and key ${limitKey}`);
-        }
+            .where(and(eq(billingCustomerLimits.customerId, customerId), eq(billingCustomerLimits.limitKey, limitKey)));
     }
 
     /**
