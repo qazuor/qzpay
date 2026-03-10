@@ -260,7 +260,7 @@ if (hasAccess) {
 const entitlements = await billing.entitlements.getByCustomerId('cus_123');
 
 // Grant an entitlement manually
-await billing.entitlements.grant('cus_123', 'beta_features', 'manual', 'admin_grant');
+await billing.entitlements.grant({ customerId: 'cus_123', entitlementKey: 'beta_features', source: 'manual' });
 
 // Revoke an entitlement
 await billing.entitlements.revoke('cus_123', 'beta_features');
@@ -285,7 +285,7 @@ const limits = await billing.limits.getByCustomerId('cus_123');
 await billing.limits.increment('cus_123', 'api_calls', 1);
 
 // Set a limit value
-await billing.limits.set('cus_123', 'api_calls', 10000);
+await billing.limits.set({ customerId: 'cus_123', limitKey: 'api_calls', maxValue: 10000 });
 
 // Record usage (for audit/history)
 await billing.limits.recordUsage('cus_123', 'api_calls', 5, 'increment');

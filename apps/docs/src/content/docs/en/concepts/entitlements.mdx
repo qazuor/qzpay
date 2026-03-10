@@ -141,7 +141,7 @@ const limit = await billing.limits.check('cus_123', 'api_calls');
 console.log(`Remaining: ${limit.remaining}`);
 
 // Set maximum limit
-await billing.limits.set('cus_123', 'api_calls', 1000);
+await billing.limits.set({ customerId: 'cus_123', limitKey: 'api_calls', maxValue: 1000 });
 
 // Manually increment usage
 await billing.limits.increment('cus_123', 'api_calls', 5);
