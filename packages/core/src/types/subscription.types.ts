@@ -49,6 +49,8 @@ export interface QZPayUpdateSubscriptionInput {
     currentPeriodStart?: Date;
     /** Current period end date (for renewals) */
     currentPeriodEnd?: Date;
+    /** Trial end date (for trial extensions) */
+    trialEnd?: Date | null;
 }
 
 export interface QZPayCancelSubscriptionInput {

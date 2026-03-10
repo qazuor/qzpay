@@ -106,6 +106,15 @@ export function mapCoreSubscriptionUpdateToDrizzle(input: QZPayUpdateSubscriptio
     if (input.cancelAt !== undefined) {
         update.cancelAt = input.cancelAt;
     }
+    if (input.currentPeriodStart !== undefined) {
+        update.currentPeriodStart = input.currentPeriodStart;
+    }
+    if (input.currentPeriodEnd !== undefined) {
+        update.currentPeriodEnd = input.currentPeriodEnd;
+    }
+    if (input.trialEnd !== undefined) {
+        update.trialEnd = input.trialEnd;
+    }
 
     return update;
 }
