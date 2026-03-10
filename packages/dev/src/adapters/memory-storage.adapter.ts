@@ -50,6 +50,7 @@ import type {
     QZPayPrice,
     QZPayPromoCode,
     QZPaySetLimitInput,
+    QZPaySourceType,
     QZPayStorageAdapter,
     QZPaySubscription,
     QZPaySubscriptionAddOn,
@@ -801,7 +802,7 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                     grantedAt: getCurrentTime(),
                     expiresAt: input.expiresAt ?? null,
                     source: input.source ?? 'manual',
-                    sourceId: null
+                    sourceId: input.sourceId ?? null
                 };
                 const key = `${input.customerId}:${input.entitlementKey}`;
                 data.customerEntitlements.set(key, ce);
@@ -820,6 +821,16 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                 if (!ce) return false;
                 if (ce.expiresAt && ce.expiresAt < getCurrentTime()) return false;
                 return true;
+            },
+            async revokeBySource(source: QZPaySourceType, sourceId: string): Promise<number> {
+                let count = 0;
+                for (const [key, ce] of data.customerEntitlements.entries()) {
+                    if (ce.source === source && ce.sourceId === sourceId) {
+                        data.customerEntitlements.delete(key);
+                        count++;
+                    }
+                }
+                return count;
             }
         },
 
@@ -842,11 +853,25 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                     currentValue: 0,
                     resetAt: input.resetAt ?? null,
                     source: input.source ?? 'manual',
-                    sourceId: null
+                    sourceId: input.sourceId ?? null
                 };
                 const key = `${input.customerId}:${input.limitKey}`;
                 data.customerLimits.set(key, cl);
                 return cl;
+            },
+            async delete(customerId: string, limitKey: string): Promise<void> {
+                const key = `${customerId}:${limitKey}`;
+                data.customerLimits.delete(key);
+            },
+            async deleteBySource(source: QZPaySourceType, sourceId: string): Promise<number> {
+                let count = 0;
+                for (const [key, cl] of data.customerLimits.entries()) {
+                    if (cl.source === source && cl.sourceId === sourceId) {
+                        data.customerLimits.delete(key);
+                        count++;
+                    }
+                }
+                return count;
             },
             async increment(input: QZPayIncrementLimitInput): Promise<QZPayCustomerLimit> {
                 const key = `${input.customerId}:${input.limitKey}`;
