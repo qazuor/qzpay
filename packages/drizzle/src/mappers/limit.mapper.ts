@@ -67,31 +67,7 @@ export function mapCoreSetLimitToDrizzle(input: QZPaySetLimitInput, livemode: bo
         currentValue: 0,
         resetAt: input.resetAt ?? null,
         source: input.source ?? 'manual',
-        sourceId: null,
-        livemode
-    };
-}
-
-/**
- * Map Core set limit with source to Drizzle insert
- */
-export function mapCoreSetLimitWithSourceToDrizzle(
-    customerId: string,
-    limitKey: string,
-    maxValue: number,
-    source: QZPayCustomerLimit['source'],
-    sourceId: string | null,
-    resetAt: Date | null,
-    livemode: boolean
-): QZPayBillingCustomerLimitInsert {
-    return {
-        customerId,
-        limitKey,
-        maxValue,
-        currentValue: 0,
-        resetAt,
-        source,
-        sourceId,
+        sourceId: input.sourceId ?? null,
         livemode
     };
 }

@@ -24,7 +24,6 @@ export {
 export {
     mapCoreEntitlementToDrizzle,
     mapCoreGrantEntitlementToDrizzle,
-    mapCoreGrantEntitlementWithSourceToDrizzle,
     mapDrizzleCustomerEntitlementToCore,
     mapDrizzleEntitlementToCore
 } from './entitlement.mapper.js';
@@ -40,7 +39,6 @@ export {
 export {
     mapCoreLimitToDrizzle,
     mapCoreSetLimitToDrizzle,
-    mapCoreSetLimitWithSourceToDrizzle,
     mapCoreUsageRecordToDrizzle,
     mapDrizzleCustomerLimitToCore,
     mapDrizzleLimitToCore,

@@ -64,29 +64,7 @@ export function mapCoreGrantEntitlementToDrizzle(
         grantedAt: new Date(),
         expiresAt: input.expiresAt ?? null,
         source: input.source ?? 'manual',
-        sourceId: null,
-        livemode
-    };
-}
-
-/**
- * Map Core grant input with source to Drizzle insert
- */
-export function mapCoreGrantEntitlementWithSourceToDrizzle(
-    customerId: string,
-    entitlementKey: string,
-    source: QZPayCustomerEntitlement['source'],
-    sourceId: string | null,
-    expiresAt: Date | null,
-    livemode: boolean
-): QZPayBillingCustomerEntitlementInsert {
-    return {
-        customerId,
-        entitlementKey,
-        grantedAt: new Date(),
-        expiresAt,
-        source,
-        sourceId,
+        sourceId: input.sourceId ?? null,
         livemode
     };
 }
