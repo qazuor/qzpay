@@ -448,9 +448,9 @@ describe('Query Performance Benchmarks', () => {
 
         it('should benchmark entitlement check', async () => {
             // Grant some entitlements first
-            await billing.entitlements.grant(customerId, 'feature_a');
-            await billing.entitlements.grant(customerId, 'feature_b');
-            await billing.entitlements.grant(customerId, 'feature_c');
+            await billing.entitlements.grant({ customerId, entitlementKey: 'feature_a' });
+            await billing.entitlements.grant({ customerId, entitlementKey: 'feature_b' });
+            await billing.entitlements.grant({ customerId, entitlementKey: 'feature_c' });
 
             const features = ['feature_a', 'feature_b', 'feature_c', 'feature_d'];
             let index = 0;
@@ -473,7 +473,7 @@ describe('Query Performance Benchmarks', () => {
             const result = await benchmark(
                 'Entitlement Grant',
                 async () => {
-                    await billing.entitlements.grant(customerId, `feature_${counter++}`);
+                    await billing.entitlements.grant({ customerId, entitlementKey: `feature_${counter++}` });
                 },
                 50
             );
@@ -499,9 +499,9 @@ describe('Query Performance Benchmarks', () => {
 
         it('should benchmark limit check', async () => {
             // Set up limits
-            await billing.limits.set(customerId, 'api_calls', 1000);
-            await billing.limits.set(customerId, 'storage', 5000);
-            await billing.limits.set(customerId, 'users', 10);
+            await billing.limits.set({ customerId, limitKey: 'api_calls', maxValue: 1000 });
+            await billing.limits.set({ customerId, limitKey: 'storage', maxValue: 5000 });
+            await billing.limits.set({ customerId, limitKey: 'users', maxValue: 10 });
 
             const limits = ['api_calls', 'storage', 'users', 'undefined_limit'];
             let index = 0;
@@ -520,7 +520,7 @@ describe('Query Performance Benchmarks', () => {
         });
 
         it('should benchmark limit increment', async () => {
-            await billing.limits.set(customerId, 'counter', 10000);
+            await billing.limits.set({ customerId, limitKey: 'counter', maxValue: 10000 });
 
             const result = await benchmark(
                 'Limit Increment',
@@ -574,10 +574,10 @@ describe('Query Performance Benchmarks', () => {
                     });
 
                     // Grant entitlement
-                    await billing.entitlements.grant(customer.id, 'premium');
+                    await billing.entitlements.grant({ customerId: customer.id, entitlementKey: 'premium' });
 
                     // Set limit
-                    await billing.limits.set(customer.id, 'api_calls', 10000);
+                    await billing.limits.set({ customerId: customer.id, limitKey: 'api_calls', maxValue: 10000 });
 
                     // Check entitlement
                     await billing.entitlements.check(customer.id, 'premium');

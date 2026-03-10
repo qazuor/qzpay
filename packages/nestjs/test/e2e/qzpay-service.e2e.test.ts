@@ -390,7 +390,7 @@ describe('QZPay NestJS E2E Tests', () => {
 
         it('should check entitlement (true when granted)', async () => {
             // Grant entitlement via billing directly
-            await billing.entitlements.grant(customerId, 'premium_feature');
+            await billing.entitlements.grant({ customerId, entitlementKey: 'premium_feature' });
 
             const hasEntitlement = await qzPayService.checkEntitlement(customerId, 'premium_feature');
 
@@ -398,8 +398,8 @@ describe('QZPay NestJS E2E Tests', () => {
         });
 
         it('should get entitlements for customer', async () => {
-            await billing.entitlements.grant(customerId, 'feature_a');
-            await billing.entitlements.grant(customerId, 'feature_b');
+            await billing.entitlements.grant({ customerId, entitlementKey: 'feature_a' });
+            await billing.entitlements.grant({ customerId, entitlementKey: 'feature_b' });
 
             const entitlements = await qzPayService.getEntitlements(customerId);
 

@@ -291,7 +291,7 @@ describe('E2E: Billing Flow', () => {
             });
 
             // Grant entitlement
-            const entitlement = await billing.entitlements.grant(customer.id, 'premium_feature');
+            const entitlement = await billing.entitlements.grant({ customerId: customer.id, entitlementKey: 'premium_feature' });
 
             expect(entitlement.customerId).toBe(customer.id);
             expect(entitlement.entitlementKey).toBe('premium_feature');
@@ -311,7 +311,7 @@ describe('E2E: Billing Flow', () => {
                 email: 'revoke@example.com'
             });
 
-            await billing.entitlements.grant(customer.id, 'temp_feature');
+            await billing.entitlements.grant({ customerId: customer.id, entitlementKey: 'temp_feature' });
             await billing.entitlements.revoke(customer.id, 'temp_feature');
 
             const hasEntitlement = await billing.entitlements.check(customer.id, 'temp_feature');
@@ -324,9 +324,9 @@ describe('E2E: Billing Flow', () => {
                 email: 'multi-ent@example.com'
             });
 
-            await billing.entitlements.grant(customer.id, 'feature_a');
-            await billing.entitlements.grant(customer.id, 'feature_b');
-            await billing.entitlements.grant(customer.id, 'feature_c');
+            await billing.entitlements.grant({ customerId: customer.id, entitlementKey: 'feature_a' });
+            await billing.entitlements.grant({ customerId: customer.id, entitlementKey: 'feature_b' });
+            await billing.entitlements.grant({ customerId: customer.id, entitlementKey: 'feature_c' });
 
             const entitlements = await billing.entitlements.getByCustomerId(customer.id);
             expect(entitlements).toHaveLength(3);
@@ -341,7 +341,7 @@ describe('E2E: Billing Flow', () => {
             });
 
             // Set limit
-            await billing.limits.set(customer.id, 'api_calls', 100);
+            await billing.limits.set({ customerId: customer.id, limitKey: 'api_calls', maxValue: 100 });
 
             // Check limit
             const result = await billing.limits.check(customer.id, 'api_calls');
@@ -357,7 +357,7 @@ describe('E2E: Billing Flow', () => {
                 email: 'inc-limit@example.com'
             });
 
-            await billing.limits.set(customer.id, 'storage', 50);
+            await billing.limits.set({ customerId: customer.id, limitKey: 'storage', maxValue: 50 });
             await billing.limits.increment(customer.id, 'storage', 10);
 
             const result = await billing.limits.check(customer.id, 'storage');
@@ -371,7 +371,7 @@ describe('E2E: Billing Flow', () => {
                 email: 'exceeded@example.com'
             });
 
-            await billing.limits.set(customer.id, 'requests', 5);
+            await billing.limits.set({ customerId: customer.id, limitKey: 'requests', maxValue: 5 });
 
             // Use up all limits
             for (let i = 0; i < 5; i++) {

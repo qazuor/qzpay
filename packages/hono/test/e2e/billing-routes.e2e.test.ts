@@ -499,7 +499,7 @@ describe('Billing Routes E2E', () => {
 
         it('should check and get limits', async () => {
             // Set limit directly via billing API (no route for setting limits)
-            await billing.limits.set(customerId, 'api_calls', 1000);
+            await billing.limits.set({ customerId, limitKey: 'api_calls', maxValue: 1000 });
 
             // Check via route
             const checkResponse = await routes.request(`/billing/customers/${customerId}/limits/api_calls`);
@@ -513,7 +513,7 @@ describe('Billing Routes E2E', () => {
 
         it('should increment limit via route', async () => {
             // Set limit directly via billing API
-            await billing.limits.set(customerId, 'requests', 100);
+            await billing.limits.set({ customerId, limitKey: 'requests', maxValue: 100 });
 
             // Increment via route
             const incrementResponse = await routes.request(`/billing/customers/${customerId}/limits/requests/increment`, {
@@ -529,8 +529,8 @@ describe('Billing Routes E2E', () => {
 
         it('should get all limits for customer', async () => {
             // Set multiple limits
-            await billing.limits.set(customerId, 'limit1', 100);
-            await billing.limits.set(customerId, 'limit2', 200);
+            await billing.limits.set({ customerId, limitKey: 'limit1', maxValue: 100 });
+            await billing.limits.set({ customerId, limitKey: 'limit2', maxValue: 200 });
 
             // Get all via route
             const response = await routes.request(`/billing/customers/${customerId}/limits`);

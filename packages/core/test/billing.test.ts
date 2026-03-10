@@ -235,9 +235,9 @@ function createMockStorage(): QZPayStorageAdapter {
                     customerId: input.customerId,
                     entitlementKey: input.entitlementKey,
                     grantedAt: new Date(),
-                    expiresAt: null,
+                    expiresAt: input.expiresAt ?? null,
                     source: input.source ?? 'manual',
-                    sourceId: null
+                    sourceId: input.sourceId ?? null
                 };
                 entitlements.set(`${input.customerId}:${input.entitlementKey}`, entitlement);
                 return entitlement;
@@ -245,8 +245,20 @@ function createMockStorage(): QZPayStorageAdapter {
             revoke: vi.fn(async (customerId, entitlementKey) => {
                 entitlements.delete(`${customerId}:${entitlementKey}`);
             }),
+            revokeBySource: vi.fn(async (source, sourceId) => {
+                let count = 0;
+                for (const [key, ce] of entitlements.entries()) {
+                    if (ce.source === source && ce.sourceId === sourceId) {
+                        entitlements.delete(key);
+                        count++;
+                    }
+                }
+                return count;
+            }),
             findByCustomerId: vi.fn(async (customerId) => {
-                return Array.from(entitlements.values()).filter((e) => e.customerId === customerId);
+                return Array.from(entitlements.values()).filter(
+                    (e) => e.customerId === customerId && (!e.expiresAt || e.expiresAt > new Date())
+                );
             }),
             check: vi.fn(async (customerId, entitlementKey) => {
                 return entitlements.has(`${customerId}:${entitlementKey}`);
@@ -262,9 +274,9 @@ function createMockStorage(): QZPayStorageAdapter {
                     limitKey: input.limitKey,
                     maxValue: input.maxValue,
                     currentValue: 0,
-                    resetAt: null,
-                    source: 'manual',
-                    sourceId: null
+                    resetAt: input.resetAt ?? null,
+                    source: input.source ?? 'manual',
+                    sourceId: input.sourceId ?? null
                 };
                 limits.set(`${input.customerId}:${input.limitKey}`, limit);
                 return limit;
@@ -291,6 +303,19 @@ function createMockStorage(): QZPayStorageAdapter {
             }),
             findByCustomerId: vi.fn(async (customerId) => {
                 return Array.from(limits.values()).filter((l) => l.customerId === customerId);
+            }),
+            delete: vi.fn(async (customerId, limitKey) => {
+                limits.delete(`${customerId}:${limitKey}`);
+            }),
+            deleteBySource: vi.fn(async (source, sourceId) => {
+                let count = 0;
+                for (const [key, cl] of limits.entries()) {
+                    if (cl.source === source && cl.sourceId === sourceId) {
+                        limits.delete(key);
+                        count++;
+                    }
+                }
+                return count;
             }),
             check: vi.fn(async (customerId, limitKey) => {
                 return limits.get(`${customerId}:${limitKey}`) ?? null;
@@ -1605,7 +1630,7 @@ describe('billing.entitlements', () => {
         const storage = createMockStorage();
         const billing = createQZPayBilling({ storage });
 
-        const entitlement = await billing.entitlements.grant('cus_123', 'premium_features');
+        const entitlement = await billing.entitlements.grant({ customerId: 'cus_123', entitlementKey: 'premium_features' });
 
         expect(entitlement.customerId).toBe('cus_123');
         expect(entitlement.entitlementKey).toBe('premium_features');
@@ -1616,7 +1641,7 @@ describe('billing.entitlements', () => {
         const storage = createMockStorage();
         const billing = createQZPayBilling({ storage });
 
-        await billing.entitlements.grant('cus_123', 'api_access');
+        await billing.entitlements.grant({ customerId: 'cus_123', entitlementKey: 'api_access' });
         const hasAccess = await billing.entitlements.check('cus_123', 'api_access');
 
         expect(hasAccess).toBe(true);
@@ -1635,8 +1660,8 @@ describe('billing.entitlements', () => {
         const storage = createMockStorage();
         const billing = createQZPayBilling({ storage });
 
-        await billing.entitlements.grant('cus_123', 'feature_a');
-        await billing.entitlements.grant('cus_123', 'feature_b');
+        await billing.entitlements.grant({ customerId: 'cus_123', entitlementKey: 'feature_a' });
+        await billing.entitlements.grant({ customerId: 'cus_123', entitlementKey: 'feature_b' });
 
         const entitlements = await billing.entitlements.getByCustomerId('cus_123');
         expect(entitlements).toHaveLength(2);
@@ -1646,10 +1671,73 @@ describe('billing.entitlements', () => {
         const storage = createMockStorage();
         const billing = createQZPayBilling({ storage });
 
-        await billing.entitlements.grant('cus_123', 'temp_access');
+        await billing.entitlements.grant({ customerId: 'cus_123', entitlementKey: 'temp_access' });
         await billing.entitlements.revoke('cus_123', 'temp_access');
 
         expect(storage.entitlements.revoke).toHaveBeenCalledWith('cus_123', 'temp_access');
+    });
+
+    it('should revoke without throwing for non-existent entitlement (Q6)', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage });
+
+        await expect(billing.entitlements.revoke('cus_999', 'non_existent')).resolves.toBeUndefined();
+    });
+
+    it('should grant with source and sourceId (Q2)', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage });
+
+        const entitlement = await billing.entitlements.grant({
+            customerId: 'cus_123',
+            entitlementKey: 'featured_listing',
+            source: 'addon',
+            sourceId: '00000000-0000-0000-0000-000000000001'
+        });
+
+        expect(entitlement.source).toBe('addon');
+        expect(entitlement.sourceId).toBe('00000000-0000-0000-0000-000000000001');
+    });
+
+    it('should exclude expired entitlements from getByCustomerId (Q5)', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage });
+
+        await billing.entitlements.grant({
+            customerId: 'cus_123',
+            entitlementKey: 'active_feature'
+        });
+        await billing.entitlements.grant({
+            customerId: 'cus_123',
+            entitlementKey: 'expired_feature',
+            expiresAt: new Date('2020-01-01')
+        });
+
+        const results = await billing.entitlements.getByCustomerId('cus_123');
+        expect(results).toHaveLength(1);
+        expect(results[0].entitlementKey).toBe('active_feature');
+    });
+
+    it('should revokeBySource (Q7)', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage });
+        const sourceId = '00000000-0000-0000-0000-000000000002';
+
+        await billing.entitlements.grant({ customerId: 'cus_123', entitlementKey: 'ent_a', source: 'addon', sourceId });
+        await billing.entitlements.grant({ customerId: 'cus_123', entitlementKey: 'ent_b', source: 'addon', sourceId });
+
+        const count = await billing.entitlements.revokeBySource('addon', sourceId);
+        expect(count).toBe(2);
+    });
+
+    it('should accept all QZPaySourceType values for grant (Q10-13)', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage });
+
+        for (const source of ['subscription', 'purchase', 'manual', 'addon'] as const) {
+            const ent = await billing.entitlements.grant({ customerId: 'cus_123', entitlementKey: `feat_${source}`, source });
+            expect(ent.source).toBe(source);
+        }
     });
 });
 
@@ -1658,7 +1746,7 @@ describe('billing.limits', () => {
         const storage = createMockStorage();
         const billing = createQZPayBilling({ storage });
 
-        const limit = await billing.limits.set('cus_123', 'api_calls', 1000);
+        const limit = await billing.limits.set({ customerId: 'cus_123', limitKey: 'api_calls', maxValue: 1000 });
 
         expect(limit.customerId).toBe('cus_123');
         expect(limit.limitKey).toBe('api_calls');
@@ -1734,8 +1822,8 @@ describe('billing.limits', () => {
         const storage = createMockStorage();
         const billing = createQZPayBilling({ storage });
 
-        await billing.limits.set('cus_123', 'limit_a', 100);
-        await billing.limits.set('cus_123', 'limit_b', 200);
+        await billing.limits.set({ customerId: 'cus_123', limitKey: 'limit_a', maxValue: 100 });
+        await billing.limits.set({ customerId: 'cus_123', limitKey: 'limit_b', maxValue: 200 });
 
         const limits = await billing.limits.getByCustomerId('cus_123');
         expect(limits).toHaveLength(2);
@@ -1769,5 +1857,50 @@ describe('billing.limits', () => {
                 quantity: 50
             })
         );
+    });
+
+    it('should set with source and sourceId (Q3)', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage });
+
+        const limit = await billing.limits.set({
+            customerId: 'cus_123',
+            limitKey: 'max_photos',
+            maxValue: 25,
+            source: 'addon',
+            sourceId: '00000000-0000-0000-0000-000000000001'
+        });
+
+        expect(limit.source).toBe('addon');
+        expect(limit.sourceId).toBe('00000000-0000-0000-0000-000000000001');
+    });
+
+    it('should remove a limit (Q4)', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage });
+
+        await billing.limits.set({ customerId: 'cus_123', limitKey: 'api_calls', maxValue: 100 });
+        await billing.limits.remove('cus_123', 'api_calls');
+
+        expect(storage.limits.delete).toHaveBeenCalledWith('cus_123', 'api_calls');
+    });
+
+    it('should remove without throwing for non-existent limit (Q4 idempotent)', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage });
+
+        await expect(billing.limits.remove('cus_999', 'non_existent')).resolves.toBeUndefined();
+    });
+
+    it('should removeBySource (Q7)', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage });
+        const sourceId = '00000000-0000-0000-0000-000000000003';
+
+        await billing.limits.set({ customerId: 'cus_123', limitKey: 'lim_a', maxValue: 10, source: 'addon', sourceId });
+        await billing.limits.set({ customerId: 'cus_123', limitKey: 'lim_b', maxValue: 20, source: 'addon', sourceId });
+
+        const count = await billing.limits.removeBySource('addon', sourceId);
+        expect(count).toBe(2);
     });
 });

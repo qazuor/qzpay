@@ -849,7 +849,11 @@ describe('Billing Routes', () => {
             const response = await routes.request('/billing/customers/cus_123/entitlements', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ entitlementKey: 'feature_api', source: 'subscription', sourceId: 'sub_123' })
+                body: JSON.stringify({
+                    entitlementKey: 'feature_api',
+                    source: 'subscription',
+                    sourceId: '00000000-0000-0000-0000-000000000001'
+                })
             });
 
             expect(response.status).toBe(201);
@@ -901,7 +905,11 @@ describe('Billing Routes', () => {
             const response = await routes.request('/billing/customers/cus_123/entitlements', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ entitlementKey: 'feature_api', source: 'subscription', sourceId: 'sub_123' })
+                body: JSON.stringify({
+                    entitlementKey: 'feature_api',
+                    source: 'subscription',
+                    sourceId: '00000000-0000-0000-0000-000000000001'
+                })
             });
             const data = await response.json();
 

@@ -395,14 +395,14 @@ describe('Core + Drizzle Integration', () => {
         });
 
         it('should grant entitlement to customer', async () => {
-            const entitlement = await billing.entitlements.grant(customerId, 'premium_features');
+            const entitlement = await billing.entitlements.grant({ customerId, entitlementKey: 'premium_features' });
 
             expect(entitlement.customerId).toBe(customerId);
             expect(entitlement.entitlementKey).toBe('premium_features');
         });
 
         it('should check if customer has entitlement', async () => {
-            await billing.entitlements.grant(customerId, 'api_access');
+            await billing.entitlements.grant({ customerId, entitlementKey: 'api_access' });
 
             const hasAccess = await billing.entitlements.check(customerId, 'api_access');
             expect(hasAccess).toBe(true);
@@ -412,7 +412,7 @@ describe('Core + Drizzle Integration', () => {
         });
 
         it('should revoke entitlement', async () => {
-            await billing.entitlements.grant(customerId, 'temp_feature');
+            await billing.entitlements.grant({ customerId, entitlementKey: 'temp_feature' });
 
             const hasBefore = await billing.entitlements.check(customerId, 'temp_feature');
             expect(hasBefore).toBe(true);
@@ -424,8 +424,8 @@ describe('Core + Drizzle Integration', () => {
         });
 
         it('should get all entitlements for customer', async () => {
-            await billing.entitlements.grant(customerId, 'feature1');
-            await billing.entitlements.grant(customerId, 'feature2');
+            await billing.entitlements.grant({ customerId, entitlementKey: 'feature1' });
+            await billing.entitlements.grant({ customerId, entitlementKey: 'feature2' });
 
             const entitlements = await billing.entitlements.getByCustomerId(customerId);
             expect(entitlements).toHaveLength(2);
@@ -445,7 +445,7 @@ describe('Core + Drizzle Integration', () => {
         });
 
         it('should set limit for customer', async () => {
-            const limit = await billing.limits.set(customerId, 'api_calls', 1000);
+            const limit = await billing.limits.set({ customerId, limitKey: 'api_calls', maxValue: 1000 });
 
             expect(limit.customerId).toBe(customerId);
             expect(limit.limitKey).toBe('api_calls');
@@ -454,7 +454,7 @@ describe('Core + Drizzle Integration', () => {
         });
 
         it('should check limit', async () => {
-            await billing.limits.set(customerId, 'storage_gb', 10);
+            await billing.limits.set({ customerId, limitKey: 'storage_gb', maxValue: 10 });
 
             const result = await billing.limits.check(customerId, 'storage_gb');
             expect(result.allowed).toBe(true);
@@ -464,7 +464,7 @@ describe('Core + Drizzle Integration', () => {
         });
 
         it('should increment limit', async () => {
-            await billing.limits.set(customerId, 'api_calls', 100);
+            await billing.limits.set({ customerId, limitKey: 'api_calls', maxValue: 100 });
 
             const incremented = await billing.limits.increment(customerId, 'api_calls', 10);
             expect(incremented.currentValue).toBe(10);
@@ -474,7 +474,7 @@ describe('Core + Drizzle Integration', () => {
         });
 
         it('should prevent exceeding limit', async () => {
-            await billing.limits.set(customerId, 'api_calls', 5);
+            await billing.limits.set({ customerId, limitKey: 'api_calls', maxValue: 5 });
 
             // Use up the limit
             await billing.limits.increment(customerId, 'api_calls', 5);
@@ -485,8 +485,8 @@ describe('Core + Drizzle Integration', () => {
         });
 
         it('should get all limits for customer', async () => {
-            await billing.limits.set(customerId, 'limit1', 100);
-            await billing.limits.set(customerId, 'limit2', 200);
+            await billing.limits.set({ customerId, limitKey: 'limit1', maxValue: 100 });
+            await billing.limits.set({ customerId, limitKey: 'limit2', maxValue: 200 });
 
             const limits = await billing.limits.getByCustomerId(customerId);
             expect(limits).toHaveLength(2);
@@ -693,8 +693,8 @@ describe('Core + Drizzle Integration', () => {
             });
 
             // 3. Grant entitlements and set limits (using correct API)
-            await billing.entitlements.grant(customer.id, 'premium_access');
-            await billing.limits.set(customer.id, 'api_calls', 10000);
+            await billing.entitlements.grant({ customerId: customer.id, entitlementKey: 'premium_access' });
+            await billing.limits.set({ customerId: customer.id, limitKey: 'api_calls', maxValue: 10000 });
 
             // 4. Create subscription
             const subscription = await billing.subscriptions.create({

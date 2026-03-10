@@ -119,10 +119,10 @@ describe('Error Handling Integration', () => {
             });
 
             // First grant
-            await billing.entitlements.grant(customer.id, 'premium_feature');
+            await billing.entitlements.grant({ customerId: customer.id, entitlementKey: 'premium_feature' });
 
             // Second grant should not throw
-            await billing.entitlements.grant(customer.id, 'premium_feature');
+            await billing.entitlements.grant({ customerId: customer.id, entitlementKey: 'premium_feature' });
 
             // Should still have only one entitlement
             const entitlements = await billing.entitlements.getByCustomerId(customer.id);
@@ -138,10 +138,10 @@ describe('Error Handling Integration', () => {
             });
 
             // First set
-            await billing.limits.set(customer.id, 'api_calls', 100);
+            await billing.limits.set({ customerId: customer.id, limitKey: 'api_calls', maxValue: 100 });
 
             // Second set should update
-            await billing.limits.set(customer.id, 'api_calls', 200);
+            await billing.limits.set({ customerId: customer.id, limitKey: 'api_calls', maxValue: 200 });
 
             const limitCheck = await billing.limits.check(customer.id, 'api_calls');
             expect(limitCheck.maxValue).toBe(200);
@@ -347,7 +347,7 @@ describe('Error Handling Integration', () => {
         });
 
         it('should handle incrementing beyond limit', async () => {
-            await billing.limits.set(customerId, 'api_calls', 10);
+            await billing.limits.set({ customerId, limitKey: 'api_calls', maxValue: 10 });
 
             // Increment to exactly the limit
             await billing.limits.increment(customerId, 'api_calls', 10);
@@ -358,7 +358,7 @@ describe('Error Handling Integration', () => {
         });
 
         it('should handle zero limit', async () => {
-            await billing.limits.set(customerId, 'zero_limit', 0);
+            await billing.limits.set({ customerId, limitKey: 'zero_limit', maxValue: 0 });
 
             const check = await billing.limits.check(customerId, 'zero_limit');
             expect(check.allowed).toBe(false);
@@ -366,7 +366,7 @@ describe('Error Handling Integration', () => {
         });
 
         it('should track multiple increments correctly', async () => {
-            await billing.limits.set(customerId, 'multi_increment', 100);
+            await billing.limits.set({ customerId, limitKey: 'multi_increment', maxValue: 100 });
 
             // Multiple increments
             await billing.limits.increment(customerId, 'multi_increment', 10);
@@ -419,7 +419,7 @@ describe('Error Handling Integration', () => {
                 name: 'Concurrent Limits'
             });
 
-            await billing.limits.set(customer.id, 'concurrent_counter', 1000);
+            await billing.limits.set({ customerId: customer.id, limitKey: 'concurrent_counter', maxValue: 1000 });
 
             // Concurrent increments
             const increments = Array.from({ length: 10 }, () => billing.limits.increment(customer.id, 'concurrent_counter', 1));
@@ -462,8 +462,8 @@ describe('Error Handling Integration', () => {
             });
 
             // Create related data
-            await billing.entitlements.grant(customer.id, 'test_feature');
-            await billing.limits.set(customer.id, 'test_limit', 100);
+            await billing.entitlements.grant({ customerId: customer.id, entitlementKey: 'test_feature' });
+            await billing.limits.set({ customerId: customer.id, limitKey: 'test_limit', maxValue: 100 });
 
             // Delete customer
             await billing.customers.delete(customer.id);

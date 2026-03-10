@@ -425,7 +425,12 @@ describe('Admin Routes', () => {
             expect(res.status).toBe(200);
             const body = await res.json();
             expect(body.success).toBe(true);
-            expect(billing.limits.set).toHaveBeenCalledWith('cus_1', 'api_calls', 500);
+            expect(billing.limits.set).toHaveBeenCalledWith({
+                customerId: 'cus_1',
+                limitKey: 'api_calls',
+                maxValue: 500,
+                source: 'manual'
+            });
         });
     });
 

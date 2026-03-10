@@ -391,8 +391,8 @@ describe('QZPayLimitsRepository', () => {
             expect(result.exists).toBe(false);
         });
 
-        it('should throw error when deleting non-existent limit', async () => {
-            await expect(repository.delete(testCustomerId, 'non_existent')).rejects.toThrow();
+        it('should not throw when deleting non-existent limit (idempotent)', async () => {
+            await expect(repository.delete(testCustomerId, 'non_existent')).resolves.toBeUndefined();
         });
     });
 
