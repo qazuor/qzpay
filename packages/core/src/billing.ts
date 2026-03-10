@@ -4,7 +4,7 @@
 import type { QZPayEmailAdapter } from './adapters/email.adapter.js';
 import type { QZPayPaymentAdapter } from './adapters/payment.adapter.js';
 import type { QZPayStorageAdapter } from './adapters/storage.adapter.js';
-import type { QZPayBillingEvent, QZPayCurrency, QZPayPaymentStatus } from './constants/index.js';
+import type { QZPayBillingEvent, QZPayCurrency, QZPayPaymentStatus, QZPaySubscriptionStatus } from './constants/index.js';
 import { QZPayConflictError, QZPayErrorCode, QZPayNotFoundError, QZPayProviderSyncError, QZPayValidationError } from './errors/index.js';
 import { QZPayEventEmitter, type QZPayEventEmitterOptions } from './events/event-emitter.js';
 import {
@@ -27,11 +27,11 @@ import type {
     QZPaySubscriptionAddOn,
     QZPayUpdateAddOnInput
 } from './types/addon.types.js';
-import type { QZPayMetadata } from './types/common.types.js';
-import type { QZPayCustomerEntitlement } from './types/entitlements.types.js';
+import type { QZPayMetadata, QZPaySourceType } from './types/common.types.js';
+import type { QZPayCustomerEntitlement, QZPayGrantEntitlementInput } from './types/entitlements.types.js';
 import type { QZPayEventMap, QZPayTypedEventHandler } from './types/events.types.js';
 import type { QZPayInvoice } from './types/invoice.types.js';
-import type { QZPayCustomerLimit } from './types/limits.types.js';
+import type { QZPayCustomerLimit, QZPaySetLimitInput } from './types/limits.types.js';
 import type { QZPayLogger } from './types/logger.types.js';
 import type {
     QZPayChurnMetrics,
@@ -67,6 +67,15 @@ export interface QZPayUpdateSubscriptionServiceInput {
     priceId?: string;
     quantity?: number;
     metadata?: QZPayMetadata;
+    status?: QZPaySubscriptionStatus;
+    canceledAt?: Date;
+    cancelAt?: Date;
+    /** Current period start date (for renewals) */
+    currentPeriodStart?: Date;
+    /** Current period end date (for renewals) */
+    currentPeriodEnd?: Date;
+    /** Trial end date (for trial extensions) */
+    trialEnd?: Date | null;
 }
 
 /**
@@ -468,12 +477,18 @@ export interface QZPayEntitlementService {
     /**
      * Grant an entitlement to a customer
      */
-    grant: (customerId: string, entitlementKey: string, source?: string, sourceId?: string) => Promise<QZPayCustomerEntitlement>;
+    grant: (input: QZPayGrantEntitlementInput) => Promise<QZPayCustomerEntitlement>;
 
     /**
      * Revoke an entitlement from a customer
      */
     revoke: (customerId: string, entitlementKey: string) => Promise<void>;
+
+    /**
+     * Revoke all entitlements granted by a specific source.
+     * Returns the count of revoked entitlements.
+     */
+    revokeBySource: (source: QZPaySourceType, sourceId: string) => Promise<number>;
 }
 
 /**
@@ -498,7 +513,20 @@ export interface QZPayLimitService {
     /**
      * Set a limit value
      */
-    set: (customerId: string, limitKey: string, maxValue: number) => Promise<QZPayCustomerLimit>;
+    set: (input: QZPaySetLimitInput) => Promise<QZPayCustomerLimit>;
+
+    /**
+     * Remove a customer limit (idempotent).
+     * Deletes the per-customer limit row so the customer falls back to the base plan limit.
+     * Does NOT throw if the limit does not exist.
+     */
+    remove: (customerId: string, limitKey: string) => Promise<void>;
+
+    /**
+     * Remove all limits granted by a specific source.
+     * Returns the count of removed limits.
+     */
+    removeBySource: (source: QZPaySourceType, sourceId: string) => Promise<number>;
 
     /**
      * Record usage
@@ -1091,6 +1119,12 @@ class QZPayBillingImpl implements QZPayBilling {
                 const updateInput: Parameters<typeof storage.subscriptions.update>[1] = {};
                 if (input.planId !== undefined) updateInput.planId = input.planId;
                 if (input.metadata !== undefined) updateInput.metadata = input.metadata;
+                if (input.status !== undefined) updateInput.status = input.status;
+                if (input.canceledAt !== undefined) updateInput.canceledAt = input.canceledAt;
+                if (input.cancelAt !== undefined) updateInput.cancelAt = input.cancelAt;
+                if (input.currentPeriodStart !== undefined) updateInput.currentPeriodStart = input.currentPeriodStart;
+                if (input.currentPeriodEnd !== undefined) updateInput.currentPeriodEnd = input.currentPeriodEnd;
+                if (input.trialEnd !== undefined) updateInput.trialEnd = input.trialEnd;
 
                 const subscription = await storage.subscriptions.update(id, updateInput);
                 await emitter.emit('subscription.updated', subscription);
@@ -1549,16 +1583,13 @@ class QZPayBillingImpl implements QZPayBilling {
         return {
             check: (customerId, entitlementKey) => storage.entitlements.check(customerId, entitlementKey),
             getByCustomerId: (customerId) => storage.entitlements.findByCustomerId(customerId),
-            grant: async (customerId, entitlementKey, _source, _sourceId) => {
-                // External grants are always 'manual' source
-                // Subscription/purchase entitlements are granted internally
-                return storage.entitlements.grant({
-                    customerId,
-                    entitlementKey,
-                    source: 'manual'
-                });
+            grant: async (input) => {
+                return storage.entitlements.grant(input);
             },
-            revoke: (customerId, entitlementKey) => storage.entitlements.revoke(customerId, entitlementKey)
+            revoke: (customerId, entitlementKey) => storage.entitlements.revoke(customerId, entitlementKey),
+            revokeBySource: async (source, sourceId) => {
+                return storage.entitlements.revokeBySource(source, sourceId);
+            }
         };
     }
 
@@ -1583,8 +1614,14 @@ class QZPayBillingImpl implements QZPayBilling {
             increment: async (customerId, limitKey, amount = 1) => {
                 return storage.limits.increment({ customerId, limitKey, incrementBy: amount });
             },
-            set: async (customerId, limitKey, maxValue) => {
-                return storage.limits.set({ customerId, limitKey, maxValue });
+            set: async (input) => {
+                return storage.limits.set(input);
+            },
+            remove: async (customerId, limitKey) => {
+                await storage.limits.delete(customerId, limitKey);
+            },
+            removeBySource: async (source, sourceId) => {
+                return storage.limits.deleteBySource(source, sourceId);
             },
             recordUsage: async (customerId, limitKey, quantity, action = 'increment') => {
                 await storage.limits.recordUsage({

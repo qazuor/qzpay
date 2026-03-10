@@ -27,6 +27,7 @@ import type {
     QZPayPrice,
     QZPayPromoCode,
     QZPaySetLimitInput,
+    QZPaySourceType,
     QZPaySubscription,
     QZPaySubscriptionAddOn,
     QZPayUpdateAddOnInput,
@@ -170,6 +171,7 @@ export interface QZPayEntitlementStorage {
     listDefinitions(): Promise<QZPayEntitlement[]>;
     grant(input: QZPayGrantEntitlementInput): Promise<QZPayCustomerEntitlement>;
     revoke(customerId: string, entitlementKey: string): Promise<void>;
+    revokeBySource(source: QZPaySourceType, sourceId: string): Promise<number>;
     findByCustomerId(customerId: string): Promise<QZPayCustomerEntitlement[]>;
     check(customerId: string, entitlementKey: string): Promise<boolean>;
 }
@@ -179,6 +181,8 @@ export interface QZPayLimitStorage {
     findDefinitionByKey(key: string): Promise<QZPayLimit | null>;
     listDefinitions(): Promise<QZPayLimit[]>;
     set(input: QZPaySetLimitInput): Promise<QZPayCustomerLimit>;
+    delete(customerId: string, limitKey: string): Promise<void>;
+    deleteBySource(source: QZPaySourceType, sourceId: string): Promise<number>;
     increment(input: QZPayIncrementLimitInput): Promise<QZPayCustomerLimit>;
     findByCustomerId(customerId: string): Promise<QZPayCustomerLimit[]>;
     check(customerId: string, limitKey: string): Promise<QZPayCustomerLimit | null>;
