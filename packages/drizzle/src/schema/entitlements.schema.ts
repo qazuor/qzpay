@@ -80,7 +80,8 @@ export const billingCustomerEntitlements = pgTable(
         customerIdIdx: index('idx_customer_entitlements_customer_id').on(table.customerId),
         entitlementKeyIdx: index('idx_customer_entitlements_key').on(table.entitlementKey),
         customerKeyIdx: index('idx_customer_entitlements_customer_key').on(table.customerId, table.entitlementKey),
-        expiresAtIdx: index('idx_customer_entitlements_expires_at').on(table.expiresAt)
+        expiresAtIdx: index('idx_customer_entitlements_expires_at').on(table.expiresAt),
+        sourceIdx: index('idx_customer_entitlements_source').on(table.source, table.sourceId)
     })
 );
 

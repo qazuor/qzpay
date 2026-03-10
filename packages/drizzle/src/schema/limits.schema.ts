@@ -83,7 +83,8 @@ export const billingCustomerLimits = pgTable(
         customerIdIdx: index('idx_customer_limits_customer_id').on(table.customerId),
         limitKeyIdx: index('idx_customer_limits_key').on(table.limitKey),
         customerKeyIdx: index('idx_customer_limits_customer_key').on(table.customerId, table.limitKey),
-        resetAtIdx: index('idx_customer_limits_reset_at').on(table.resetAt)
+        resetAtIdx: index('idx_customer_limits_reset_at').on(table.resetAt),
+        sourceIdx: index('idx_customer_limits_source').on(table.source, table.sourceId)
     })
 );
 
