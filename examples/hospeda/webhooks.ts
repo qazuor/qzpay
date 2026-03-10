@@ -141,7 +141,7 @@ async function updateCustomerLimits(customerId: string, tier: HospedaPlanTier): 
             customerId,
             limitKey: 'max_properties',
             maxValue: limits.maxProperties,
-            source: 'plan'
+            source: 'subscription'
         });
     }
 
@@ -150,27 +150,27 @@ async function updateCustomerLimits(customerId: string, tier: HospedaPlanTier): 
             customerId,
             limitKey: 'max_photos_per_property',
             maxValue: limits.maxPhotosPerProperty,
-            source: 'plan'
+            source: 'subscription'
         });
     }
 
     // Update entitlements
     await billing.entitlements.grant({
         customerId,
-        featureKey: 'highlighted',
-        value: limits.highlighted
+        entitlementKey: 'highlighted',
+        source: 'subscription'
     });
 
     await billing.entitlements.grant({
         customerId,
-        featureKey: 'verified_badge',
-        value: limits.verifiedBadge
+        entitlementKey: 'verified_badge',
+        source: 'subscription'
     });
 
     await billing.entitlements.grant({
         customerId,
-        featureKey: 'analytics',
-        value: limits.analytics
+        entitlementKey: 'analytics',
+        source: 'subscription'
     });
 
     console.log(`[Hospeda] Updated limits for customer ${customerId} to tier ${tier}`);

@@ -45,14 +45,14 @@ export async function registerOrganization(data: {
         customerId: customer.id,
         limitKey: 'usage_messages',
         maxValue: limits.messagesPerMonth,
-        source: 'plan'
+        source: 'subscription'
     });
 
     await billing.limits.set({
         customerId: customer.id,
         limitKey: 'usage_tokens',
         maxValue: limits.tokensPerMonth,
-        source: 'plan'
+        source: 'subscription'
     });
 
     let subscription: QZPaySubscription | undefined;
@@ -124,14 +124,14 @@ export async function changePlan(
         customerId,
         limitKey: 'usage_messages',
         maxValue: newLimits.messagesPerMonth,
-        source: 'plan'
+        source: 'subscription'
     });
 
     await billing.limits.set({
         customerId,
         limitKey: 'usage_tokens',
         maxValue: newLimits.tokensPerMonth,
-        source: 'plan'
+        source: 'subscription'
     });
 
     // Update customer metadata
