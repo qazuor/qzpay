@@ -563,10 +563,12 @@ export function createBillingRoutes(config: QZPayBillingRoutesConfig): Hono<QZPa
             try {
                 const body = c.req.valid('json');
                 const entitlement = await billing.entitlements.grant(
-                    c.req.param('customerId'),
-                    body.entitlementKey,
-                    body.source,
-                    body.sourceId
+                    stripUndefined({
+                        customerId: c.req.param('customerId'),
+                        entitlementKey: body.entitlementKey,
+                        source: body.source,
+                        sourceId: body.sourceId
+                    })
                 );
                 const response: QZPayApiResponse<typeof entitlement> = { success: true, data: entitlement };
                 return c.json(response, 201);

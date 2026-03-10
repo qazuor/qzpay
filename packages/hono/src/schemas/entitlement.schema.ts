@@ -8,8 +8,8 @@ import { z } from 'zod';
  */
 export const GrantEntitlementSchema = z.object({
     entitlementKey: z.string().min(1, 'Entitlement key is required'),
-    source: z.enum(['subscription', 'purchase', 'manual']).default('manual'),
-    sourceId: z.string().optional()
+    source: z.enum(['subscription', 'purchase', 'manual', 'addon']).default('manual'),
+    sourceId: z.string().uuid('sourceId must be a valid UUID').optional()
 });
 
 // Type exports

@@ -11,7 +11,10 @@ import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { mapErrorToHttpStatus } from '../errors/error-mapper.js';
 import { HttpStatus } from '../errors/http-error.js';
 import { createQZPayMiddleware } from '../middleware/qzpay.middleware.js';
+import { GrantEntitlementSchema } from '../schemas/entitlement.schema.js';
+import { AdminSetLimitSchema } from '../schemas/limit.schema.js';
 import type { QZPayApiListResponse, QZPayApiResponse, QZPayHonoEnv } from '../types.js';
+import { zValidator } from '../validators/zod-validator.js';
 
 /**
  * Admin routes configuration
@@ -392,14 +395,16 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
     });
 
     // Grant entitlement (admin only)
-    router.post(`${prefix}/customers/:customerId/entitlements`, async (c) => {
+    router.post(`${prefix}/customers/:customerId/entitlements`, zValidator('json', GrantEntitlementSchema), async (c) => {
         try {
-            const body = await c.req.json();
+            const body = c.req.valid('json');
             const entitlement = await billing.entitlements.grant(
-                c.req.param('customerId'),
-                body.entitlementKey,
-                'admin',
-                body.sourceId || `admin_grant_${Date.now()}`
+                stripUndefined({
+                    customerId: c.req.param('customerId'),
+                    entitlementKey: body.entitlementKey,
+                    source: body.source ?? 'manual',
+                    sourceId: body.sourceId
+                })
             );
             const response: QZPayApiResponse<typeof entitlement> = { success: true, data: entitlement };
             return c.json(response, 201);
@@ -422,10 +427,18 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
     });
 
     // Set limit (admin only)
-    router.post(`${prefix}/customers/:customerId/limits/:key/set`, async (c) => {
+    router.post(`${prefix}/customers/:customerId/limits/:key/set`, zValidator('json', AdminSetLimitSchema), async (c) => {
         try {
-            const body = await c.req.json();
-            const limit = await billing.limits.set(c.req.param('customerId'), c.req.param('key'), body.maxValue);
+            const body = c.req.valid('json');
+            const limit = await billing.limits.set(
+                stripUndefined({
+                    customerId: c.req.param('customerId'),
+                    limitKey: c.req.param('key'),
+                    maxValue: body.maxValue,
+                    source: body.source,
+                    sourceId: body.sourceId
+                })
+            );
             const response: QZPayApiResponse<typeof limit> = { success: true, data: limit };
             return c.json(response);
         } catch (error) {
@@ -518,6 +531,15 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
     });
 
     return router;
+}
+
+/**
+ * Strip undefined values from object for exactOptionalPropertyTypes compatibility
+ * Zod produces `| undefined` for optional properties, but QZPay types use `?` without `| undefined`
+ * Uses double-cast to force TypeScript to accept the transformation
+ */
+function stripUndefined<T extends Record<string, unknown>, R = T>(obj: T): R {
+    return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as unknown as R;
 }
 
 /**
