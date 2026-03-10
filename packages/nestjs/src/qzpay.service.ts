@@ -176,7 +176,7 @@ export class QZPayService implements OnModuleDestroy {
     }
 
     async setLimit(customerId: string, limitKey: string, maxValue: number): Promise<QZPayCustomerLimit> {
-        return this.billing.limits.set(customerId, limitKey, maxValue);
+        return this.billing.limits.set({ customerId, limitKey, maxValue });
     }
 
     // ==================== Utility Methods ====================
