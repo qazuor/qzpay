@@ -1,5 +1,11 @@
 # @qazuor/qzpay-core
 
+## 1.2.1
+
+### Patch Changes
+
+- Add `trialEnd` to subscription update types in core, and map missing fields in the drizzle subscription mapper.
+
 ## 1.2.0
 
 ### Features

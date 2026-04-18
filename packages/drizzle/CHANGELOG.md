@@ -1,5 +1,17 @@
 # @qazuor/qzpay-drizzle
 
+## 1.3.0
+
+### Minor Changes
+
+- Add index and `maxUsesPerUser` column to `promoCodes` schema for better query performance and per-user usage limits.
+
+### Patch Changes
+
+- Add `trialEnd` to subscription update types in core, and map missing fields in the drizzle subscription mapper.
+- Updated dependencies
+  - @qazuor/qzpay-core@1.2.1
+
 ## 1.2.0
 
 ### Features
