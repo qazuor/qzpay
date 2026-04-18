@@ -3,7 +3,7 @@
  *
  * Stores promotional code definitions and usage tracking.
  */
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import type { z } from 'zod';
 
@@ -23,6 +23,7 @@ export const billingPromoCodes = pgTable(
         maxUses: integer('max_uses'),
         usedCount: integer('used_count').default(0),
         maxPerCustomer: integer('max_per_customer').default(1),
+        maxUsesPerUser: integer('max_uses_per_user').notNull().default(1),
         validPlans: text('valid_plans').array(),
         newCustomersOnly: boolean('new_customers_only').default(false),
         existingCustomersOnly: boolean('existing_customers_only').default(false),
@@ -60,7 +61,8 @@ export const billingPromoCodeUsage = pgTable(
     },
     (table) => ({
         codeIdx: index('idx_promo_usage_code').on(table.promoCodeId),
-        customerIdx: index('idx_promo_usage_customer').on(table.customerId)
+        customerIdx: index('idx_promo_usage_customer').on(table.customerId),
+        customerPromoUnique: uniqueIndex('promo_code_usage_customer_promo_unique').on(table.customerId, table.promoCodeId)
     })
 );
 
