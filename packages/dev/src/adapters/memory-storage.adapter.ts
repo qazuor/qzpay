@@ -723,6 +723,19 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                     promo.currentRedemptions += 1;
                 }
             },
+            // SPEC-123 A4: in-memory analogue of the conditional-UPDATE
+            // promo-code increment. Returns null when the increment would
+            // exceed maxRedemptions (treated as "limit reached").
+            async atomicIncrementRedemptions(id: string): Promise<QZPayPromoCode | null> {
+                const promo = data.promoCodes.get(id);
+                if (!promo) return null;
+                if (promo.maxRedemptions !== null && promo.currentRedemptions >= promo.maxRedemptions) {
+                    return null;
+                }
+                promo.currentRedemptions += 1;
+                promo.updatedAt = getCurrentTime();
+                return promo;
+            },
             async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPromoCode>> {
                 return paginate(Array.from(data.promoCodes.values()), options);
             }
