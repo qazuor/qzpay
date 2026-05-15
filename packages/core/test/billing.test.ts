@@ -208,6 +208,16 @@ function createMockStorage(): QZPayStorageAdapter {
                     promoCodes.set(id, promo);
                 }
             }),
+            atomicIncrementRedemptions: vi.fn(async (id) => {
+                const promo = promoCodes.get(id);
+                if (!promo) return null;
+                if (promo.maxRedemptions !== null && promo.currentRedemptions >= promo.maxRedemptions) {
+                    return null;
+                }
+                promo.currentRedemptions++;
+                promoCodes.set(id, promo);
+                return promo;
+            }),
             list: vi.fn(async () => ({
                 data: Array.from(promoCodes.values()),
                 total: promoCodes.size,
@@ -1582,7 +1592,43 @@ describe('billing.promoCodes', () => {
         const billing = createQZPayBilling({ storage });
         await billing.promoCodes.apply('APPLY', 'sub_123');
 
-        expect(storage.promoCodes.incrementRedemptions).toHaveBeenCalledWith('promo_1');
+        // SPEC-123 A4: apply() now uses the atomic increment to enforce
+        // maxRedemptions at the storage layer in a single conditional UPDATE.
+        expect(storage.promoCodes.atomicIncrementRedemptions).toHaveBeenCalledWith('promo_1');
+    });
+
+    // SPEC-123 A4: regression guard for the validate-then-increment race.
+    // Before this fix two concurrent redeems near maxRedemptions could
+    // both pass validation and both increment, exceeding the limit. Now
+    // the storage-level atomic update returns null on overshoot and
+    // apply() converts that into a QZPayConflictError.
+    it('should throw QZPayConflictError when atomic increment returns null (limit reached)', async () => {
+        const storage = createMockStorage() as QZPayStorageAdapter & { _setPromoCode: (p: QZPayPromoCode) => void };
+        storage._setPromoCode({
+            id: 'promo_full',
+            code: 'FULL',
+            discountType: 'percentage',
+            discountValue: 10,
+            currency: null,
+            stackingMode: 'none',
+            conditions: [],
+            maxRedemptions: 1,
+            currentRedemptions: 1,
+            maxRedemptionsPerCustomer: null,
+            validFrom: null,
+            validUntil: null,
+            applicablePlanIds: [],
+            applicableProductIds: [],
+            active: true,
+            metadata: {},
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            deletedAt: null
+        });
+
+        const billing = createQZPayBilling({ storage });
+
+        await expect(billing.promoCodes.apply('FULL', 'sub_123')).rejects.toThrow(/redemption limit/);
     });
 
     it('should get promo code by code', async () => {

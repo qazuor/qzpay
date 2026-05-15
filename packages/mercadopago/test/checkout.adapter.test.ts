@@ -65,7 +65,10 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             expect(mockPlanApi.get).toHaveBeenCalledWith({ preApprovalPlanId: 'price_1' });
             expect(mockPreferenceApi.create).toHaveBeenCalledWith({
                 body: expect.objectContaining({
-                    items: [{ id: 'price_1', title: 'Test Item', quantity: 2, unit_price: 29.99, currency_id: 'USD' }],
+                    items: [
+                        // SPEC-125: category_id is now emitted on every item (default 'services').
+                        { id: 'price_1', title: 'Test Item', category_id: 'services', quantity: 2, unit_price: 29.99, currency_id: 'USD' }
+                    ],
                     back_urls: {
                         success: 'https://example.com/success',
                         failure: 'https://example.com/cancel',
@@ -135,9 +138,11 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
                 ['price_1']
             );
 
+            // SPEC-125: payer now includes first_name/last_name (derived
+            // from email local-part when no name is supplied).
             expect(mockPreferenceApi.create).toHaveBeenCalledWith({
                 body: expect.objectContaining({
-                    payer: { email: 'test@example.com' }
+                    payer: { email: 'test@example.com', first_name: 'test', last_name: ' ' }
                 })
             });
         });
@@ -207,8 +212,9 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             expect(mockPreferenceApi.create).toHaveBeenCalledWith({
                 body: expect.objectContaining({
                     items: [
-                        { id: 'price_1', title: 'Item 1', quantity: 2, unit_price: 29.99, currency_id: 'USD' },
-                        { id: 'price_2', title: 'Item 2', quantity: 1, unit_price: 29.99, currency_id: 'USD' }
+                        // SPEC-125: category_id default 'services' on every item.
+                        { id: 'price_1', title: 'Item 1', category_id: 'services', quantity: 2, unit_price: 29.99, currency_id: 'USD' },
+                        { id: 'price_2', title: 'Item 2', category_id: 'services', quantity: 1, unit_price: 29.99, currency_id: 'USD' }
                     ]
                 })
             });
@@ -270,6 +276,221 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
 
             const call = mockPreferenceApi.create.mock.calls[0]?.[0] as { body: Record<string, unknown> };
             expect(call.body.notification_url).toBeUndefined();
+        });
+
+        // SPEC-125: parity with the Hospeda direct-SDK path. The adapter
+        // now populates `payer` with first/last name, sets `category_id`
+        // on every item, forwards a caller-supplied idempotency key, and
+        // validates the statement_descriptor format.
+        describe('quality fields (SPEC-125)', () => {
+            beforeEach(() => {
+                mockPreferenceApi.create.mockResolvedValue(createMockMPPreference({ id: 'pref_q1' }));
+            });
+
+            function readBody(): Record<string, unknown> {
+                const call = mockPreferenceApi.create.mock.calls[0]?.[0] as {
+                    body: Record<string, unknown>;
+                };
+                return call.body;
+            }
+
+            it("defaults items[].category_id to 'services'", async () => {
+                await adapter.create(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'p1', quantity: 1 }]
+                    },
+                    ['p1']
+                );
+
+                const items = readBody().items as Array<{ category_id: string }>;
+                expect(items[0]?.category_id).toBe('services');
+            });
+
+            it('honors per-line-item categoryId override', async () => {
+                await adapter.create(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'p1', quantity: 1, categoryId: 'digital_goods' }]
+                    },
+                    ['p1']
+                );
+
+                const items = readBody().items as Array<{ category_id: string }>;
+                expect(items[0]?.category_id).toBe('digital_goods');
+            });
+
+            it('splits customerName into payer.first_name / payer.last_name', async () => {
+                await adapter.create(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'p1', quantity: 1 }],
+                        customerEmail: 'juan@example.com',
+                        customerName: 'Juan Perez'
+                    },
+                    ['p1']
+                );
+
+                const payer = readBody().payer as { email: string; first_name: string; last_name: string };
+                expect(payer.email).toBe('juan@example.com');
+                expect(payer.first_name).toBe('Juan');
+                expect(payer.last_name).toBe('Perez');
+            });
+
+            it('keeps multi-word surname intact when splitting customerName', async () => {
+                await adapter.create(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'p1', quantity: 1 }],
+                        customerEmail: 'maria@example.com',
+                        customerName: 'Maria de los Angeles Gonzalez'
+                    },
+                    ['p1']
+                );
+
+                const payer = readBody().payer as { first_name: string; last_name: string };
+                expect(payer.first_name).toBe('Maria');
+                expect(payer.last_name).toBe('de los Angeles Gonzalez');
+            });
+
+            it('honors explicit payerFirstName / payerLastName over customerName', async () => {
+                await adapter.create(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'p1', quantity: 1 }],
+                        customerEmail: 'pepe@example.com',
+                        customerName: 'should-be-ignored',
+                        payerFirstName: 'Jose',
+                        payerLastName: 'Lopez'
+                    },
+                    ['p1']
+                );
+
+                const payer = readBody().payer as { first_name: string; last_name: string };
+                expect(payer.first_name).toBe('Jose');
+                expect(payer.last_name).toBe('Lopez');
+            });
+
+            it('falls back to email local-part when customerName is missing', async () => {
+                await adapter.create(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'p1', quantity: 1 }],
+                        customerEmail: 'anon.user@example.com'
+                    },
+                    ['p1']
+                );
+
+                const payer = readBody().payer as { first_name: string; last_name: string };
+                expect(payer.first_name).toBe('anon.user');
+                expect(payer.last_name).toBe(' ');
+            });
+
+            it('omits payer entirely when no customerEmail is supplied (backwards-compat)', async () => {
+                await adapter.create(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'p1', quantity: 1 }]
+                    },
+                    ['p1']
+                );
+
+                expect(readBody().payer).toBeUndefined();
+            });
+
+            it('forwards idempotencyKey via requestOptions when provided', async () => {
+                await adapter.create(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'p1', quantity: 1 }],
+                        idempotencyKey: 'my-local-order-uuid'
+                    },
+                    ['p1']
+                );
+
+                const arg = mockPreferenceApi.create.mock.calls[0]?.[0] as {
+                    requestOptions?: { idempotencyKey?: string };
+                };
+                expect(arg.requestOptions?.idempotencyKey).toBe('my-local-order-uuid');
+            });
+
+            it('omits requestOptions entirely when no idempotencyKey is supplied', async () => {
+                await adapter.create(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'p1', quantity: 1 }]
+                    },
+                    ['p1']
+                );
+
+                const arg = mockPreferenceApi.create.mock.calls[0]?.[0] as {
+                    requestOptions?: { idempotencyKey?: string };
+                };
+                expect(arg.requestOptions).toBeUndefined();
+            });
+
+            it('forwards a valid statement_descriptor', async () => {
+                await adapter.create(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'p1', quantity: 1 }],
+                        statementDescriptor: 'HOSPEDA AR'
+                    },
+                    ['p1']
+                );
+
+                expect(readBody().statement_descriptor).toBe('HOSPEDA AR');
+            });
+
+            it('rejects invalid statement_descriptor (lowercase)', async () => {
+                await expect(
+                    adapter.create(
+                        {
+                            mode: 'payment',
+                            successUrl: 'https://example.com/success',
+                            cancelUrl: 'https://example.com/cancel',
+                            lineItems: [{ priceId: 'p1', quantity: 1 }],
+                            statementDescriptor: 'hospeda'
+                        },
+                        ['p1']
+                    )
+                ).rejects.toThrow(/statement_descriptor/);
+            });
+
+            it('rejects statement_descriptor longer than 11 characters', async () => {
+                await expect(
+                    adapter.create(
+                        {
+                            mode: 'payment',
+                            successUrl: 'https://example.com/success',
+                            cancelUrl: 'https://example.com/cancel',
+                            lineItems: [{ priceId: 'p1', quantity: 1 }],
+                            statementDescriptor: 'HOSPEDAPLATFORM'
+                        },
+                        ['p1']
+                    )
+                ).rejects.toThrow(/statement_descriptor/);
+            });
         });
     });
 

@@ -1568,8 +1568,21 @@ class QZPayBillingImpl implements QZPayBilling {
             },
             apply: async (code, _subscriptionId) => {
                 const promoCode = await storage.promoCodes.findByCode(code);
-                if (promoCode) {
-                    await storage.promoCodes.incrementRedemptions(promoCode.id);
+                if (!promoCode) {
+                    return;
+                }
+
+                // Atomic increment: enforces `maxRedemptions` at the storage
+                // layer in a single conditional UPDATE so concurrent redeems
+                // near the limit cannot both succeed. Returns null when the
+                // increment would exceed the cap.
+                const updated = await storage.promoCodes.atomicIncrementRedemptions(promoCode.id);
+
+                if (!updated) {
+                    throw new QZPayConflictError(`Promo code ${code} has reached its redemption limit`, 'promo_code_limit_reached', {
+                        promoCodeId: promoCode.id,
+                        code
+                    });
                 }
             },
             getByCode: (code) => storage.promoCodes.findByCode(code),

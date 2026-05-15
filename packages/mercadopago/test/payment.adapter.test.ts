@@ -112,6 +112,84 @@ describe('QZPayMercadoPagoPaymentAdapter', () => {
 
             expect(result.status).toBe('failed');
         });
+
+        // SPEC-123 A1: regression guard for the idempotency-key-inside-retry bug.
+        // Before this fix the key was regenerated on every retry attempt, so a
+        // retry that came after MercadoPago had actually processed the first
+        // attempt would produce a duplicate charge.
+        describe('idempotency key (SPEC-123 A1)', () => {
+            it('should reuse the SAME idempotency key across retry attempts', async () => {
+                // First two calls fail with retriable errors, third one succeeds.
+                const retriableError = Object.assign(new Error('Internal server error'), {
+                    cause: [{ code: '500' }]
+                });
+                mockPaymentApi.create
+                    .mockRejectedValueOnce(retriableError)
+                    .mockRejectedValueOnce(retriableError)
+                    .mockResolvedValueOnce(createMockMPPayment({ id: 99 }));
+
+                // Tight retry config so the test runs fast.
+                const fastAdapter = new QZPayMercadoPagoPaymentAdapter({} as never, {
+                    enabled: true,
+                    maxAttempts: 3,
+                    initialDelayMs: 1,
+                    maxDelayMs: 1,
+                    backoffMultiplier: 1
+                });
+
+                const result = await fastAdapter.create('cus_123', {
+                    amount: 5000,
+                    currency: 'ARS'
+                });
+
+                expect(result.id).toBe('99');
+                expect(mockPaymentApi.create).toHaveBeenCalledTimes(3);
+
+                const keys = mockPaymentApi.create.mock.calls.map(
+                    (call) => (call[0] as { requestOptions: { idempotencyKey: string } }).requestOptions.idempotencyKey
+                );
+
+                expect(keys).toHaveLength(3);
+                expect(keys[0]).toBeDefined();
+                expect(keys[1]).toBe(keys[0]);
+                expect(keys[2]).toBe(keys[0]);
+            });
+
+            it('should respect a caller-supplied idempotency key', async () => {
+                mockPaymentApi.create.mockResolvedValue(createMockMPPayment({ id: 7 }));
+
+                await adapter.create('cus_123', {
+                    amount: 1000,
+                    currency: 'ARS',
+                    idempotencyKey: 'my-stable-correlation-id'
+                });
+
+                expect(mockPaymentApi.create).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        requestOptions: expect.objectContaining({
+                            idempotencyKey: 'my-stable-correlation-id'
+                        })
+                    })
+                );
+            });
+
+            it('should generate a fresh UUID for each independent create() call', async () => {
+                mockPaymentApi.create.mockResolvedValue(createMockMPPayment({ id: 1 }));
+
+                await adapter.create('cus_a', { amount: 1000, currency: 'ARS' });
+                await adapter.create('cus_b', { amount: 1000, currency: 'ARS' });
+
+                const keys = mockPaymentApi.create.mock.calls.map(
+                    (call) => (call[0] as { requestOptions: { idempotencyKey: string } }).requestOptions.idempotencyKey
+                );
+
+                expect(keys).toHaveLength(2);
+                expect(keys[0]).not.toBe(keys[1]);
+                // Default format is qzpay_<uuid>; both should look like that.
+                expect(keys[0]).toMatch(/^qzpay_[0-9a-f-]+$/);
+                expect(keys[1]).toMatch(/^qzpay_[0-9a-f-]+$/);
+            });
+        });
     });
 
     describe('capture', () => {

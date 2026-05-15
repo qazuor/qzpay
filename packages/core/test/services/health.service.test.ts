@@ -63,6 +63,7 @@ describe('Health Service', () => {
                 findByCode: vi.fn(),
                 update: vi.fn(),
                 incrementRedemptions: vi.fn(),
+                atomicIncrementRedemptions: vi.fn(),
                 list: vi.fn().mockResolvedValue({ data: [], total: 0, hasMore: false })
             },
             entitlements: {

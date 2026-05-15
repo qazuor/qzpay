@@ -41,13 +41,13 @@ describe('QZPayMercadoPagoAdapter', () => {
             expect(adapter.webhooks).toBeInstanceOf(QZPayMercadoPagoWebhookAdapter);
         });
 
-        it('should throw error when access token does not start with APP_USR- or TEST-', () => {
+        it('should throw error when access token does not start with APP_USR-', () => {
             expect(() => {
                 new QZPayMercadoPagoAdapter({
                     accessToken: 'invalid_token',
                     webhookSecret: 'secret_123'
                 });
-            }).toThrow("Invalid MercadoPago access token format. Expected token starting with 'APP_USR-' or 'TEST-'");
+            }).toThrow(/APP_USR-/);
         });
 
         it('should accept valid APP_USR- access token', () => {
@@ -59,13 +59,17 @@ describe('QZPayMercadoPagoAdapter', () => {
             expect(adapter.provider).toBe('mercadopago');
         });
 
-        it('should accept valid TEST- access token', () => {
-            const adapter = new QZPayMercadoPagoAdapter({
-                accessToken: 'TEST-sandbox-token-123',
-                webhookSecret: 'secret_123'
-            });
-
-            expect(adapter.provider).toBe('mercadopago');
+        // SPEC-123 A3: current MercadoPago no longer emits the legacy
+        // `TEST-` prefix — both sandbox and production tokens use
+        // `APP_USR-`. The adapter now rejects `TEST-` to surface
+        // mis-configurations early.
+        it('should reject legacy TEST- access token (stale prefix)', () => {
+            expect(() => {
+                new QZPayMercadoPagoAdapter({
+                    accessToken: 'TEST-sandbox-token-123',
+                    webhookSecret: 'secret_123'
+                });
+            }).toThrow(/APP_USR-/);
         });
 
         it('should use default timeout when not specified', async () => {
@@ -122,17 +126,21 @@ describe('QZPayMercadoPagoAdapter', () => {
             });
         });
 
-        it('should detect sandbox mode from TEST token', () => {
+        // SPEC-123 A5: sandbox mode is now an explicit config flag, not
+        // inferred from the access token shape (current MP uses APP_USR-
+        // for both sandbox and production tokens, so the old `includes('TEST')`
+        // heuristic always returned false in practice).
+        it('should use sandbox mode when explicitly configured', () => {
             const adapter = new QZPayMercadoPagoAdapter({
-                accessToken: 'TEST-12345-token',
-                webhookSecret: 'secret'
+                accessToken: 'APP_USR-sandbox-token-123',
+                webhookSecret: 'secret',
+                sandbox: true
             });
 
-            // Checkout adapter should be in sandbox mode
             expect(adapter.checkout).toBeInstanceOf(QZPayMercadoPagoCheckoutAdapter);
         });
 
-        it('should detect production mode from non-TEST token', () => {
+        it('should default to production mode when sandbox is unset', () => {
             const adapter = new QZPayMercadoPagoAdapter({
                 accessToken: 'APP_USR-production-token',
                 webhookSecret: 'secret'

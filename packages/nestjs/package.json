@@ -1,6 +1,6 @@
 {
     "name": "@qazuor/qzpay-nestjs",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "description": "NestJS integration for QZPay billing library",
     "type": "module",
     "main": "./dist/index.js",
