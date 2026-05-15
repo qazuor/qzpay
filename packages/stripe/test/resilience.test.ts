@@ -401,7 +401,18 @@ describe('Stripe Subscription Adapter Resilience', () => {
                 new StripeInvalidRequestError('This customer has no attached payment source or default payment method')
             );
 
-            await expect(adapter.create('cus_123', { priceId: 'price_123' })).rejects.toThrow('no attached payment source');
+            await expect(
+                adapter.create({
+                    providerCustomerId: 'cus_123',
+                    providerPriceId: 'price_123',
+                    input: { customerId: 'cus_local', planId: 'plan_local' },
+                    customer: { email: 'test@example.com' },
+                    price: { amount: 1000, currency: 'USD', interval: 'month', intervalCount: 1 },
+                    plan: { name: 'Test' },
+                    externalReference: 'sub_local',
+                    idempotencyKey: 'sub_local'
+                })
+            ).rejects.toThrow('no attached payment source');
         });
     });
 
@@ -409,7 +420,18 @@ describe('Stripe Subscription Adapter Resilience', () => {
         it('should handle invalid price ID', async () => {
             mockStripeClient.subscriptions.create.mockRejectedValue(new StripeInvalidRequestError('No such price: price_invalid'));
 
-            await expect(adapter.create('cus_123', { priceId: 'price_invalid' })).rejects.toThrow('No such price');
+            await expect(
+                adapter.create({
+                    providerCustomerId: 'cus_123',
+                    providerPriceId: 'price_invalid',
+                    input: { customerId: 'cus_local', planId: 'plan_local' },
+                    customer: { email: 'test@example.com' },
+                    price: { amount: 1000, currency: 'USD', interval: 'month', intervalCount: 1 },
+                    plan: { name: 'Test' },
+                    externalReference: 'sub_local',
+                    idempotencyKey: 'sub_local'
+                })
+            ).rejects.toThrow('No such price');
         });
     });
 });

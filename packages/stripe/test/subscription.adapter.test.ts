@@ -1,9 +1,32 @@
 /**
  * Stripe Subscription Adapter Tests
  */
+import type { QZPayCreateSubscriptionInput, QZPayProviderCreateSubscriptionInput } from '@qazuor/qzpay-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QZPayStripeSubscriptionAdapter } from '../src/adapters/subscription.adapter.js';
 import { createMockStripeClient, createMockStripeSubscription } from './helpers/stripe-mocks.js';
+
+/**
+ * Build a provider create-subscription input for the Stripe adapter tests. Only
+ * `providerCustomerId`, `providerPriceId`, and the original `input` fields are
+ * meaningful for Stripe — the other fields are populated with safe defaults.
+ */
+function buildInput(
+    providerCustomerId: string,
+    inputOverrides: Partial<QZPayCreateSubscriptionInput>,
+    providerPriceId: string
+): QZPayProviderCreateSubscriptionInput {
+    return {
+        providerCustomerId,
+        providerPriceId,
+        input: { customerId: 'cus_local', planId: 'plan_local', ...inputOverrides },
+        customer: { email: 'test@example.com' },
+        price: { amount: 0, currency: 'USD', interval: 'month', intervalCount: 1 },
+        plan: { name: 'Test Plan' },
+        externalReference: 'sub_local',
+        idempotencyKey: 'sub_local'
+    };
+}
 
 describe('QZPayStripeSubscriptionAdapter', () => {
     let adapter: QZPayStripeSubscriptionAdapter;
@@ -20,7 +43,7 @@ describe('QZPayStripeSubscriptionAdapter', () => {
             const mockSub = createMockStripeSubscription({ id: 'sub_new123' });
             vi.mocked(mockStripe.subscriptions.create).mockResolvedValue(mockSub);
 
-            const result = await adapter.create('cus_123', { planId: 'plan_123' }, 'price_123');
+            const result = await adapter.create(buildInput('cus_123', { planId: 'plan_123' }, 'price_123'));
 
             expect(result.id).toBe('sub_new123');
             expect(mockStripe.subscriptions.create).toHaveBeenCalledWith({
@@ -34,7 +57,7 @@ describe('QZPayStripeSubscriptionAdapter', () => {
             const mockSub = createMockStripeSubscription();
             vi.mocked(mockStripe.subscriptions.create).mockResolvedValue(mockSub);
 
-            await adapter.create('cus_123', { planId: 'plan_123', quantity: 5 }, 'price_123');
+            await adapter.create(buildInput('cus_123', { planId: 'plan_123', quantity: 5 }, 'price_123'));
 
             expect(mockStripe.subscriptions.create).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -47,7 +70,7 @@ describe('QZPayStripeSubscriptionAdapter', () => {
             const mockSub = createMockStripeSubscription();
             vi.mocked(mockStripe.subscriptions.create).mockResolvedValue(mockSub);
 
-            await adapter.create('cus_123', { planId: 'plan_123', trialDays: 14 }, 'price_123');
+            await adapter.create(buildInput('cus_123', { planId: 'plan_123', trialDays: 14 }, 'price_123'));
 
             expect(mockStripe.subscriptions.create).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -60,7 +83,7 @@ describe('QZPayStripeSubscriptionAdapter', () => {
             const mockSub = createMockStripeSubscription();
             vi.mocked(mockStripe.subscriptions.create).mockResolvedValue(mockSub);
 
-            await adapter.create('cus_123', { planId: 'plan_123', trialDays: 0 }, 'price_123');
+            await adapter.create(buildInput('cus_123', { planId: 'plan_123', trialDays: 0 }, 'price_123'));
 
             expect(mockStripe.subscriptions.create).toHaveBeenCalledWith(
                 expect.not.objectContaining({
@@ -73,7 +96,7 @@ describe('QZPayStripeSubscriptionAdapter', () => {
             const mockSub = createMockStripeSubscription();
             vi.mocked(mockStripe.subscriptions.create).mockResolvedValue(mockSub);
 
-            await adapter.create('cus_123', { planId: 'plan_123', metadata: { source: 'web' } }, 'price_123');
+            await adapter.create(buildInput('cus_123', { planId: 'plan_123', metadata: { source: 'web' } }, 'price_123'));
 
             expect(mockStripe.subscriptions.create).toHaveBeenCalledWith(
                 expect.objectContaining({
@@ -97,7 +120,7 @@ describe('QZPayStripeSubscriptionAdapter', () => {
             });
             vi.mocked(mockStripe.subscriptions.create).mockResolvedValue(mockSub);
 
-            const result = await adapter.create('cus_123', { planId: 'plan_123' }, 'price_123');
+            const result = await adapter.create(buildInput('cus_123', { planId: 'plan_123' }, 'price_123'));
 
             expect(result).toEqual({
                 id: 'sub_123',

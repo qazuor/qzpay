@@ -1,6 +1,6 @@
 import type {
-    QZPayCreateSubscriptionInput,
     QZPayPaymentSubscriptionAdapter,
+    QZPayProviderCreateSubscriptionInput,
     QZPayProviderSubscription,
     QZPayUpdateSubscriptionInput
 } from '@qazuor/qzpay-core';
@@ -24,24 +24,30 @@ export class QZPayStripeSubscriptionAdapter implements QZPayPaymentSubscriptionA
     ) {}
 
     /**
-     * Create a subscription in Stripe
+     * Create a subscription in Stripe.
+     *
+     * Reads `providerCustomerId`, `providerPriceId`, and the original
+     * `input.quantity` / `input.trialDays` / `input.metadata` from the
+     * orchestrator-resolved input. Fields specific to MercadoPago preapprovals
+     * (`backUrl`, `notificationUrl`, `freeTrialDays`, etc.) are intentionally
+     * ignored — Stripe handles those differently (default payment method on
+     * customer, webhook endpoints configured at account level, trial via
+     * `trial_period_days`).
      */
-    async create(
-        providerCustomerId: string,
-        input: QZPayCreateSubscriptionInput,
-        providerPriceId: string
-    ): Promise<QZPayProviderSubscription> {
+    async create(providerInput: QZPayProviderCreateSubscriptionInput): Promise<QZPayProviderSubscription> {
         return withRetry(
             async () => {
+                if (!providerInput.providerPriceId) {
+                    throw new Error('Stripe subscription create requires providerPriceId');
+                }
                 const params: Stripe.SubscriptionCreateParams = {
-                    customer: providerCustomerId,
-                    items: [{ price: providerPriceId, quantity: input.quantity ?? 1 }],
-                    metadata: input.metadata ? toStripeMetadata(input.metadata) : {}
+                    customer: providerInput.providerCustomerId,
+                    items: [{ price: providerInput.providerPriceId, quantity: providerInput.input.quantity ?? 1 }],
+                    metadata: providerInput.input.metadata ? toStripeMetadata(providerInput.input.metadata) : {}
                 };
 
-                // Handle trial period
-                if (input.trialDays !== undefined && input.trialDays > 0) {
-                    params.trial_period_days = input.trialDays;
+                if (providerInput.input.trialDays !== undefined && providerInput.input.trialDays > 0) {
+                    params.trial_period_days = providerInput.input.trialDays;
                 }
 
                 const subscription = await this.stripe.subscriptions.create(params);

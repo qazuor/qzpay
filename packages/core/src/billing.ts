@@ -2,7 +2,7 @@
  * QZPayBilling factory and main entry point
  */
 import type { QZPayEmailAdapter } from './adapters/email.adapter.js';
-import type { QZPayPaymentAdapter } from './adapters/payment.adapter.js';
+import type { QZPayPaymentAdapter, QZPayProviderCreateSubscriptionInput } from './adapters/payment.adapter.js';
 import type { QZPayStorageAdapter } from './adapters/storage.adapter.js';
 import type { QZPayBillingEvent, QZPayCurrency, QZPayPaymentStatus, QZPaySubscriptionStatus } from './constants/index.js';
 import { QZPayConflictError, QZPayErrorCode, QZPayNotFoundError, QZPayProviderSyncError, QZPayValidationError } from './errors/index.js';
@@ -60,6 +60,16 @@ export interface QZPayCreateSubscriptionServiceInput {
     trialDays?: number;
     promoCodeId?: string;
     metadata?: QZPayMetadata;
+    /** SPEC-124: `'paid'` invokes the provider subscription adapter; `'trial'` (default) is storage-only. */
+    mode?: 'trial' | 'paid';
+    /** SPEC-124: billing cadence label forwarded to the provider for the user-facing `reason`. */
+    billingInterval?: 'monthly' | 'annual';
+    /** SPEC-124: provider `back_url` (MP) — where the user returns after authorizing. */
+    paymentMethodReturnUrl?: string;
+    /** SPEC-124: provider `notification_url` (MP) — webhook destination for this subscription. */
+    notificationUrl?: string;
+    /** SPEC-124: extra free-trial days applied at the provider level (e.g. MP `auto_recurring.free_trial`). */
+    freeTrialDays?: number;
 }
 
 export interface QZPayUpdateSubscriptionServiceInput {
@@ -76,6 +86,8 @@ export interface QZPayUpdateSubscriptionServiceInput {
     currentPeriodEnd?: Date;
     /** Trial end date (for trial extensions) */
     trialEnd?: Date | null;
+    /** SPEC-124: new recurring charge amount (major units, e.g. ARS) for plan-change scenarios. */
+    transactionAmount?: number;
 }
 
 /**
@@ -309,11 +321,38 @@ export interface QZPaySubscriptionService {
     changePlan: (id: string, options: QZPayChangePlanOptions) => Promise<QZPayChangePlanResult>;
 
     /**
+     * Link a provider-side subscription ID (e.g. MercadoPago preapproval ID) to
+     * a local subscription record. Intended for webhook handlers and
+     * reconciliation jobs that receive provider confirmation AFTER the local
+     * record was created (the typical `mode: 'paid'` create flow uses this
+     * internally too, but consumers usually call it from webhook code).
+     *
+     * Emits `subscription.linked`.
+     *
+     * @throws QZPayNotFoundError if `localSubscriptionId` does not exist.
+     */
+    linkProviderId: (input: QZPayLinkProviderIdInput) => Promise<QZPaySubscriptionWithHelpers>;
+
+    /**
      * List subscriptions with pagination
      */
     list: (
         options?: Parameters<QZPayStorageAdapter['subscriptions']['list']>[0]
     ) => ReturnType<QZPayStorageAdapter['subscriptions']['list']>;
+}
+
+/**
+ * Input for `billing.subscriptions.linkProviderId()`. The provider name is
+ * the same string used by the corresponding `QZPayPaymentAdapter.provider`
+ * (`'mercadopago'`, `'stripe'`, etc.).
+ */
+export interface QZPayLinkProviderIdInput {
+    /** Local subscription UUID (the `id` field of the persisted record). */
+    localSubscriptionId: string;
+    /** Provider identifier — must match the key under which the ID is stored. */
+    provider: string;
+    /** Provider-side subscription identifier (e.g. MP preapproval ID, Stripe `sub_*`). */
+    providerSubscriptionId: string;
 }
 
 /**
@@ -1080,10 +1119,26 @@ class QZPayBillingImpl implements QZPayBilling {
         const emitter = this.emitter;
         const planMap = this.planMap;
         const gracePeriodConfig = this.gracePeriodConfig;
+        const paymentAdapter = this.paymentAdapter;
+        const providerSyncErrorStrategy = this.providerSyncErrorStrategy;
+        const logger = this.logger;
 
-        // Helper to wrap subscription with helper methods
-        const wrapWithHelpers = (subscription: QZPaySubscription): QZPaySubscriptionWithHelpers => {
-            return qzpayCreateSubscriptionWithHelpers(subscription, gracePeriodConfig);
+        /**
+         * Wrap a subscription with helper methods. When `extras` are present
+         * (paid-mode create), expose the provider's hosted-authorization URLs.
+         */
+        const wrapWithHelpers = (
+            subscription: QZPaySubscription,
+            extras?: { providerInitPoint?: string; providerSandboxInitPoint?: string }
+        ): QZPaySubscriptionWithHelpers => {
+            const wrapped = qzpayCreateSubscriptionWithHelpers(subscription, gracePeriodConfig);
+            if (extras?.providerInitPoint) {
+                wrapped.providerInitPoint = extras.providerInitPoint;
+            }
+            if (extras?.providerSandboxInitPoint) {
+                wrapped.providerSandboxInitPoint = extras.providerSandboxInitPoint;
+            }
+            return wrapped;
         };
 
         return {
@@ -1103,6 +1158,76 @@ class QZPayBillingImpl implements QZPayBilling {
                 else if (price?.trialDays != null) createInput.trialDays = price.trialDays;
 
                 const subscription = await storage.subscriptions.create(createInput);
+
+                // SPEC-124: paid mode wires the subscription preapproval at the provider.
+                // Skipped for the default (undefined / 'trial') mode, preserving pre-SPEC-124 behavior.
+                if (input.mode === 'paid' && paymentAdapter?.subscriptions) {
+                    if (!plan || !price) {
+                        throw new QZPayValidationError(
+                            `Cannot create paid subscription: plan '${input.planId}' or its price is not configured`,
+                            'planId'
+                        );
+                    }
+                    const customer = await storage.customers.findById(input.customerId);
+                    if (!customer) {
+                        throw new QZPayNotFoundError('Customer', input.customerId);
+                    }
+                    const providerCustomerId = customer.providerCustomerIds?.[paymentAdapter.provider];
+                    if (!providerCustomerId) {
+                        throw new QZPayValidationError(
+                            `Customer ${input.customerId} has no provider customer ID for '${paymentAdapter.provider}'`,
+                            'customerId'
+                        );
+                    }
+
+                    const [firstName, ...rest] = (customer.name ?? '').trim().split(/\s+/);
+                    const providerPriceId = price.providerPriceIds?.[paymentAdapter.provider];
+                    const providerInput: QZPayProviderCreateSubscriptionInput = {
+                        providerCustomerId,
+                        input,
+                        customer: {
+                            email: customer.email,
+                            ...(firstName ? { firstName } : {}),
+                            ...(rest.length > 0 ? { lastName: rest.join(' ') } : {})
+                        },
+                        price: {
+                            amount: price.unitAmount,
+                            currency: price.currency,
+                            interval: price.billingInterval,
+                            intervalCount: price.intervalCount ?? 1
+                        },
+                        plan: { name: plan.name },
+                        externalReference: subscription.id,
+                        idempotencyKey: subscription.id,
+                        ...(providerPriceId ? { providerPriceId } : {}),
+                        ...(input.paymentMethodReturnUrl ? { backUrl: input.paymentMethodReturnUrl } : {}),
+                        ...(input.notificationUrl ? { notificationUrl: input.notificationUrl } : {})
+                    };
+
+                    try {
+                        const providerResult = await paymentAdapter.subscriptions.create(providerInput);
+                        const linked = await storage.subscriptions.update(subscription.id, {
+                            providerSubscriptionIds: { [paymentAdapter.provider]: providerResult.id }
+                        });
+                        await emitter.emit('subscription.created', linked);
+                        return wrapWithHelpers(linked, {
+                            ...(providerResult.initPoint ? { providerInitPoint: providerResult.initPoint } : {}),
+                            ...(providerResult.sandboxInitPoint ? { providerSandboxInitPoint: providerResult.sandboxInitPoint } : {})
+                        });
+                    } catch (error) {
+                        if (providerSyncErrorStrategy === 'throw') {
+                            // Roll back the local record so the user can retry cleanly.
+                            await storage.subscriptions.delete(subscription.id);
+                            throw error;
+                        }
+                        logger.warn('Failed to create provider subscription, keeping local record (providerSyncErrorStrategy=log)', {
+                            error: error instanceof Error ? error.message : String(error),
+                            subscriptionId: subscription.id,
+                            provider: paymentAdapter.provider
+                        });
+                    }
+                }
+
                 await emitter.emit('subscription.created', subscription);
                 return wrapWithHelpers(subscription);
             },
@@ -1112,7 +1237,7 @@ class QZPayBillingImpl implements QZPayBilling {
             },
             getByCustomerId: async (customerId) => {
                 const subscriptions = await storage.subscriptions.findByCustomerId(customerId);
-                return subscriptions.map(wrapWithHelpers);
+                return subscriptions.map((s) => wrapWithHelpers(s));
             },
             update: async (id, input) => {
                 // Build update input, only including defined values
@@ -1240,6 +1365,17 @@ class QZPayBillingImpl implements QZPayBilling {
                     subscription: wrapWithHelpers(updatedSubscription),
                     proration
                 };
+            },
+            linkProviderId: async ({ localSubscriptionId, provider, providerSubscriptionId }) => {
+                const existing = await storage.subscriptions.findById(localSubscriptionId);
+                if (!existing) {
+                    throw new QZPayNotFoundError('Subscription', localSubscriptionId);
+                }
+                const linked = await storage.subscriptions.update(localSubscriptionId, {
+                    providerSubscriptionIds: { [provider]: providerSubscriptionId }
+                });
+                await emitter.emit('subscription.linked', linked);
+                return wrapWithHelpers(linked);
             },
             list: (options) => storage.subscriptions.list(options)
         };

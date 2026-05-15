@@ -1148,6 +1148,451 @@ describe('billing.subscriptions', () => {
         expect(result.subscription.planId).toBe('pro');
         expect(result.proration).toBeNull();
     });
+
+    describe('paid mode (SPEC-124)', () => {
+        const proPlanWithPrice: QZPayPlan = {
+            id: 'pro-paid',
+            name: 'Pro Plan Paid',
+            description: 'Paid plan with provider price',
+            active: true,
+            prices: [
+                {
+                    id: 'price_1',
+                    planId: 'pro-paid',
+                    nickname: null,
+                    currency: 'ARS',
+                    unitAmount: 2999.99,
+                    billingInterval: 'month',
+                    intervalCount: 1,
+                    trialDays: null,
+                    active: true,
+                    providerPriceIds: { mercadopago: 'mp_price_xyz' },
+                    metadata: {},
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                }
+            ],
+            metadata: {}
+        };
+
+        type MockSubscriptionAdapter = {
+            create: ReturnType<typeof vi.fn>;
+            update: ReturnType<typeof vi.fn>;
+            cancel: ReturnType<typeof vi.fn>;
+            pause: ReturnType<typeof vi.fn>;
+            resume: ReturnType<typeof vi.fn>;
+            retrieve: ReturnType<typeof vi.fn>;
+        };
+
+        function createMockPaymentAdapter(subscriptionAdapter: MockSubscriptionAdapter) {
+            return {
+                provider: 'mercadopago' as const,
+                customers: {
+                    create: vi.fn(async () => 'mp_cus_default'),
+                    update: vi.fn(),
+                    delete: vi.fn(),
+                    retrieve: vi.fn()
+                },
+                subscriptions: subscriptionAdapter,
+                payments: {
+                    create: vi.fn(),
+                    capture: vi.fn(),
+                    cancel: vi.fn(),
+                    refund: vi.fn(),
+                    retrieve: vi.fn()
+                },
+                checkout: {
+                    create: vi.fn(),
+                    retrieve: vi.fn(),
+                    expire: vi.fn()
+                }
+                // biome-ignore lint/suspicious/noExplicitAny: cast to satisfy structural QZPayPaymentAdapter shape in test
+            } as any;
+        }
+
+        async function seedCustomerWithProviderId(storage: QZPayStorageAdapter) {
+            return storage.customers.create({
+                email: 'jane.doe@example.com',
+                name: 'Jane Doe',
+                externalId: 'ext_paid',
+                providerCustomerIds: { mercadopago: 'mp_cus_jane' }
+            } as never);
+        }
+
+        it('does NOT call the provider adapter for default (undefined) mode — regression guard', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid' });
+
+            expect(subscriptionAdapter.create).not.toHaveBeenCalled();
+        });
+
+        it('does NOT call the provider adapter when mode is explicitly trial', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'trial' });
+
+            expect(subscriptionAdapter.create).not.toHaveBeenCalled();
+        });
+
+        it('happy path: calls adapter, persists provider ID, exposes initPoint on return', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => ({
+                    id: 'preapproval_mp_new',
+                    status: 'pending',
+                    currentPeriodStart: new Date(),
+                    currentPeriodEnd: new Date(),
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                    trialStart: null,
+                    trialEnd: null,
+                    metadata: {},
+                    initPoint: 'https://mp.example.com/preapproval?id=abc',
+                    sandboxInitPoint: 'https://sandbox.mp.example.com/preapproval?id=abc'
+                })),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            const result = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                mode: 'paid',
+                paymentMethodReturnUrl: 'https://app.example.com/return',
+                notificationUrl: 'https://app.example.com/wh'
+            });
+
+            // Adapter received resolved customer + price + plan + orchestration data
+            expect(subscriptionAdapter.create).toHaveBeenCalledTimes(1);
+            const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+            expect(adapterCall.providerCustomerId).toBe('mp_cus_jane');
+            expect(adapterCall.providerPriceId).toBe('mp_price_xyz');
+            expect(adapterCall.customer).toEqual({ email: 'jane.doe@example.com', firstName: 'Jane', lastName: 'Doe' });
+            expect(adapterCall.price).toEqual({ amount: 2999.99, currency: 'ARS', interval: 'month', intervalCount: 1 });
+            expect(adapterCall.externalReference).toBe(result.id);
+            expect(adapterCall.idempotencyKey).toBe(result.id);
+            expect(adapterCall.backUrl).toBe('https://app.example.com/return');
+            expect(adapterCall.notificationUrl).toBe('https://app.example.com/wh');
+
+            // Local subscription has provider ID linked
+            expect(result.providerSubscriptionIds.mercadopago).toBe('preapproval_mp_new');
+
+            // initPoint / sandboxInitPoint surfaced on return
+            expect(result.providerInitPoint).toBe('https://mp.example.com/preapproval?id=abc');
+            expect(result.providerSandboxInitPoint).toBe('https://sandbox.mp.example.com/preapproval?id=abc');
+        });
+
+        it('strategy=throw: rolls back the local subscription when adapter throws', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => {
+                    throw new Error('MP refused the preapproval');
+                }),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter),
+                providerSyncErrorStrategy: 'throw'
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            await expect(billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' })).rejects.toThrow(
+                'MP refused'
+            );
+
+            // storage.subscriptions.delete called with the rolled-back ID
+            expect(storage.subscriptions.delete).toHaveBeenCalled();
+        });
+
+        it('strategy=log: keeps the local subscription when adapter throws and does NOT throw', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => {
+                    throw new Error('MP timed out');
+                }),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter),
+                providerSyncErrorStrategy: 'log'
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            const result = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                mode: 'paid'
+            });
+
+            // Returned the locally-persisted subscription, no rollback
+            expect(result.id).toBeDefined();
+            expect(storage.subscriptions.delete).not.toHaveBeenCalled();
+        });
+
+        it('throws ValidationError when the customer has no provider ID for the configured provider', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            // Seed a customer without providerCustomerIds.mercadopago
+            const customer = await storage.customers.create({
+                email: 'no-mp@example.com',
+                name: 'NoMP',
+                externalId: 'ext_no_mp',
+                providerCustomerIds: {}
+            } as never);
+
+            await expect(billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' })).rejects.toThrow(
+                'no provider customer ID'
+            );
+            expect(subscriptionAdapter.create).not.toHaveBeenCalled();
+        });
+
+        it('throws ValidationError when the plan has no price configured', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const planNoPrice: QZPayPlan = {
+                id: 'no-price',
+                name: 'No Price',
+                description: null,
+                active: true,
+                prices: [],
+                metadata: {}
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [planNoPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            await expect(billing.subscriptions.create({ customerId: customer.id, planId: 'no-price', mode: 'paid' })).rejects.toThrow(
+                'plan'
+            );
+            expect(subscriptionAdapter.create).not.toHaveBeenCalled();
+        });
+
+        // Regression guard for the bug pattern fixed in SPEC-123 (payment adapter):
+        // the idempotency key MUST be derived from a value that is stable across the
+        // entire create flow (the local subscription UUID). If a future refactor
+        // regenerates the key inside the adapter, retries would use a different key
+        // and the provider would create duplicate preapprovals.
+        it('idempotency: idempotencyKey === externalReference === local subscription id (stable across the call)', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => ({
+                    id: 'preapproval_mp_idem',
+                    status: 'pending',
+                    currentPeriodStart: new Date(),
+                    currentPeriodEnd: new Date(),
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                    trialStart: null,
+                    trialEnd: null,
+                    metadata: {}
+                })),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            const result = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                mode: 'paid'
+            });
+
+            expect(subscriptionAdapter.create).toHaveBeenCalledTimes(1);
+            const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+            expect(adapterCall.idempotencyKey).toBe(result.id);
+            expect(adapterCall.externalReference).toBe(result.id);
+        });
+
+        // Concurrent calls with the same logical input MUST produce DIFFERENT
+        // subscriptions (different UUIDs → different idempotency keys → distinct
+        // preapprovals at the provider). The deduplication of "same intent, same
+        // user, same plan" is a higher-level concern (Hospeda enforces it via a
+        // pending-sub TTL + plan-picker UX); the qzpay layer treats each `create`
+        // call as an independent intent.
+        it('idempotency: two sequential creates produce two distinct subscriptions + two adapter calls', async () => {
+            const storage = createMockStorage();
+            let counter = 0;
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => ({
+                    id: `preapproval_mp_${++counter}`,
+                    status: 'pending',
+                    currentPeriodStart: new Date(),
+                    currentPeriodEnd: new Date(),
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                    trialStart: null,
+                    trialEnd: null,
+                    metadata: {}
+                })),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            const first = await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' });
+            const second = await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' });
+
+            expect(first.id).not.toBe(second.id);
+            expect(subscriptionAdapter.create).toHaveBeenCalledTimes(2);
+            const firstCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+            const secondCall = subscriptionAdapter.create.mock.calls[1]?.[0];
+            expect(firstCall.idempotencyKey).not.toBe(secondCall.idempotencyKey);
+            expect(first.providerSubscriptionIds.mercadopago).toBe('preapproval_mp_1');
+            expect(second.providerSubscriptionIds.mercadopago).toBe('preapproval_mp_2');
+        });
+    });
+
+    describe('linkProviderId (SPEC-124)', () => {
+        it('writes the provider subscription ID to the local record', async () => {
+            const storage = createMockStorage();
+            const billing = createQZPayBilling({ storage, plans: mockPlans });
+            const created = await billing.subscriptions.create({ customerId: 'cus_link', planId: 'pro' });
+
+            const linked = await billing.subscriptions.linkProviderId({
+                localSubscriptionId: created.id,
+                provider: 'mercadopago',
+                providerSubscriptionId: 'preapproval_mp_link_1'
+            });
+
+            expect(linked.providerSubscriptionIds.mercadopago).toBe('preapproval_mp_link_1');
+        });
+
+        it('works for any provider key (forward compat)', async () => {
+            const storage = createMockStorage();
+            const billing = createQZPayBilling({ storage, plans: mockPlans });
+            const created = await billing.subscriptions.create({ customerId: 'cus_link', planId: 'pro' });
+
+            const linked = await billing.subscriptions.linkProviderId({
+                localSubscriptionId: created.id,
+                provider: 'stripe',
+                providerSubscriptionId: 'sub_stripe_link_1'
+            });
+
+            expect(linked.providerSubscriptionIds.stripe).toBe('sub_stripe_link_1');
+        });
+
+        it('emits subscription.linked', async () => {
+            const storage = createMockStorage();
+            const billing = createQZPayBilling({ storage, plans: mockPlans });
+            const created = await billing.subscriptions.create({ customerId: 'cus_link', planId: 'pro' });
+            const handler = vi.fn();
+            billing.on('subscription.linked', handler);
+
+            await billing.subscriptions.linkProviderId({
+                localSubscriptionId: created.id,
+                provider: 'mercadopago',
+                providerSubscriptionId: 'preapproval_mp_link_2'
+            });
+
+            expect(handler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    type: 'subscription.linked',
+                    data: expect.objectContaining({ id: created.id })
+                })
+            );
+        });
+
+        it('throws QZPayNotFoundError when the subscription does not exist', async () => {
+            const storage = createMockStorage();
+            const billing = createQZPayBilling({ storage, plans: mockPlans });
+
+            await expect(
+                billing.subscriptions.linkProviderId({
+                    localSubscriptionId: 'sub_does_not_exist',
+                    provider: 'mercadopago',
+                    providerSubscriptionId: 'preapproval_mp_orphan'
+                })
+            ).rejects.toThrow('Subscription');
+        });
+    });
 });
 
 describe('billing.payments', () => {

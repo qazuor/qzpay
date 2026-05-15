@@ -479,7 +479,18 @@ describe('MercadoPago Subscription Adapter Resilience', () => {
         it('should handle invalid amount', async () => {
             mockPreapprovalApi.create.mockRejectedValue(new MPBadRequestError('Invalid transaction_amount', 'invalid_amount'));
 
-            await expect(adapter.create('cust_123', { priceId: 'price_123' })).rejects.toThrow('Invalid');
+            await expect(
+                adapter.create({
+                    providerCustomerId: 'cust_123',
+                    providerPriceId: 'price_123',
+                    input: { customerId: 'cus_local', planId: 'plan_local' },
+                    customer: { email: 'test@example.com', firstName: 'Test', lastName: 'User' },
+                    price: { amount: -1, currency: 'ARS', interval: 'month', intervalCount: 1 },
+                    plan: { name: 'Plan' },
+                    externalReference: 'sub_local',
+                    idempotencyKey: 'sub_local'
+                })
+            ).rejects.toThrow('Invalid');
         });
     });
 });
