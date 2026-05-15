@@ -53,7 +53,13 @@ export function mapDrizzleSubscriptionToCore(drizzle: QZPayBillingSubscription):
 }
 
 /**
- * Map Core create input to Drizzle insert
+ * Map Core create input to Drizzle insert.
+ *
+ * Splits `input.providerSubscriptionIds` (record keyed by provider name) into
+ * the dedicated `stripeSubscriptionId` / `mpSubscriptionId` columns. Usually
+ * omitted at create time (the provider call happens AFTER the local insert
+ * and is reconciled via the update path), but supported for backfills /
+ * manual reconciliation.
  */
 export function mapCoreSubscriptionCreateToDrizzle(
     input: QZPayCreateSubscriptionInput & { id: string },
@@ -68,7 +74,7 @@ export function mapCoreSubscriptionCreateToDrizzle(
         trialEnd?: Date | null;
     }
 ): QZPayBillingSubscriptionInsert {
-    return {
+    const insert: QZPayBillingSubscriptionInsert = {
         id: input.id,
         customerId: input.customerId,
         planId: input.planId,
@@ -83,10 +89,27 @@ export function mapCoreSubscriptionCreateToDrizzle(
         metadata: input.metadata ?? {},
         livemode: defaults.livemode
     };
+
+    if (input.providerSubscriptionIds) {
+        const stripeId = input.providerSubscriptionIds.stripe;
+        const mpId = input.providerSubscriptionIds.mercadopago;
+        if (stripeId !== undefined) {
+            insert.stripeSubscriptionId = stripeId;
+        }
+        if (mpId !== undefined) {
+            insert.mpSubscriptionId = mpId;
+        }
+    }
+
+    return insert;
 }
 
 /**
- * Map Core update input to Drizzle partial update
+ * Map Core update input to Drizzle partial update.
+ *
+ * Splits `input.providerSubscriptionIds` into the dedicated columns. This is
+ * the writeback path used by `billing.subscriptions.linkProviderId()` after
+ * a provider preapproval / subscription is confirmed (e.g. via webhook).
  */
 export function mapCoreSubscriptionUpdateToDrizzle(input: QZPayUpdateSubscriptionInput): Partial<QZPayBillingSubscriptionInsert> {
     const update: Partial<QZPayBillingSubscriptionInsert> = {};
@@ -114,6 +137,16 @@ export function mapCoreSubscriptionUpdateToDrizzle(input: QZPayUpdateSubscriptio
     }
     if (input.trialEnd !== undefined) {
         update.trialEnd = input.trialEnd;
+    }
+    if (input.providerSubscriptionIds) {
+        const stripeId = input.providerSubscriptionIds.stripe;
+        const mpId = input.providerSubscriptionIds.mercadopago;
+        if (stripeId !== undefined) {
+            update.stripeSubscriptionId = stripeId;
+        }
+        if (mpId !== undefined) {
+            update.mpSubscriptionId = mpId;
+        }
     }
 
     return update;

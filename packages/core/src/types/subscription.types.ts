@@ -77,6 +77,15 @@ export interface QZPayCreateSubscriptionInput {
      * intended for promo-driven extensions of an existing trial.
      */
     freeTrialDays?: number;
+    /**
+     * Provider-side identifiers to persist alongside the new local
+     * subscription. Keys are provider names (`'mercadopago'`, `'stripe'`,
+     * etc.), values are the provider's subscription ID. Usually undefined
+     * at create time (the provider call happens after the local insert and
+     * is reconciled via `linkProviderId`); set this when the caller already
+     * holds the provider ID (e.g. backfills, manual reconciliation).
+     */
+    providerSubscriptionIds?: Record<string, string>;
 }
 
 export interface QZPayUpdateSubscriptionInput {
@@ -100,6 +109,14 @@ export interface QZPayUpdateSubscriptionInput {
      * Forwarded by adapters that support amount changes; ignored otherwise.
      */
     transactionAmount?: number;
+    /**
+     * Provider-side identifiers to link to the local subscription. Used by
+     * webhook handlers after the provider confirms a preapproval was created
+     * (or by reconciliation jobs). Keys are provider names (`'mercadopago'`,
+     * `'stripe'`); when present in the partial, the storage layer maps each
+     * entry to its dedicated column (`mp_subscription_id`, `stripe_subscription_id`).
+     */
+    providerSubscriptionIds?: Record<string, string>;
 }
 
 export interface QZPayCancelSubscriptionInput {

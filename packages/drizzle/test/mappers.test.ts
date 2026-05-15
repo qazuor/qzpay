@@ -7,7 +7,11 @@ import { describe, expect, it } from 'vitest';
 import { mapCoreCustomerCreateToDrizzle, mapDrizzleCustomerToCore } from '../src/mappers/customer.mapper.js';
 import { mapDrizzlePaymentToCore } from '../src/mappers/payment.mapper.js';
 import { mapCorePlanCreateToDrizzle, mapDrizzlePlanToCore } from '../src/mappers/plan.mapper.js';
-import { mapCoreSubscriptionCreateToDrizzle, mapDrizzleSubscriptionToCore } from '../src/mappers/subscription.mapper.js';
+import {
+    mapCoreSubscriptionCreateToDrizzle,
+    mapCoreSubscriptionUpdateToDrizzle,
+    mapDrizzleSubscriptionToCore
+} from '../src/mappers/subscription.mapper.js';
 import type { QZPayBillingCustomer } from '../src/schema/customers.schema.js';
 import type { QZPayBillingPayment } from '../src/schema/payments.schema.js';
 import type { QZPayBillingPlan } from '../src/schema/plans.schema.js';
@@ -231,25 +235,18 @@ describe('Subscription Mapper', () => {
     });
 
     describe('mapCoreSubscriptionCreateToDrizzle', () => {
+        const now = new Date();
+        const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const defaults = {
+            livemode: true,
+            billingInterval: 'month',
+            intervalCount: 1,
+            currentPeriodStart: now,
+            currentPeriodEnd: periodEnd
+        };
+
         it('should map create input with defaults', () => {
-            const now = new Date();
-            const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-            const coreInput = {
-                id: 'new-sub-1',
-                customerId: 'cust-123',
-                planId: 'plan-123'
-            };
-
-            const defaults = {
-                livemode: true,
-                billingInterval: 'month',
-                intervalCount: 1,
-                currentPeriodStart: now,
-                currentPeriodEnd: periodEnd
-            };
-
-            const drizzle = mapCoreSubscriptionCreateToDrizzle(coreInput, defaults);
+            const drizzle = mapCoreSubscriptionCreateToDrizzle({ id: 'new-sub-1', customerId: 'cust-123', planId: 'plan-123' }, defaults);
 
             expect(drizzle.id).toBe('new-sub-1');
             expect(drizzle.customerId).toBe('cust-123');
@@ -257,6 +254,106 @@ describe('Subscription Mapper', () => {
             expect(drizzle.status).toBe('active');
             expect(drizzle.livemode).toBe(true);
             expect(drizzle.billingInterval).toBe('month');
+            expect(drizzle.mpSubscriptionId).toBeUndefined();
+            expect(drizzle.stripeSubscriptionId).toBeUndefined();
+        });
+
+        it('splits providerSubscriptionIds.mercadopago into mpSubscriptionId column', () => {
+            const drizzle = mapCoreSubscriptionCreateToDrizzle(
+                {
+                    id: 'new-sub-mp',
+                    customerId: 'cust-123',
+                    planId: 'plan-123',
+                    providerSubscriptionIds: { mercadopago: 'preapproval_mp_abc' }
+                },
+                defaults
+            );
+
+            expect(drizzle.mpSubscriptionId).toBe('preapproval_mp_abc');
+            expect(drizzle.stripeSubscriptionId).toBeUndefined();
+        });
+
+        it('splits providerSubscriptionIds.stripe into stripeSubscriptionId column', () => {
+            const drizzle = mapCoreSubscriptionCreateToDrizzle(
+                {
+                    id: 'new-sub-stripe',
+                    customerId: 'cust-123',
+                    planId: 'plan-123',
+                    providerSubscriptionIds: { stripe: 'sub_stripe_xyz' }
+                },
+                defaults
+            );
+
+            expect(drizzle.stripeSubscriptionId).toBe('sub_stripe_xyz');
+            expect(drizzle.mpSubscriptionId).toBeUndefined();
+        });
+
+        it('splits both stripe and mercadopago when both are present', () => {
+            const drizzle = mapCoreSubscriptionCreateToDrizzle(
+                {
+                    id: 'new-sub-dual',
+                    customerId: 'cust-123',
+                    planId: 'plan-123',
+                    providerSubscriptionIds: { stripe: 'sub_s', mercadopago: 'sub_mp' }
+                },
+                defaults
+            );
+
+            expect(drizzle.stripeSubscriptionId).toBe('sub_s');
+            expect(drizzle.mpSubscriptionId).toBe('sub_mp');
+        });
+
+        it('ignores unknown provider keys', () => {
+            const drizzle = mapCoreSubscriptionCreateToDrizzle(
+                {
+                    id: 'new-sub-unk',
+                    customerId: 'cust-123',
+                    planId: 'plan-123',
+                    providerSubscriptionIds: { paypal: 'sub_pp_999' }
+                },
+                defaults
+            );
+
+            expect(drizzle.stripeSubscriptionId).toBeUndefined();
+            expect(drizzle.mpSubscriptionId).toBeUndefined();
+        });
+    });
+
+    describe('mapCoreSubscriptionUpdateToDrizzle', () => {
+        it('returns an empty partial when no fields are set', () => {
+            const update = mapCoreSubscriptionUpdateToDrizzle({});
+            expect(update).toEqual({});
+        });
+
+        it('maps mercadopago provider ID to mpSubscriptionId column', () => {
+            const update = mapCoreSubscriptionUpdateToDrizzle({
+                providerSubscriptionIds: { mercadopago: 'preapproval_mp_link' }
+            });
+
+            expect(update.mpSubscriptionId).toBe('preapproval_mp_link');
+            expect(update.stripeSubscriptionId).toBeUndefined();
+        });
+
+        it('maps stripe provider ID to stripeSubscriptionId column', () => {
+            const update = mapCoreSubscriptionUpdateToDrizzle({
+                providerSubscriptionIds: { stripe: 'sub_stripe_link' }
+            });
+
+            expect(update.stripeSubscriptionId).toBe('sub_stripe_link');
+            expect(update.mpSubscriptionId).toBeUndefined();
+        });
+
+        it('preserves other fields alongside providerSubscriptionIds', () => {
+            const cancelAt = new Date('2026-12-31');
+            const update = mapCoreSubscriptionUpdateToDrizzle({
+                status: 'canceled',
+                cancelAt,
+                providerSubscriptionIds: { mercadopago: 'preapproval_mp_final' }
+            });
+
+            expect(update.status).toBe('canceled');
+            expect(update.cancelAt).toEqual(cancelAt);
+            expect(update.mpSubscriptionId).toBe('preapproval_mp_final');
         });
     });
 });
