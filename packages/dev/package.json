@@ -1,6 +1,6 @@
 {
     "name": "@qazuor/qzpay-dev",
-    "version": "1.1.3",
+    "version": "1.1.4",
     "description": "Development and testing utilities for QZPay billing library",
     "type": "module",
     "main": "./dist/index.cjs",
