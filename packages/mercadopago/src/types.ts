@@ -10,13 +10,18 @@ import type { RetryConfig } from './utils/retry.utils.js';
 export interface QZPayMercadoPagoConfig {
     /**
      * MercadoPago Access Token
-     * Format: APP_USR-* or TEST-*
+     * Format: APP_USR-*
      *
      * @remarks
-     * Must start with 'APP_USR-' (production) or 'TEST-' (sandbox).
+     * Current MercadoPago issues access tokens with the `APP_USR-` prefix
+     * for BOTH sandbox and production — sandbox vs prod is determined by
+     * which credentials section the token was copied from in the MP
+     * dashboard, not by the prefix. The legacy `TEST-` prefix is no
+     * longer used by MP and is rejected by the adapter.
+     *
      * Validated at adapter initialization.
      *
-     * @throws {Error} If token does not start with 'APP_USR-' or 'TEST-'
+     * @throws {Error} If token does not start with 'APP_USR-'
      */
     accessToken: string;
 
@@ -36,6 +41,23 @@ export interface QZPayMercadoPagoConfig {
      * @default false
      */
     webhookFailClosedWhenSecretMissing?: boolean | undefined;
+
+    /**
+     * Whether this adapter is operating against MercadoPago's sandbox /
+     * test environment. The flag is forwarded to the checkout adapter so
+     * it can pick `sandbox_init_point` over `init_point` when redirecting
+     * users.
+     *
+     * Callers should set this explicitly from their own environment
+     * configuration (e.g. an env var like `HOSPEDA_MERCADO_PAGO_SANDBOX`).
+     *
+     * Note: current MercadoPago uses the same `APP_USR-` prefix for both
+     * sandbox and production access tokens, so the adapter cannot infer
+     * sandbox mode from the token shape.
+     *
+     * @default false
+     */
+    sandbox?: boolean | undefined;
 
     /**
      * Request timeout in milliseconds

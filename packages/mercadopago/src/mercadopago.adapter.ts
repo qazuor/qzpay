@@ -28,9 +28,16 @@ export class QZPayMercadoPagoAdapter implements QZPayPaymentAdapter {
     private readonly client: MercadoPagoConfig;
 
     constructor(config: QZPayMercadoPagoConfig) {
-        // Validate access token format
-        if (!config.accessToken.startsWith('APP_USR-') && !config.accessToken.startsWith('TEST-')) {
-            throw new Error("Invalid MercadoPago access token format. Expected token starting with 'APP_USR-' or 'TEST-'");
+        // Validate access token format. Current MercadoPago issues tokens
+        // with the `APP_USR-` prefix for BOTH sandbox and production —
+        // sandbox vs prod is determined by which credentials section the
+        // token was copied from in the MP dashboard, not by the prefix.
+        // The legacy `TEST-` prefix is no longer used by MP and is rejected
+        // here to surface mis-configurations early.
+        if (!config.accessToken.startsWith('APP_USR-')) {
+            throw new Error(
+                "Invalid MercadoPago access token format. Expected token starting with 'APP_USR-' (current MercadoPago format for both sandbox and production)."
+            );
         }
 
         // Initialize MercadoPago client
@@ -62,7 +69,7 @@ export class QZPayMercadoPagoAdapter implements QZPayPaymentAdapter {
         this.customers = new QZPayMercadoPagoCustomerAdapter(this.client);
         this.subscriptions = new QZPayMercadoPagoSubscriptionAdapter(this.client);
         this.payments = new QZPayMercadoPagoPaymentAdapter(this.client, retryConfig);
-        this.checkout = new QZPayMercadoPagoCheckoutAdapter(this.client, this.isSandbox(config.accessToken));
+        this.checkout = new QZPayMercadoPagoCheckoutAdapter(this.client, config.sandbox ?? false);
         this.prices = new QZPayMercadoPagoPriceAdapter(this.client);
         this.webhooks = new QZPayMercadoPagoWebhookAdapter({
             webhookSecret: config.webhookSecret,
@@ -75,13 +82,6 @@ export class QZPayMercadoPagoAdapter implements QZPayPaymentAdapter {
      */
     getMercadoPagoClient(): MercadoPagoConfig {
         return this.client;
-    }
-
-    /**
-     * Check if using sandbox/test mode based on access token
-     */
-    private isSandbox(accessToken: string): boolean {
-        return accessToken.includes('TEST');
     }
 }
 
