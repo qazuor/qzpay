@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type {
     QZPayCreatePaymentInput,
     QZPayPaymentPaymentAdapter,
@@ -31,6 +32,14 @@ export class QZPayMercadoPagoPaymentAdapter implements QZPayPaymentPaymentAdapte
     }
 
     async create(providerCustomerId: string, input: QZPayCreatePaymentInput): Promise<QZPayProviderPayment> {
+        // Generate idempotency key ONCE per logical create call so that retries
+        // hit the same key. MercadoPago treats two calls with the same
+        // X-Idempotency-Key (within its dedup window) as the same operation
+        // and returns the existing payment instead of creating a duplicate.
+        // If the caller provides one (e.g. for end-to-end traceability with
+        // their own correlation ID), reuse it; otherwise generate a UUID.
+        const idempotencyKey = input.idempotencyKey ?? `qzpay_${randomUUID()}`;
+
         return withRetry(
             async () => {
                 try {
@@ -106,8 +115,8 @@ export class QZPayMercadoPagoPaymentAdapter implements QZPayPaymentPaymentAdapte
                         body.payment_method_id = paymentMethodId ?? 'account_money';
                     }
 
-                    // Add idempotency key to prevent duplicate payments
-                    const idempotencyKey = `qzpay_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+                    // Idempotency key is captured outside the retry loop (see
+                    // top of create()) so all retries reuse the same value.
                     const response = await this.paymentApi.create({
                         body,
                         requestOptions: {

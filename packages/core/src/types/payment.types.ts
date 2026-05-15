@@ -45,6 +45,16 @@ export interface QZPayCreatePaymentInput {
         type: string;
         number: string;
     };
+    /**
+     * Idempotency key forwarded to the provider as `X-Idempotency-Key`.
+     *
+     * When the caller passes a stable key, retries against the same logical
+     * operation will be deduplicated by the provider (returning the original
+     * payment instead of creating a new one). If omitted, the adapter
+     * generates a UUID once per `create()` call and reuses it across all
+     * retry attempts.
+     */
+    idempotencyKey?: string;
 }
 
 export interface QZPayRefundInput {
