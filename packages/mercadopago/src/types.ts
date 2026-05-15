@@ -26,6 +26,18 @@ export interface QZPayMercadoPagoConfig {
     webhookSecret?: string | undefined;
 
     /**
+     * When `true`, the webhook adapter throws an error if `webhookSecret`
+     * is not configured, instead of silently accepting unverified payloads.
+     *
+     * Production deployments should set this to `true` (defense in depth).
+     * Defaults to `false` for backwards compatibility and to keep local-
+     * development experience smooth when billing is not yet configured.
+     *
+     * @default false
+     */
+    webhookFailClosedWhenSecretMissing?: boolean | undefined;
+
+    /**
      * Request timeout in milliseconds
      * @default 5000
      */

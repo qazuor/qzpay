@@ -218,4 +218,51 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
             expect(result.type).toBe('subscription.created');
         });
     });
+
+    // SPEC-123 A2: defense-in-depth — when configured to fail closed,
+    // the adapter must refuse to accept payloads if the webhook secret
+    // is missing, instead of silently treating them as valid.
+    describe('failClosedWhenSecretMissing (SPEC-123 A2)', () => {
+        it('throws on verifySignature() when secret is missing and failClosed is true', () => {
+            const strict = new QZPayMercadoPagoWebhookAdapter({
+                failClosedWhenSecretMissing: true
+            });
+
+            expect(() => strict.verifySignature('{}', 'ts=1,v1=abc')).toThrow(/failClosedWhenSecretMissing=true/);
+        });
+
+        it('throws on constructEvent() when secret is missing and failClosed is true', () => {
+            const strict = new QZPayMercadoPagoWebhookAdapter({
+                failClosedWhenSecretMissing: true
+            });
+            const payload = JSON.stringify({
+                id: 1,
+                type: 'payment',
+                action: 'payment.updated',
+                date_created: new Date().toISOString(),
+                user_id: '',
+                api_version: '',
+                live_mode: false,
+                data: { id: '1' }
+            });
+
+            expect(() => strict.constructEvent(payload, '')).toThrow(/failClosedWhenSecretMissing=true/);
+        });
+
+        it('does NOT throw when failClosed is false (default) and secret is missing', () => {
+            const lenient = new QZPayMercadoPagoWebhookAdapter({});
+
+            expect(lenient.verifySignature('{}', 'ts=1,v1=abc')).toBe(true);
+        });
+
+        it('proceeds with HMAC verification when secret IS set and failClosed is true', () => {
+            const strict = new QZPayMercadoPagoWebhookAdapter({
+                webhookSecret: 'my-secret',
+                failClosedWhenSecretMissing: true
+            });
+
+            // Empty/invalid signature → returns false (not throws — different code path).
+            expect(strict.verifySignature('{}', '')).toBe(false);
+        });
+    });
 });

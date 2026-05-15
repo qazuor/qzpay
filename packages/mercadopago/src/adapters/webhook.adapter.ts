@@ -28,18 +28,36 @@ export interface QZPayMercadoPagoWebhookConfig {
     /**
      * Webhook secret for signature verification
      */
-    webhookSecret?: string;
+    webhookSecret?: string | undefined;
 
     /**
      * Timestamp tolerance in seconds for replay attack prevention
      * @default 300 (5 minutes)
      */
-    timestampToleranceSeconds?: number;
+    timestampToleranceSeconds?: number | undefined;
+
+    /**
+     * When `true`, calling `verifySignature()` or `constructEvent()` while
+     * `webhookSecret` is unset throws an error instead of silently accepting
+     * the payload as valid.
+     *
+     * Production deployments should set this to `true` (defense in depth)
+     * to prevent accidentally accepting unverified webhooks if the secret
+     * was not configured.
+     *
+     * The default is `false` to preserve backwards compatibility for
+     * existing consumers and to keep local-development experience smooth
+     * when billing is not yet configured.
+     *
+     * @default false
+     */
+    failClosedWhenSecretMissing?: boolean | undefined;
 }
 
 export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapter {
     private readonly webhookSecret: string | undefined;
     private readonly timestampToleranceSeconds: number;
+    private readonly failClosedWhenSecretMissing: boolean;
 
     constructor(webhookSecret?: string);
     constructor(config: QZPayMercadoPagoWebhookConfig);
@@ -47,17 +65,27 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
         if (typeof webhookSecretOrConfig === 'string') {
             this.webhookSecret = webhookSecretOrConfig;
             this.timestampToleranceSeconds = DEFAULT_TIMESTAMP_TOLERANCE_SECONDS;
+            this.failClosedWhenSecretMissing = false;
         } else if (webhookSecretOrConfig) {
             this.webhookSecret = webhookSecretOrConfig.webhookSecret;
             this.timestampToleranceSeconds = webhookSecretOrConfig.timestampToleranceSeconds ?? DEFAULT_TIMESTAMP_TOLERANCE_SECONDS;
+            this.failClosedWhenSecretMissing = webhookSecretOrConfig.failClosedWhenSecretMissing ?? false;
         } else {
             this.webhookSecret = undefined;
             this.timestampToleranceSeconds = DEFAULT_TIMESTAMP_TOLERANCE_SECONDS;
+            this.failClosedWhenSecretMissing = false;
         }
     }
 
     constructEvent(payload: string | Buffer, signature: string): QZPayWebhookEvent {
         const payloadString = typeof payload === 'string' ? payload : payload.toString('utf-8');
+
+        // Fail closed when configured and no secret is set (defense in depth).
+        if (!this.webhookSecret && this.failClosedWhenSecretMissing) {
+            throw new Error(
+                'QZPay MercadoPago webhook secret is not configured — refusing to accept unverified webhook (failClosedWhenSecretMissing=true)'
+            );
+        }
 
         // Verify signature if secret is configured
         if (this.webhookSecret && !this.verifySignature(payload, signature)) {
@@ -87,7 +115,12 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
 
     verifySignature(payload: string | Buffer, signature: string): boolean {
         if (!this.webhookSecret) {
-            return true; // No secret configured, skip verification
+            if (this.failClosedWhenSecretMissing) {
+                throw new Error(
+                    'QZPay MercadoPago webhook secret is not configured — refusing to accept unverified webhook (failClosedWhenSecretMissing=true)'
+                );
+            }
+            return true; // No secret configured, skip verification (backwards-compat default)
         }
 
         try {
