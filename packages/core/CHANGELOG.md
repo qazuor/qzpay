@@ -1,5 +1,280 @@
 # @qazuor/qzpay-core
 
+## 1.4.0
+
+### Minor Changes
+
+- 0055abe: feat(mp): full preapproval support in subscription adapter (create + update)
+
+  Reshapes `QZPayPaymentSubscriptionAdapter.create()` to accept a single
+  resolved input object so the MercadoPago adapter has all the data it needs
+  to build a complete preapproval — eliminating its previous dead-code path
+  that only sent `payer_email + preapproval_plan_id + external_reference`.
+
+  **`@qazuor/qzpay-core`** — new exported type and interface change:
+
+  - New `QZPayProviderCreateSubscriptionInput`: RO-RO container that carries
+    `providerCustomerId`, `providerPriceId`, the original
+    `QZPayCreateSubscriptionInput`, the resolved `customer`/`price`/`plan`
+    records, plus orchestration fields (`externalReference`, `idempotencyKey`,
+    `backUrl`, `notificationUrl`). The orchestrator (`billing.subscriptions
+.create({ mode: 'paid' })`, wired in a later SPEC-124 commit) resolves
+    these before invoking the adapter.
+  - `QZPayPaymentSubscriptionAdapter.create()` now takes a single
+    `QZPayProviderCreateSubscriptionInput` instead of the three positional
+    args `(providerCustomerId, input, providerPriceId)`. Other methods
+    unchanged.
+  - `QZPayProviderSubscription` gains optional `initPoint?: string` and
+    `sandboxInitPoint?: string` — the provider-hosted authorization URLs that
+    callers redirect the user to. Stripe leaves these undefined (no hosted
+    flow); MercadoPago populates them from the preapproval response.
+  - `QZPayUpdateSubscriptionInput` gains optional `transactionAmount?: number`
+    for plan-change scenarios (MP `auto_recurring.transaction_amount`).
+
+  **`@qazuor/qzpay-mercadopago`** — `subscription.adapter.ts` rewrite:
+
+  - `create()` sends a complete preapproval body: `payer_email`, `payer`
+    (`email + first_name + last_name`), `external_reference`, `reason`
+    (built from plan name + `'Mensual' | 'Anual'`), `auto_recurring`
+    (frequency + frequency_type + transaction_amount + currency_id),
+    optional `back_url`, optional `notification_url`, optional `free_trial`
+    when `freeTrialDays > 0`. Calls MP with `requestOptions: { idempotencyKey }`
+    so retries do not double-create.
+  - Maps qzpay price interval (`day` | `week` | `month` | `year`) to MP's
+    `auto_recurring.frequency_type` (`days` | `months`): weeks → `count * 7`
+    days, years → `count * 12` months.
+  - Payer name fallback: explicit `firstName`/`lastName` → email local-part →
+    `'Customer'` for first name; trimmed `lastName` → `' '` (MP rejects
+    empty strings).
+  - Captures `init_point` and `sandbox_init_point` from MP's response and
+    exposes them on the returned `QZPayProviderSubscription`.
+  - `update()` now supports `transactionAmount` (forwarded as
+    `auto_recurring.transaction_amount`) in addition to `planId` and
+    `cancelAt`.
+
+  **`@qazuor/qzpay-stripe`** — `subscription.adapter.ts` signature update:
+
+  - Adapts to the new `create(input: QZPayProviderCreateSubscriptionInput)`
+    signature. Reads `providerCustomerId`, `providerPriceId`, and the original
+    `input.quantity`/`input.trialDays`/`input.metadata`. Ignores fields
+    specific to MP preapprovals (`backUrl`, `freeTrialDays`, etc.). Behavior
+    unchanged for Stripe consumers.
+
+  **`@qazuor/qzpay-dev`** — mock adapter signature update:
+
+  - `subscriptions.create()` adapts to the new shape, reading
+    `providerInput.input.trialDays`/`providerInput.input.metadata`. Mock
+    behavior unchanged.
+
+  **Compatibility**: this is the first commit that actually wires the
+  adapter in any meaningful way (the prior `create()` signature was dead
+  code in the wild — the previous in-repo audit confirmed no caller reached
+  the subscription adapter). Treating as `minor` for `qzpay-core` and
+  `qzpay-mercadopago`; the implicit-API consumers (Stripe, dev) follow as
+  `patch` because the source change is a mechanical signature update with
+  no behavior change.
+
+  Part of SPEC-124 (qzpay subscription preapproval wire-up, Phase B of
+  SPEC-122 master plan).
+
+- b89f133: feat(core): wire payment adapter into billing.subscriptions.create when mode=paid
+
+  Connects `billing.subscriptions.create()` to the payment adapter for the
+  first time. When the caller opts in with `mode: 'paid'` AND a payment
+  adapter is configured, after persisting the local subscription the core
+  calls `paymentAdapter.subscriptions.create()` with a fully-resolved
+  `QZPayProviderCreateSubscriptionInput` (customer, price, plan, URLs,
+  idempotency key) and then writes back the provider's subscription ID to
+  the local record via the storage update path.
+
+  **Flow when `mode: 'paid'`**:
+
+  1. Build `createInput` and persist locally via
+     `storage.subscriptions.create()` (existing path).
+  2. Resolve the customer (via `storage.customers.findById`) and pull its
+     `providerCustomerIds[paymentAdapter.provider]`. Throws
+     `QZPayValidationError` if the customer has no provider ID for the
+     configured adapter — paid subscriptions cannot be created from a
+     local-only customer.
+  3. Resolve the price's `providerPriceIds[paymentAdapter.provider]`
+     (optional; ad-hoc preapprovals such as MP do not require it).
+  4. Split `customer.name` on first whitespace into `firstName` / `lastName`
+     for the provider's payer record.
+  5. Call `paymentAdapter.subscriptions.create()` with
+     `idempotencyKey = externalReference = local subscription UUID` so MP
+     never double-creates and the webhook can find the local record by
+     external_reference.
+  6. On success: call `storage.subscriptions.update()` with
+     `providerSubscriptionIds: { [provider]: providerResult.id }` (mapped
+     to the dedicated column by SPEC-124 B5 mappers). Return the
+     subscription wrapped with `providerInitPoint` and
+     `providerSandboxInitPoint` so the caller can redirect the user.
+  7. On error: dispatch by `providerSyncErrorStrategy`:
+     - `'throw'` (default in livemode): roll back the local record via
+       `storage.subscriptions.delete()` and re-throw so the caller can
+       retry cleanly.
+     - `'log'` (default in test mode): keep the local record in its
+       pending state, log a warning, and return the unenriched
+       subscription. The webhook (or a reconciliation job) can link the
+       provider ID later when MP eventually confirms.
+
+  **Backwards compatibility**: callers that omit `mode` (or pass
+  `mode: 'trial'`) see ZERO behavior change. The adapter is never invoked
+  in those paths — they remain pure storage-only inserts.
+
+  **Type extensions** (`QZPayCreateSubscriptionServiceInput` /
+  `QZPayUpdateSubscriptionServiceInput`): the service-level input now
+  mirrors the core type's SPEC-124 fields — `mode`, `billingInterval`,
+  `paymentMethodReturnUrl`, `notificationUrl`, `freeTrialDays`,
+  `transactionAmount`. These were not exposed at the service boundary
+  before this commit.
+
+  **Helper return type** (`QZPaySubscriptionWithHelpers`): two optional
+  fields — `providerInitPoint?: string`, `providerSandboxInitPoint?:
+string` — are now exposed on the wrapper so the caller can read the
+  provider's hosted-authorization URL straight off the return value of
+  `subscriptions.create({ mode: 'paid' })`. Undefined for trial-mode
+  returns and for subscriptions retrieved later from storage.
+
+  **Tests**: 7 new unit tests cover the regression guard (no adapter call
+  for default / trial mode), the happy path (adapter inputs +
+  `providerSubscriptionIds` linked + `providerInitPoint` surfaced),
+  both error strategies (`throw` rolls back; `log` keeps local), and the
+  two validation errors (missing provider customer ID; plan without
+  price).
+
+  **Drive-by fix** in `qzpay-drizzle`: the SPEC-124 B5 mapper changes
+  used dot-notation on a `Record<string, string>` index signature, which
+  passed Biome's `useLiteralKeys` but failed TypeScript's
+  `noPropertyAccessFromIndexSignature` once the full monorepo typecheck
+  ran end-to-end after the new core types landed. Reverted to bracket
+  notation with the same `biome-ignore` pattern the read-side mapper
+  already uses.
+
+  Part of SPEC-124 (Phase B of SPEC-122 master plan). This is the
+  keystone commit — Hospeda's subscription routes (SPEC-126) can now
+  build on top of `billing.subscriptions.create({ mode: 'paid' })` and
+  `linkProviderId()` (next commit) to deliver real recurring billing.
+
+- df2ebf7: feat(core): expose billing.subscriptions.linkProviderId for webhook writeback
+
+  Adds a public method on the subscription service so consumers can link a
+  provider-side subscription ID (MercadoPago preapproval, Stripe `sub_*`,
+  etc.) to a local subscription record AFTER the provider confirms via
+  webhook or reconciliation job:
+
+  ```typescript
+  await billing.subscriptions.linkProviderId({
+    localSubscriptionId: "sub_uuid",
+    provider: "mercadopago",
+    providerSubscriptionId: "preapproval_mp_abc",
+  });
+  ```
+
+  The method:
+
+  1. Verifies the local subscription exists (`QZPayNotFoundError` if not).
+  2. Updates `providerSubscriptionIds[provider]` via the storage layer's
+     update path (mapped by SPEC-124 B5 mappers to the dedicated column).
+  3. Emits `subscription.linked` with the updated subscription record.
+  4. Returns the subscription wrapped with helpers.
+
+  This is the canonical entry point for Hospeda's webhook handler
+  (SPEC-126) when MP sends `subscription_preapproval.created` after the
+  user authorizes the recurring charge on the hosted page. The handler
+  finds the local sub by `external_reference` (which is the local UUID,
+  set by SPEC-124 B3) and then calls `linkProviderId` to attach the
+  `preapproval.id` to the local record.
+
+  **New exports**:
+
+  - `QZPayLinkProviderIdInput` (interface) — the input object.
+  - `QZPaySubscriptionService.linkProviderId(input)` — the method.
+  - `'subscription.linked'` event in `QZPAY_BILLING_EVENT` +
+    `QZPayEventMap['subscription.linked']: QZPaySubscription`.
+
+  The provider-name parameter is a free-form string (typed as `string`,
+  not a union) so adapters for new providers can register their own key
+  without touching the core type. The drizzle mapper splits known providers
+  (`'stripe'`, `'mercadopago'`) into dedicated columns; unknown keys are
+  ignored (forward compat).
+
+  **Tests**: 4 new unit tests cover the happy path (MP), provider-agnostic
+  behavior (Stripe), event emission, and the not-found error.
+
+  Part of SPEC-124 (Phase B of SPEC-122 master plan). Closes the public
+  API surface needed by Hospeda's subscription webhook handler (SPEC-126).
+
+- bbe8b04: feat(drizzle): map providerSubscriptionIds (stripe + mercadopago) in subscription mappers
+
+  Adds the writeback path so consumers (e.g. Hospeda's webhook handler)
+  can link a provider-side subscription ID (MP preapproval, Stripe
+  subscription) to the local subscription record via the storage layer.
+
+  **`@qazuor/qzpay-core`** — two interface extensions:
+
+  - `QZPayCreateSubscriptionInput.providerSubscriptionIds?: Record<string, string>`
+    — usually undefined at create time (the provider call happens after
+    the local insert and is reconciled via `linkProviderId`), but
+    supported for backfills and manual reconciliation.
+  - `QZPayUpdateSubscriptionInput.providerSubscriptionIds?: Record<string, string>`
+    — the primary writeback path. Webhook handlers / linkProviderId
+    populate this when the provider confirms a preapproval was created.
+
+  **`@qazuor/qzpay-drizzle`** — both mappers honor the new field:
+
+  - `mapCoreSubscriptionCreateToDrizzle` reads
+    `input.providerSubscriptionIds`, splits `stripe` → `stripeSubscriptionId`
+    and `mercadopago` → `mpSubscriptionId`. Unknown provider keys are
+    silently ignored (forward compat).
+  - `mapCoreSubscriptionUpdateToDrizzle` mirrors the same split for the
+    partial-update path used by `storage.subscriptions.update()`. Other
+    update fields continue to work unchanged.
+
+  The read-side (`mapDrizzleSubscriptionToCore`) already aggregated both
+  columns into `providerSubscriptionIds` before this change — the only
+  gap was the write-side, which this commit closes.
+
+  Tests: 8 new unit tests cover the create + update split for each
+  provider, the dual-provider case, and the unknown-key forward-compat
+  case.
+
+  Part of SPEC-124 (Phase B of SPEC-122 master plan). Required by the
+  upcoming `linkProviderId()` API (next commit).
+
+- bc4f89b: feat(core): extend QZPayCreateSubscriptionInput for paid subscription mode
+
+  Adds six optional fields to `QZPayCreateSubscriptionInput` to support
+  the paid-subscription flow wired in subsequent commits of SPEC-124:
+
+  - `priceId?: string` — disambiguate when a plan exposes multiple prices
+    (e.g. monthly + annual). When omitted, the first price of the plan is
+    used (backwards-compatible default).
+  - `mode?: 'trial' | 'paid'` — creation mode. `'trial'` (default) keeps
+    the pre-SPEC-124 storage-only behavior. `'paid'` triggers a call to
+    `paymentAdapter.subscriptions.create()` after persisting the local
+    record so the provider preapproval is created and the caller can
+    redirect the user to the provider-hosted authorization page.
+  - `billingInterval?: 'monthly' | 'annual'` — label used by the provider
+    adapter to build the user-facing `reason` (MP dashboard + bank
+    statement). The actual interval/frequency sent to the provider comes
+    from the selected price.
+  - `paymentMethodReturnUrl?: string` — URL the provider redirects the
+    user back to after authorizing (MP `back_url`).
+  - `notificationUrl?: string` — provider webhook URL for this specific
+    preapproval (MP `notification_url`). Optional override.
+  - `freeTrialDays?: number` — provider-level free-trial extension (MP
+    `auto_recurring.free_trial`). Additive to `trialDays` and intended
+    for promo-driven extensions of an existing trial.
+
+  All fields are optional and backwards-compatible: pre-SPEC-124 callers
+  of `billing.subscriptions.create()` (without `mode`) see no behavior
+  change. The wiring that consumes these fields lands in subsequent
+  SPEC-124 commits.
+
+  Part of SPEC-124 (qzpay subscription preapproval wire-up, Phase B of
+  SPEC-122 master plan).
+
 ## 1.3.0
 
 ### Minor Changes
