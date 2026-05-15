@@ -1,6 +1,6 @@
-# @qazuor/qzpay-react
+# e2e-test-app
 
-## 1.1.2
+## 1.1.1
 
 ### Patch Changes
 
@@ -8,10 +8,4 @@
 - Updated dependencies [91c9a5c]
 - Updated dependencies [773d418]
   - @qazuor/qzpay-core@1.3.0
-
-## 1.1.1
-
-### Patch Changes
-
-- Updated dependencies
-  - @qazuor/qzpay-core@1.2.1
+  - @qazuor/qzpay-react@1.1.2
