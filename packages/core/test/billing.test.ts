@@ -1438,6 +1438,96 @@ describe('billing.subscriptions', () => {
             );
             expect(subscriptionAdapter.create).not.toHaveBeenCalled();
         });
+
+        // Regression guard for the bug pattern fixed in SPEC-123 (payment adapter):
+        // the idempotency key MUST be derived from a value that is stable across the
+        // entire create flow (the local subscription UUID). If a future refactor
+        // regenerates the key inside the adapter, retries would use a different key
+        // and the provider would create duplicate preapprovals.
+        it('idempotency: idempotencyKey === externalReference === local subscription id (stable across the call)', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => ({
+                    id: 'preapproval_mp_idem',
+                    status: 'pending',
+                    currentPeriodStart: new Date(),
+                    currentPeriodEnd: new Date(),
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                    trialStart: null,
+                    trialEnd: null,
+                    metadata: {}
+                })),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            const result = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                mode: 'paid'
+            });
+
+            expect(subscriptionAdapter.create).toHaveBeenCalledTimes(1);
+            const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+            expect(adapterCall.idempotencyKey).toBe(result.id);
+            expect(adapterCall.externalReference).toBe(result.id);
+        });
+
+        // Concurrent calls with the same logical input MUST produce DIFFERENT
+        // subscriptions (different UUIDs → different idempotency keys → distinct
+        // preapprovals at the provider). The deduplication of "same intent, same
+        // user, same plan" is a higher-level concern (Hospeda enforces it via a
+        // pending-sub TTL + plan-picker UX); the qzpay layer treats each `create`
+        // call as an independent intent.
+        it('idempotency: two sequential creates produce two distinct subscriptions + two adapter calls', async () => {
+            const storage = createMockStorage();
+            let counter = 0;
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => ({
+                    id: `preapproval_mp_${++counter}`,
+                    status: 'pending',
+                    currentPeriodStart: new Date(),
+                    currentPeriodEnd: new Date(),
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                    trialStart: null,
+                    trialEnd: null,
+                    metadata: {}
+                })),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            const first = await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' });
+            const second = await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' });
+
+            expect(first.id).not.toBe(second.id);
+            expect(subscriptionAdapter.create).toHaveBeenCalledTimes(2);
+            const firstCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+            const secondCall = subscriptionAdapter.create.mock.calls[1]?.[0];
+            expect(firstCall.idempotencyKey).not.toBe(secondCall.idempotencyKey);
+            expect(first.providerSubscriptionIds.mercadopago).toBe('preapproval_mp_1');
+            expect(second.providerSubscriptionIds.mercadopago).toBe('preapproval_mp_2');
+        });
     });
 
     describe('linkProviderId (SPEC-124)', () => {
