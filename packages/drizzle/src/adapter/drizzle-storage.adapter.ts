@@ -652,6 +652,11 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 await repo.incrementUsage(id);
             },
 
+            async atomicIncrementRedemptions(id: string): Promise<QZPayPromoCode | null> {
+                const result = await repo.atomicIncrementUsage(id);
+                return result ? mapDrizzlePromoCodeToCore(result) : null;
+            },
+
             async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPromoCode>> {
                 const limit = options?.limit ?? 20;
                 const offset = options?.offset ?? 0;

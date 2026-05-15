@@ -406,6 +406,92 @@ describe('QZPayPromoCodesRepository', () => {
         });
     });
 
+    // SPEC-123 A4: atomic increment with race-safety. The non-atomic
+    // `incrementUsage` left a window between read and write where two
+    // concurrent calls could exceed maxUses; `atomicIncrementUsage`
+    // uses a single conditional UPDATE.
+    describe('atomicIncrementUsage', () => {
+        it('should increment when usage is below the limit', async () => {
+            const created = await repository.create({
+                code: 'ATOMIC_OK',
+                type: 'percentage',
+                value: 10,
+                maxUses: 3,
+                active: true,
+                livemode: true
+            });
+
+            const updated = await repository.atomicIncrementUsage(created.id);
+
+            expect(updated).not.toBeNull();
+            expect(updated?.usedCount).toBe(1);
+        });
+
+        it('should return null when increment would exceed maxUses', async () => {
+            const created = await repository.create({
+                code: 'ATOMIC_FULL',
+                type: 'percentage',
+                value: 10,
+                maxUses: 1,
+                active: true,
+                livemode: true
+            });
+
+            // Consume the only allowed redemption.
+            const first = await repository.atomicIncrementUsage(created.id);
+            expect(first).not.toBeNull();
+            expect(first?.usedCount).toBe(1);
+
+            // Subsequent call must return null and NOT increment further.
+            const second = await repository.atomicIncrementUsage(created.id);
+            expect(second).toBeNull();
+
+            const reread = await repository.findById(created.id);
+            expect(reread?.usedCount).toBe(1);
+        });
+
+        it('should never block when maxUses is null (no limit)', async () => {
+            const created = await repository.create({
+                code: 'ATOMIC_UNLIMITED',
+                type: 'percentage',
+                value: 10,
+                maxUses: null,
+                active: true,
+                livemode: true
+            });
+
+            // 5 sequential calls should all succeed.
+            for (let i = 1; i <= 5; i++) {
+                const updated = await repository.atomicIncrementUsage(created.id);
+                expect(updated).not.toBeNull();
+                expect(updated?.usedCount).toBe(i);
+            }
+        });
+
+        it('should be race-safe under concurrency (only N successes when maxUses = N)', async () => {
+            const created = await repository.create({
+                code: 'ATOMIC_RACE',
+                type: 'percentage',
+                value: 10,
+                maxUses: 2,
+                active: true,
+                livemode: true
+            });
+
+            // Fire 10 redemptions concurrently against a limit of 2.
+            const results = await Promise.all(Array.from({ length: 10 }, () => repository.atomicIncrementUsage(created.id)));
+
+            const successes = results.filter((r) => r !== null);
+            const failures = results.filter((r) => r === null);
+
+            expect(successes).toHaveLength(2);
+            expect(failures).toHaveLength(8);
+
+            const reread = await repository.findById(created.id);
+            expect(reread?.usedCount).toBe(2);
+        });
+    });
+
     describe('deactivate', () => {
         it('should deactivate promo code', async () => {
             const created = await repository.create({

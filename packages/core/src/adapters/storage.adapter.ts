@@ -150,7 +150,29 @@ export interface QZPayPromoCodeStorage {
     delete(id: string): Promise<void>;
     findById(id: string): Promise<QZPayPromoCode | null>;
     findByCode(code: string): Promise<QZPayPromoCode | null>;
+    /**
+     * Non-atomic increment of the redemption counter.
+     *
+     * @deprecated Prefer {@link atomicIncrementRedemptions}. This method
+     * is kept for backwards compatibility; new callers should use the
+     * atomic variant to avoid race conditions near `maxRedemptions`.
+     */
     incrementRedemptions(id: string): Promise<void>;
+    /**
+     * Atomically increments the redemption counter while enforcing
+     * `maxRedemptions` at the storage layer.
+     *
+     * Returns the updated promo code on success, or `null` when the
+     * increment would exceed `maxRedemptions`. Callers should treat
+     * `null` as "limit reached" and propagate an error to the user.
+     *
+     * Implementation note: storage adapters MUST perform this as a
+     * single conditional UPDATE (e.g. `UPDATE ... SET redemptions =
+     * redemptions + 1 WHERE id = ? AND (max IS NULL OR redemptions < max)
+     * RETURNING *`). Read-then-write is not sufficient under
+     * concurrency.
+     */
+    atomicIncrementRedemptions(id: string): Promise<QZPayPromoCode | null>;
     list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPromoCode>>;
 }
 

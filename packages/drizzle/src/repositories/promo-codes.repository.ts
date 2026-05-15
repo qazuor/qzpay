@@ -168,6 +168,34 @@ export class QZPayPromoCodesRepository {
     }
 
     /**
+     * Atomically increment the usage count if (and only if) the promo
+     * code has not reached its `maxUses` limit yet.
+     *
+     * Implemented as a single conditional `UPDATE ... WHERE used_count <
+     * max_uses RETURNING *` statement so it is race-safe under
+     * concurrency. Returns `null` when the increment would exceed the
+     * limit; callers should treat that as "redemption limit reached".
+     *
+     * Promo codes with `maxUses = null` (no limit) always succeed.
+     */
+    async atomicIncrementUsage(id: string): Promise<QZPayBillingPromoCode | null> {
+        const result = await this.db
+            .update(billingPromoCodes)
+            .set({
+                usedCount: sql`COALESCE(${billingPromoCodes.usedCount}, 0) + 1`
+            })
+            .where(
+                and(
+                    eq(billingPromoCodes.id, id),
+                    or(isNull(billingPromoCodes.maxUses), sql`COALESCE(${billingPromoCodes.usedCount}, 0) < ${billingPromoCodes.maxUses}`)
+                )
+            )
+            .returning();
+
+        return firstOrNull(result);
+    }
+
+    /**
      * Deactivate promo code
      */
     async deactivate(id: string): Promise<QZPayBillingPromoCode> {
