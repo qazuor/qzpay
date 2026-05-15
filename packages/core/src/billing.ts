@@ -321,11 +321,38 @@ export interface QZPaySubscriptionService {
     changePlan: (id: string, options: QZPayChangePlanOptions) => Promise<QZPayChangePlanResult>;
 
     /**
+     * Link a provider-side subscription ID (e.g. MercadoPago preapproval ID) to
+     * a local subscription record. Intended for webhook handlers and
+     * reconciliation jobs that receive provider confirmation AFTER the local
+     * record was created (the typical `mode: 'paid'` create flow uses this
+     * internally too, but consumers usually call it from webhook code).
+     *
+     * Emits `subscription.linked`.
+     *
+     * @throws QZPayNotFoundError if `localSubscriptionId` does not exist.
+     */
+    linkProviderId: (input: QZPayLinkProviderIdInput) => Promise<QZPaySubscriptionWithHelpers>;
+
+    /**
      * List subscriptions with pagination
      */
     list: (
         options?: Parameters<QZPayStorageAdapter['subscriptions']['list']>[0]
     ) => ReturnType<QZPayStorageAdapter['subscriptions']['list']>;
+}
+
+/**
+ * Input for `billing.subscriptions.linkProviderId()`. The provider name is
+ * the same string used by the corresponding `QZPayPaymentAdapter.provider`
+ * (`'mercadopago'`, `'stripe'`, etc.).
+ */
+export interface QZPayLinkProviderIdInput {
+    /** Local subscription UUID (the `id` field of the persisted record). */
+    localSubscriptionId: string;
+    /** Provider identifier — must match the key under which the ID is stored. */
+    provider: string;
+    /** Provider-side subscription identifier (e.g. MP preapproval ID, Stripe `sub_*`). */
+    providerSubscriptionId: string;
 }
 
 /**
@@ -1338,6 +1365,17 @@ class QZPayBillingImpl implements QZPayBilling {
                     subscription: wrapWithHelpers(updatedSubscription),
                     proration
                 };
+            },
+            linkProviderId: async ({ localSubscriptionId, provider, providerSubscriptionId }) => {
+                const existing = await storage.subscriptions.findById(localSubscriptionId);
+                if (!existing) {
+                    throw new QZPayNotFoundError('Subscription', localSubscriptionId);
+                }
+                const linked = await storage.subscriptions.update(localSubscriptionId, {
+                    providerSubscriptionIds: { [provider]: providerSubscriptionId }
+                });
+                await emitter.emit('subscription.linked', linked);
+                return wrapWithHelpers(linked);
             },
             list: (options) => storage.subscriptions.list(options)
         };

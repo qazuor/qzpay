@@ -41,6 +41,7 @@ export type QZPayEventMap = {
     'subscription.resumed': QZPaySubscription;
     'subscription.trial_ending': QZPaySubscription;
     'subscription.trial_ended': QZPaySubscription;
+    'subscription.linked': QZPaySubscription;
     'payment.succeeded': QZPayPayment;
     'payment.failed': QZPayPayment;
     'payment.refunded': QZPayPayment;

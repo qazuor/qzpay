@@ -1439,6 +1439,70 @@ describe('billing.subscriptions', () => {
             expect(subscriptionAdapter.create).not.toHaveBeenCalled();
         });
     });
+
+    describe('linkProviderId (SPEC-124)', () => {
+        it('writes the provider subscription ID to the local record', async () => {
+            const storage = createMockStorage();
+            const billing = createQZPayBilling({ storage, plans: mockPlans });
+            const created = await billing.subscriptions.create({ customerId: 'cus_link', planId: 'pro' });
+
+            const linked = await billing.subscriptions.linkProviderId({
+                localSubscriptionId: created.id,
+                provider: 'mercadopago',
+                providerSubscriptionId: 'preapproval_mp_link_1'
+            });
+
+            expect(linked.providerSubscriptionIds.mercadopago).toBe('preapproval_mp_link_1');
+        });
+
+        it('works for any provider key (forward compat)', async () => {
+            const storage = createMockStorage();
+            const billing = createQZPayBilling({ storage, plans: mockPlans });
+            const created = await billing.subscriptions.create({ customerId: 'cus_link', planId: 'pro' });
+
+            const linked = await billing.subscriptions.linkProviderId({
+                localSubscriptionId: created.id,
+                provider: 'stripe',
+                providerSubscriptionId: 'sub_stripe_link_1'
+            });
+
+            expect(linked.providerSubscriptionIds.stripe).toBe('sub_stripe_link_1');
+        });
+
+        it('emits subscription.linked', async () => {
+            const storage = createMockStorage();
+            const billing = createQZPayBilling({ storage, plans: mockPlans });
+            const created = await billing.subscriptions.create({ customerId: 'cus_link', planId: 'pro' });
+            const handler = vi.fn();
+            billing.on('subscription.linked', handler);
+
+            await billing.subscriptions.linkProviderId({
+                localSubscriptionId: created.id,
+                provider: 'mercadopago',
+                providerSubscriptionId: 'preapproval_mp_link_2'
+            });
+
+            expect(handler).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    type: 'subscription.linked',
+                    data: expect.objectContaining({ id: created.id })
+                })
+            );
+        });
+
+        it('throws QZPayNotFoundError when the subscription does not exist', async () => {
+            const storage = createMockStorage();
+            const billing = createQZPayBilling({ storage, plans: mockPlans });
+
+            await expect(
+                billing.subscriptions.linkProviderId({
+                    localSubscriptionId: 'sub_does_not_exist',
+                    provider: 'mercadopago',
+                    providerSubscriptionId: 'preapproval_mp_orphan'
+                })
+            ).rejects.toThrow('Subscription');
+        });
+    });
 });
 
 describe('billing.payments', () => {
