@@ -91,8 +91,10 @@ export function mapCoreSubscriptionCreateToDrizzle(
     };
 
     if (input.providerSubscriptionIds) {
-        const stripeId = input.providerSubscriptionIds.stripe;
-        const mpId = input.providerSubscriptionIds.mercadopago;
+        // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+        const stripeId = input.providerSubscriptionIds['stripe'];
+        // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+        const mpId = input.providerSubscriptionIds['mercadopago'];
         if (stripeId !== undefined) {
             insert.stripeSubscriptionId = stripeId;
         }
@@ -139,8 +141,10 @@ export function mapCoreSubscriptionUpdateToDrizzle(input: QZPayUpdateSubscriptio
         update.trialEnd = input.trialEnd;
     }
     if (input.providerSubscriptionIds) {
-        const stripeId = input.providerSubscriptionIds.stripe;
-        const mpId = input.providerSubscriptionIds.mercadopago;
+        // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+        const stripeId = input.providerSubscriptionIds['stripe'];
+        // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+        const mpId = input.providerSubscriptionIds['mercadopago'];
         if (stripeId !== undefined) {
             update.stripeSubscriptionId = stripeId;
         }

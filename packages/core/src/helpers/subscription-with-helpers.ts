@@ -30,9 +30,25 @@ export interface QZPayGracePeriodConfig {
 }
 
 /**
- * Extended subscription with helper methods
+ * Extended subscription with helper methods.
+ *
+ * For subscriptions created via `billing.subscriptions.create({ mode: 'paid' })`,
+ * the provider-hosted authorization URLs (`providerInitPoint` and
+ * `providerSandboxInitPoint`) are exposed so callers can redirect the user to
+ * the provider's hosted page. Undefined for trial-mode (storage-only) or for
+ * subscriptions retrieved later from storage.
  */
 export interface QZPaySubscriptionWithHelpers extends QZPaySubscription {
+    /**
+     * Provider-hosted authorization URL (e.g. MercadoPago preapproval
+     * `init_point`). Present only on the response of a paid-mode create.
+     */
+    providerInitPoint?: string;
+    /**
+     * Sandbox equivalent of `providerInitPoint`, used during local development
+     * when the provider distinguishes sandbox vs live URLs.
+     */
+    providerSandboxInitPoint?: string;
     /**
      * Check if subscription grants access to the product
      * Returns true if: active, trialing, or past_due within grace period
