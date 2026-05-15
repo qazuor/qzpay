@@ -165,7 +165,7 @@ export function createMockPaymentAdapter(config?: MockPaymentAdapterConfig): {
         },
 
         subscriptions: {
-            async create(_providerCustomerId, input, _providerPriceId): Promise<QZPayProviderSubscription> {
+            async create(providerInput): Promise<QZPayProviderSubscription> {
                 const id = generateId('sub');
                 const now = getCurrentTime();
                 const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -176,16 +176,17 @@ export function createMockPaymentAdapter(config?: MockPaymentAdapterConfig): {
                     throw new Error(outcome.error?.message ?? 'Payment failed');
                 }
 
+                const trialDays = providerInput.input.trialDays;
                 const subscription: QZPayProviderSubscription = {
                     id,
-                    status: input.trialDays && input.trialDays > 0 ? 'trialing' : 'active',
+                    status: trialDays && trialDays > 0 ? 'trialing' : 'active',
                     currentPeriodStart: now,
                     currentPeriodEnd: periodEnd,
                     cancelAtPeriodEnd: false,
                     canceledAt: null,
-                    trialStart: input.trialDays ? now : null,
-                    trialEnd: input.trialDays ? new Date(now.getTime() + input.trialDays * 24 * 60 * 60 * 1000) : null,
-                    metadata: (input.metadata ?? {}) as Record<string, string>
+                    trialStart: trialDays ? now : null,
+                    trialEnd: trialDays ? new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000) : null,
+                    metadata: (providerInput.input.metadata ?? {}) as Record<string, string>
                 };
                 store.subscriptions.set(id, subscription);
                 return subscription;

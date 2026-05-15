@@ -93,6 +93,13 @@ export interface QZPayUpdateSubscriptionInput {
     currentPeriodEnd?: Date;
     /** Trial end date (for trial extensions) */
     trialEnd?: Date | null;
+    /**
+     * New recurring charge amount in MAJOR currency units (e.g. ARS, not centavos).
+     * Used for plan-change scenarios where the provider needs to charge a different
+     * amount on subsequent recurrences (MP `auto_recurring.transaction_amount`).
+     * Forwarded by adapters that support amount changes; ignored otherwise.
+     */
+    transactionAmount?: number;
 }
 
 export interface QZPayCancelSubscriptionInput {

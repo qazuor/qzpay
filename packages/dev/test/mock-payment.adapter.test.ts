@@ -1,8 +1,31 @@
 /**
  * Mock Payment Adapter Tests
  */
+import type { QZPayCreateSubscriptionInput, QZPayProviderCreateSubscriptionInput } from '@qazuor/qzpay-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TEST_CARDS, createMockPaymentAdapter } from '../src/adapters/mock-payment.adapter.js';
+
+/**
+ * Build a provider create-subscription input for the mock adapter tests.
+ * Default `price`/`plan`/URL fields are unused by the mock (it only reads
+ * `input.trialDays` + `input.metadata`); they are populated with safe defaults.
+ */
+function buildInput(
+    providerCustomerId: string,
+    inputOverrides: Partial<QZPayCreateSubscriptionInput> = {},
+    providerPriceId = 'price_123'
+): QZPayProviderCreateSubscriptionInput {
+    return {
+        providerCustomerId,
+        providerPriceId,
+        input: { customerId: 'cus_local', planId: 'plan_local', ...inputOverrides },
+        customer: { email: 'test@example.com' },
+        price: { amount: 0, currency: 'USD', interval: 'month', intervalCount: 1 },
+        plan: { name: 'Test Plan' },
+        externalReference: 'sub_local',
+        idempotencyKey: 'sub_local'
+    };
+}
 
 describe('createMockPaymentAdapter', () => {
     let adapter: ReturnType<typeof createMockPaymentAdapter>['adapter'];
@@ -168,14 +191,14 @@ describe('createMockPaymentAdapter', () => {
             it('should create a subscription with success card', async () => {
                 setCardNumber(TEST_CARDS.SUCCESS);
 
-                const subscription = await adapter.subscriptions.create(customerId, {}, 'price_123');
+                const subscription = await adapter.subscriptions.create(buildInput(customerId));
 
                 expect(subscription.id).toMatch(/^mock_sub_\d+$/);
                 expect(subscription.status).toBe('active');
             });
 
             it('should create subscription with trialing status when trialDays is set', async () => {
-                const subscription = await adapter.subscriptions.create(customerId, { trialDays: 14 }, 'price_123');
+                const subscription = await adapter.subscriptions.create(buildInput(customerId, { trialDays: 14 }));
 
                 expect(subscription.status).toBe('trialing');
                 expect(subscription.trialStart).toBeDefined();
@@ -183,7 +206,7 @@ describe('createMockPaymentAdapter', () => {
             });
 
             it('should create subscription with metadata', async () => {
-                const subscription = await adapter.subscriptions.create(customerId, { metadata: { planId: 'pro' } }, 'price_123');
+                const subscription = await adapter.subscriptions.create(buildInput(customerId, { metadata: { planId: 'pro' } }));
 
                 expect(subscription.metadata).toEqual({ planId: 'pro' });
             });
@@ -191,17 +214,17 @@ describe('createMockPaymentAdapter', () => {
             it('should throw error with declined card', async () => {
                 setCardNumber(TEST_CARDS.DECLINED);
 
-                await expect(adapter.subscriptions.create(customerId, {}, 'price_123')).rejects.toThrow();
+                await expect(adapter.subscriptions.create(buildInput(customerId))).rejects.toThrow();
             });
 
             it('should throw error with insufficient funds card', async () => {
                 setCardNumber(TEST_CARDS.INSUFFICIENT_FUNDS);
 
-                await expect(adapter.subscriptions.create(customerId, {}, 'price_123')).rejects.toThrow('Your card has insufficient funds');
+                await expect(adapter.subscriptions.create(buildInput(customerId))).rejects.toThrow('Your card has insufficient funds');
             });
 
             it('should set period dates', async () => {
-                const subscription = await adapter.subscriptions.create(customerId, {}, 'price_123');
+                const subscription = await adapter.subscriptions.create(buildInput(customerId));
 
                 expect(subscription.currentPeriodStart).toBeInstanceOf(Date);
                 expect(subscription.currentPeriodEnd).toBeInstanceOf(Date);
@@ -211,7 +234,7 @@ describe('createMockPaymentAdapter', () => {
 
         describe('update', () => {
             it('should update subscription metadata', async () => {
-                const subscription = await adapter.subscriptions.create(customerId, { metadata: { key: 'old' } }, 'price_123');
+                const subscription = await adapter.subscriptions.create(buildInput(customerId, { metadata: { key: 'old' } }));
 
                 const updated = await adapter.subscriptions.update(subscription.id, {
                     metadata: { key: 'new' }
@@ -227,7 +250,7 @@ describe('createMockPaymentAdapter', () => {
 
         describe('cancel', () => {
             it('should cancel subscription immediately', async () => {
-                const subscription = await adapter.subscriptions.create(customerId, {}, 'price_123');
+                const subscription = await adapter.subscriptions.create(buildInput(customerId));
 
                 await adapter.subscriptions.cancel(subscription.id, false);
 
@@ -238,7 +261,7 @@ describe('createMockPaymentAdapter', () => {
             });
 
             it('should schedule cancellation at period end', async () => {
-                const subscription = await adapter.subscriptions.create(customerId, {}, 'price_123');
+                const subscription = await adapter.subscriptions.create(buildInput(customerId));
 
                 await adapter.subscriptions.cancel(subscription.id, true);
 
@@ -250,7 +273,7 @@ describe('createMockPaymentAdapter', () => {
 
         describe('pause', () => {
             it('should pause a subscription', async () => {
-                const subscription = await adapter.subscriptions.create(customerId, {}, 'price_123');
+                const subscription = await adapter.subscriptions.create(buildInput(customerId));
 
                 await adapter.subscriptions.pause(subscription.id);
 
@@ -261,7 +284,7 @@ describe('createMockPaymentAdapter', () => {
 
         describe('resume', () => {
             it('should resume a paused subscription', async () => {
-                const subscription = await adapter.subscriptions.create(customerId, {}, 'price_123');
+                const subscription = await adapter.subscriptions.create(buildInput(customerId));
 
                 await adapter.subscriptions.pause(subscription.id);
                 await adapter.subscriptions.resume(subscription.id);
@@ -273,7 +296,7 @@ describe('createMockPaymentAdapter', () => {
 
         describe('retrieve', () => {
             it('should retrieve an existing subscription', async () => {
-                const subscription = await adapter.subscriptions.create(customerId, {}, 'price_123');
+                const subscription = await adapter.subscriptions.create(buildInput(customerId));
 
                 const retrieved = await adapter.subscriptions.retrieve(subscription.id);
 
@@ -820,7 +843,7 @@ describe('createMockPaymentAdapter', () => {
                 email: 'test@example.com'
             });
 
-            await customAdapter.subscriptions.create(customerId, {}, 'price_123');
+            await customAdapter.subscriptions.create(buildInput(customerId));
 
             expect(getCurrentTime).toHaveBeenCalled();
         });
