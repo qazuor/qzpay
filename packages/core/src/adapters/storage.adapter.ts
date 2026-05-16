@@ -4,6 +4,7 @@
  */
 import type {
     QZPayAddOn,
+    QZPayCheckoutSession,
     QZPayCreateAddOnInput,
     QZPayCreateCustomerInput,
     QZPayCreateInvoiceInput,
@@ -76,6 +77,9 @@ export interface QZPayStorageAdapter {
 
     // Add-on operations
     addons: QZPayAddOnStorage;
+
+    // Checkout session operations
+    checkouts: QZPayCheckoutStorage;
 
     // Transaction support
     transaction<T>(fn: () => Promise<T>): Promise<T>;
@@ -237,6 +241,33 @@ export interface QZPayAddOnStorage {
     ): Promise<QZPaySubscriptionAddOn>;
     findBySubscriptionId(subscriptionId: string): Promise<QZPaySubscriptionAddOn[]>;
     findSubscriptionAddOn(subscriptionId: string, addOnId: string): Promise<QZPaySubscriptionAddOn | null>;
+}
+
+/**
+ * Storage operations for checkout sessions. Persisted by `billing.checkout.create()`
+ * BEFORE the provider call so a process crash between provider create and storage
+ * write never leaves an orphan checkout on the provider side without a local trace.
+ *
+ * Webhook handlers correlate provider events to local records via `external_reference`,
+ * which `billing.checkout.create()` sets to the local checkout UUID. After the provider
+ * call succeeds, `providerSessionIds[provider]` is populated via `update()`.
+ */
+export interface QZPayCheckoutStorage {
+    /**
+     * Persist a new checkout session. Core builds the full session (UUID, timestamps,
+     * status='open', currency) and forwards it here — storage MUST NOT mutate the
+     * input or fill defaults beyond what the contract requires (e.g. surrogate keys).
+     */
+    create(session: QZPayCheckoutSession): Promise<QZPayCheckoutSession>;
+    /**
+     * Apply a partial patch. Used by core to write `providerSessionIds` after the
+     * provider call returns, and by webhook handlers / state transitions to flip
+     * `status`, set `paymentId` / `subscriptionId`, mark `completedAt`, etc.
+     */
+    update(id: string, input: Partial<QZPayCheckoutSession>): Promise<QZPayCheckoutSession>;
+    findById(id: string): Promise<QZPayCheckoutSession | null>;
+    findByCustomerId(customerId: string): Promise<QZPayCheckoutSession[]>;
+    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayCheckoutSession>>;
 }
 
 export interface QZPayListOptions {
