@@ -1,6 +1,7 @@
 /**
  * MercadoPago Checkout Adapter Tests
  */
+import type { QZPayCreateCheckoutInput, QZPayProviderCreateCheckoutInput } from '@qazuor/qzpay-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QZPayMercadoPagoCheckoutAdapter } from '../src/adapters/checkout.adapter.js';
 import {
@@ -9,6 +10,24 @@ import {
     createMockPreApprovalPlanApi,
     createMockPreferenceApi
 } from './helpers/mercadopago-mocks.js';
+
+/**
+ * Build the RO-RO shape expected by `QZPayMercadoPagoCheckoutAdapter.create`.
+ * Tests pass the same `QZPayCreateCheckoutInput` they used before the RO-RO
+ * refactor and a parallel `providerPriceIds[]` list — the helper assembles
+ * the resolved line items from those two arrays.
+ *
+ * `externalReference` defaults to `input.customerId ?? ''` so existing
+ * assertions checking `body.external_reference === customerId` still pass.
+ */
+function asRoro(input: QZPayCreateCheckoutInput, providerPriceIds: string[] = []): QZPayProviderCreateCheckoutInput {
+    return {
+        input,
+        resolvedLineItems: providerPriceIds.map((id) => ({ providerPriceId: id, unitAmount: 0, currency: 'USD', title: '' })),
+        externalReference: input.customerId ?? '',
+        idempotencyKey: input.idempotencyKey ?? ''
+    };
+}
 
 // Mock the mercadopago module
 vi.mock('mercadopago', () => ({
@@ -52,13 +71,15 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             mockPreferenceApi.create.mockResolvedValue(createMockMPPreference({ id: 'pref_new123' }));
 
             const result = await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [{ priceId: 'price_1', quantity: 2, description: 'Test Item' }]
-                },
-                ['price_1']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'price_1', quantity: 2, description: 'Test Item' }]
+                    },
+                    ['price_1']
+                )
             );
 
             expect(result.id).toBe('pref_new123');
@@ -88,13 +109,15 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             );
 
             const result = await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: []
-                },
-                ['price_1']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: []
+                    },
+                    ['price_1']
+                )
             );
 
             expect(result.url).toBe('https://www.mercadopago.com/checkout');
@@ -112,13 +135,15 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             );
 
             const result = await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: []
-                },
-                ['price_1']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: []
+                    },
+                    ['price_1']
+                )
             );
 
             expect(result.url).toBe('https://sandbox.mercadopago.com/checkout');
@@ -128,14 +153,16 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             mockPreferenceApi.create.mockResolvedValue(createMockMPPreference());
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [],
-                    customerEmail: 'test@example.com'
-                },
-                ['price_1']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [],
+                        customerEmail: 'test@example.com'
+                    },
+                    ['price_1']
+                )
             );
 
             // SPEC-125: payer now includes first_name/last_name (derived
@@ -151,14 +178,16 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             mockPreferenceApi.create.mockResolvedValue(createMockMPPreference());
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [],
-                    customerId: 'cus_123'
-                },
-                ['price_1']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [],
+                        customerId: 'cus_123'
+                    },
+                    ['price_1']
+                )
             );
 
             expect(mockPreferenceApi.create).toHaveBeenCalledWith({
@@ -173,14 +202,16 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             const beforeCreate = new Date();
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [],
-                    expiresInMinutes: 30
-                },
-                ['price_1']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [],
+                        expiresInMinutes: 30
+                    },
+                    ['price_1']
+                )
             );
 
             const call = mockPreferenceApi.create.mock.calls[0]?.[0] as { body: Record<string, unknown> };
@@ -197,16 +228,18 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             mockPreferenceApi.create.mockResolvedValue(createMockMPPreference());
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [
-                        { priceId: 'price_1', quantity: 2, description: 'Item 1' },
-                        { priceId: 'price_2', quantity: 1, description: 'Item 2' }
-                    ]
-                },
-                ['price_1', 'price_2']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [
+                            { priceId: 'price_1', quantity: 2, description: 'Item 1' },
+                            { priceId: 'price_2', quantity: 1, description: 'Item 2' }
+                        ]
+                    },
+                    ['price_1', 'price_2']
+                )
             );
 
             expect(mockPreferenceApi.create).toHaveBeenCalledWith({
@@ -224,13 +257,15 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             mockPreferenceApi.create.mockResolvedValue(createMockMPPreference());
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: []
-                },
-                ['price_1']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: []
+                    },
+                    ['price_1']
+                )
             );
 
             expect(mockPreferenceApi.create).toHaveBeenCalledWith({
@@ -244,14 +279,16 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             mockPreferenceApi.create.mockResolvedValue(createMockMPPreference());
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [],
-                    notificationUrl: 'https://example.com/webhooks/mercadopago'
-                },
-                ['price_1']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [],
+                        notificationUrl: 'https://example.com/webhooks/mercadopago'
+                    },
+                    ['price_1']
+                )
             );
 
             expect(mockPreferenceApi.create).toHaveBeenCalledWith({
@@ -265,13 +302,15 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             mockPreferenceApi.create.mockResolvedValue(createMockMPPreference());
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: []
-                },
-                ['price_1']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: []
+                    },
+                    ['price_1']
+                )
             );
 
             const call = mockPreferenceApi.create.mock.calls[0]?.[0] as { body: Record<string, unknown> };
@@ -296,13 +335,15 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
 
             it("defaults items[].category_id to 'services'", async () => {
                 await adapter.create(
-                    {
-                        mode: 'payment',
-                        successUrl: 'https://example.com/success',
-                        cancelUrl: 'https://example.com/cancel',
-                        lineItems: [{ priceId: 'p1', quantity: 1 }]
-                    },
-                    ['p1']
+                    asRoro(
+                        {
+                            mode: 'payment',
+                            successUrl: 'https://example.com/success',
+                            cancelUrl: 'https://example.com/cancel',
+                            lineItems: [{ priceId: 'p1', quantity: 1 }]
+                        },
+                        ['p1']
+                    )
                 );
 
                 const items = readBody().items as Array<{ category_id: string }>;
@@ -311,13 +352,15 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
 
             it('honors per-line-item categoryId override', async () => {
                 await adapter.create(
-                    {
-                        mode: 'payment',
-                        successUrl: 'https://example.com/success',
-                        cancelUrl: 'https://example.com/cancel',
-                        lineItems: [{ priceId: 'p1', quantity: 1, categoryId: 'digital_goods' }]
-                    },
-                    ['p1']
+                    asRoro(
+                        {
+                            mode: 'payment',
+                            successUrl: 'https://example.com/success',
+                            cancelUrl: 'https://example.com/cancel',
+                            lineItems: [{ priceId: 'p1', quantity: 1, categoryId: 'digital_goods' }]
+                        },
+                        ['p1']
+                    )
                 );
 
                 const items = readBody().items as Array<{ category_id: string }>;
@@ -326,15 +369,17 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
 
             it('splits customerName into payer.first_name / payer.last_name', async () => {
                 await adapter.create(
-                    {
-                        mode: 'payment',
-                        successUrl: 'https://example.com/success',
-                        cancelUrl: 'https://example.com/cancel',
-                        lineItems: [{ priceId: 'p1', quantity: 1 }],
-                        customerEmail: 'juan@example.com',
-                        customerName: 'Juan Perez'
-                    },
-                    ['p1']
+                    asRoro(
+                        {
+                            mode: 'payment',
+                            successUrl: 'https://example.com/success',
+                            cancelUrl: 'https://example.com/cancel',
+                            lineItems: [{ priceId: 'p1', quantity: 1 }],
+                            customerEmail: 'juan@example.com',
+                            customerName: 'Juan Perez'
+                        },
+                        ['p1']
+                    )
                 );
 
                 const payer = readBody().payer as { email: string; first_name: string; last_name: string };
@@ -345,15 +390,17 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
 
             it('keeps multi-word surname intact when splitting customerName', async () => {
                 await adapter.create(
-                    {
-                        mode: 'payment',
-                        successUrl: 'https://example.com/success',
-                        cancelUrl: 'https://example.com/cancel',
-                        lineItems: [{ priceId: 'p1', quantity: 1 }],
-                        customerEmail: 'maria@example.com',
-                        customerName: 'Maria de los Angeles Gonzalez'
-                    },
-                    ['p1']
+                    asRoro(
+                        {
+                            mode: 'payment',
+                            successUrl: 'https://example.com/success',
+                            cancelUrl: 'https://example.com/cancel',
+                            lineItems: [{ priceId: 'p1', quantity: 1 }],
+                            customerEmail: 'maria@example.com',
+                            customerName: 'Maria de los Angeles Gonzalez'
+                        },
+                        ['p1']
+                    )
                 );
 
                 const payer = readBody().payer as { first_name: string; last_name: string };
@@ -363,17 +410,19 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
 
             it('honors explicit payerFirstName / payerLastName over customerName', async () => {
                 await adapter.create(
-                    {
-                        mode: 'payment',
-                        successUrl: 'https://example.com/success',
-                        cancelUrl: 'https://example.com/cancel',
-                        lineItems: [{ priceId: 'p1', quantity: 1 }],
-                        customerEmail: 'pepe@example.com',
-                        customerName: 'should-be-ignored',
-                        payerFirstName: 'Jose',
-                        payerLastName: 'Lopez'
-                    },
-                    ['p1']
+                    asRoro(
+                        {
+                            mode: 'payment',
+                            successUrl: 'https://example.com/success',
+                            cancelUrl: 'https://example.com/cancel',
+                            lineItems: [{ priceId: 'p1', quantity: 1 }],
+                            customerEmail: 'pepe@example.com',
+                            customerName: 'should-be-ignored',
+                            payerFirstName: 'Jose',
+                            payerLastName: 'Lopez'
+                        },
+                        ['p1']
+                    )
                 );
 
                 const payer = readBody().payer as { first_name: string; last_name: string };
@@ -383,14 +432,16 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
 
             it('falls back to email local-part when customerName is missing', async () => {
                 await adapter.create(
-                    {
-                        mode: 'payment',
-                        successUrl: 'https://example.com/success',
-                        cancelUrl: 'https://example.com/cancel',
-                        lineItems: [{ priceId: 'p1', quantity: 1 }],
-                        customerEmail: 'anon.user@example.com'
-                    },
-                    ['p1']
+                    asRoro(
+                        {
+                            mode: 'payment',
+                            successUrl: 'https://example.com/success',
+                            cancelUrl: 'https://example.com/cancel',
+                            lineItems: [{ priceId: 'p1', quantity: 1 }],
+                            customerEmail: 'anon.user@example.com'
+                        },
+                        ['p1']
+                    )
                 );
 
                 const payer = readBody().payer as { first_name: string; last_name: string };
@@ -400,13 +451,15 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
 
             it('omits payer entirely when no customerEmail is supplied (backwards-compat)', async () => {
                 await adapter.create(
-                    {
-                        mode: 'payment',
-                        successUrl: 'https://example.com/success',
-                        cancelUrl: 'https://example.com/cancel',
-                        lineItems: [{ priceId: 'p1', quantity: 1 }]
-                    },
-                    ['p1']
+                    asRoro(
+                        {
+                            mode: 'payment',
+                            successUrl: 'https://example.com/success',
+                            cancelUrl: 'https://example.com/cancel',
+                            lineItems: [{ priceId: 'p1', quantity: 1 }]
+                        },
+                        ['p1']
+                    )
                 );
 
                 expect(readBody().payer).toBeUndefined();
@@ -414,14 +467,16 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
 
             it('forwards idempotencyKey via requestOptions when provided', async () => {
                 await adapter.create(
-                    {
-                        mode: 'payment',
-                        successUrl: 'https://example.com/success',
-                        cancelUrl: 'https://example.com/cancel',
-                        lineItems: [{ priceId: 'p1', quantity: 1 }],
-                        idempotencyKey: 'my-local-order-uuid'
-                    },
-                    ['p1']
+                    asRoro(
+                        {
+                            mode: 'payment',
+                            successUrl: 'https://example.com/success',
+                            cancelUrl: 'https://example.com/cancel',
+                            lineItems: [{ priceId: 'p1', quantity: 1 }],
+                            idempotencyKey: 'my-local-order-uuid'
+                        },
+                        ['p1']
+                    )
                 );
 
                 const arg = mockPreferenceApi.create.mock.calls[0]?.[0] as {
@@ -432,13 +487,15 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
 
             it('omits requestOptions entirely when no idempotencyKey is supplied', async () => {
                 await adapter.create(
-                    {
-                        mode: 'payment',
-                        successUrl: 'https://example.com/success',
-                        cancelUrl: 'https://example.com/cancel',
-                        lineItems: [{ priceId: 'p1', quantity: 1 }]
-                    },
-                    ['p1']
+                    asRoro(
+                        {
+                            mode: 'payment',
+                            successUrl: 'https://example.com/success',
+                            cancelUrl: 'https://example.com/cancel',
+                            lineItems: [{ priceId: 'p1', quantity: 1 }]
+                        },
+                        ['p1']
+                    )
                 );
 
                 const arg = mockPreferenceApi.create.mock.calls[0]?.[0] as {
@@ -449,14 +506,16 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
 
             it('forwards a valid statement_descriptor', async () => {
                 await adapter.create(
-                    {
-                        mode: 'payment',
-                        successUrl: 'https://example.com/success',
-                        cancelUrl: 'https://example.com/cancel',
-                        lineItems: [{ priceId: 'p1', quantity: 1 }],
-                        statementDescriptor: 'HOSPEDA AR'
-                    },
-                    ['p1']
+                    asRoro(
+                        {
+                            mode: 'payment',
+                            successUrl: 'https://example.com/success',
+                            cancelUrl: 'https://example.com/cancel',
+                            lineItems: [{ priceId: 'p1', quantity: 1 }],
+                            statementDescriptor: 'HOSPEDA AR'
+                        },
+                        ['p1']
+                    )
                 );
 
                 expect(readBody().statement_descriptor).toBe('HOSPEDA AR');
@@ -465,14 +524,16 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             it('rejects invalid statement_descriptor (lowercase)', async () => {
                 await expect(
                     adapter.create(
-                        {
-                            mode: 'payment',
-                            successUrl: 'https://example.com/success',
-                            cancelUrl: 'https://example.com/cancel',
-                            lineItems: [{ priceId: 'p1', quantity: 1 }],
-                            statementDescriptor: 'hospeda'
-                        },
-                        ['p1']
+                        asRoro(
+                            {
+                                mode: 'payment',
+                                successUrl: 'https://example.com/success',
+                                cancelUrl: 'https://example.com/cancel',
+                                lineItems: [{ priceId: 'p1', quantity: 1 }],
+                                statementDescriptor: 'hospeda'
+                            },
+                            ['p1']
+                        )
                     )
                 ).rejects.toThrow(/statement_descriptor/);
             });
@@ -480,14 +541,16 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             it('rejects statement_descriptor longer than 11 characters', async () => {
                 await expect(
                     adapter.create(
-                        {
-                            mode: 'payment',
-                            successUrl: 'https://example.com/success',
-                            cancelUrl: 'https://example.com/cancel',
-                            lineItems: [{ priceId: 'p1', quantity: 1 }],
-                            statementDescriptor: 'HOSPEDAPLATFORM'
-                        },
-                        ['p1']
+                        asRoro(
+                            {
+                                mode: 'payment',
+                                successUrl: 'https://example.com/success',
+                                cancelUrl: 'https://example.com/cancel',
+                                lineItems: [{ priceId: 'p1', quantity: 1 }],
+                                statementDescriptor: 'HOSPEDAPLATFORM'
+                            },
+                            ['p1']
+                        )
                     )
                 ).rejects.toThrow(/statement_descriptor/);
             });

@@ -1,4 +1,4 @@
-import type { QZPayCreateCheckoutInput, QZPayPaymentCheckoutAdapter, QZPayProviderCheckout } from '@qazuor/qzpay-core';
+import type { QZPayPaymentCheckoutAdapter, QZPayProviderCheckout, QZPayProviderCreateCheckoutInput } from '@qazuor/qzpay-core';
 /**
  * MercadoPago Checkout Adapter
  * Uses Preference API for checkout sessions
@@ -103,7 +103,9 @@ export class QZPayMercadoPagoCheckoutAdapter implements QZPayPaymentCheckoutAdap
         this.useSandbox = useSandbox;
     }
 
-    async create(input: QZPayCreateCheckoutInput, providerPriceIds: string[]): Promise<QZPayProviderCheckout> {
+    async create(roro: QZPayProviderCreateCheckoutInput): Promise<QZPayProviderCheckout> {
+        const { input } = roro;
+        const providerPriceIds = roro.resolvedLineItems.map((li) => li.providerPriceId).filter((id): id is string => Boolean(id));
         return wrapAdapterMethod('Create checkout session', async () => {
             // Fetch price information for each line item
             const items = await Promise.all(
@@ -141,28 +143,37 @@ export class QZPayMercadoPagoCheckoutAdapter implements QZPayPaymentCheckoutAdap
                 }
             };
 
-            // Add optional notification URL
-            if (input.notificationUrl) {
-                body.notification_url = input.notificationUrl;
+            // Add optional notification URL — prefer the orchestrator-derived
+            // value (roro.notificationUrl) when set, fall back to input.
+            const notificationUrl = roro.notificationUrl ?? input.notificationUrl;
+            if (notificationUrl) {
+                body.notification_url = notificationUrl;
             }
 
             // SPEC-125: full payer info (email + first_name + last_name) so
             // MP's fraud engine can score the transaction properly. MP's
             // quality checklist treats missing payer fields as a high-risk
-            // signal.
+            // signal. The resolved customer record (when present) takes
+            // precedence over the raw input fields.
             const payer = buildPayer({
-                customerEmail: input.customerEmail,
+                customerEmail: roro.customer?.email ?? input.customerEmail,
                 customerName: input.customerName,
-                payerFirstName: input.payerFirstName,
-                payerLastName: input.payerLastName
+                payerFirstName: roro.customer?.firstName ?? input.payerFirstName,
+                payerLastName: roro.customer?.lastName ?? input.payerLastName
             });
             if (payer) {
                 body.payer = payer;
             }
 
-            // Add optional external reference
-            if (input.customerId) {
-                body.external_reference = input.customerId;
+            // External reference points at the LOCAL checkout UUID so webhooks
+            // can find the matching local record. Falls back to input.customerId
+            // for backwards-compat when the orchestrator provides no reference
+            // (should not happen via billing.checkout but the adapter remains
+            // permissive). Only emit the field when a value is actually present
+            // — MP rejects empty strings on external_reference.
+            const externalReference = roro.externalReference || input.customerId;
+            if (externalReference) {
+                body.external_reference = externalReference;
             }
 
             // Add expiration if specified
@@ -178,11 +189,11 @@ export class QZPayMercadoPagoCheckoutAdapter implements QZPayPaymentCheckoutAdap
                 body.statement_descriptor = validateStatementDescriptor(input.statementDescriptor);
             }
 
-            // SPEC-125: caller-supplied idempotency key (e.g. a local order
-            // UUID). When omitted, MP auto-generates its own.
-            const response = await this.preferenceApi.create(
-                input.idempotencyKey ? { body, requestOptions: { idempotencyKey: input.idempotencyKey } } : { body }
-            );
+            // Caller-supplied idempotency key (typically the local checkout
+            // UUID). When the orchestrator-set roro.idempotencyKey is present,
+            // prefer it over input.idempotencyKey.
+            const idempotencyKey = roro.idempotencyKey || input.idempotencyKey;
+            const response = await this.preferenceApi.create(idempotencyKey ? { body, requestOptions: { idempotencyKey } } : { body });
 
             return this.mapToProviderCheckout(response);
         });

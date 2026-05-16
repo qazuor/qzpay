@@ -303,7 +303,8 @@ export function createMockPaymentAdapter(config?: MockPaymentAdapterConfig): {
         },
 
         checkout: {
-            async create(input, _providerPriceIds): Promise<QZPayProviderCheckout> {
+            async create(roro): Promise<QZPayProviderCheckout> {
+                const { input, customer } = roro;
                 const id = generateId('cs');
                 const checkout: QZPayProviderCheckout = {
                     id,
@@ -311,7 +312,7 @@ export function createMockPaymentAdapter(config?: MockPaymentAdapterConfig): {
                     status: 'open',
                     paymentIntentId: null,
                     subscriptionId: null,
-                    customerId: input.customerId ?? null,
+                    customerId: customer?.id ?? input.customerId ?? null,
                     metadata: (input.metadata ?? {}) as Record<string, string>
                 };
                 store.checkouts.set(id, checkout);

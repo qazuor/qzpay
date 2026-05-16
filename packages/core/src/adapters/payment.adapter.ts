@@ -189,8 +189,54 @@ export interface QZPayProviderRefund {
     amount: number;
 }
 
+/**
+ * Input passed by `billing.checkout.create()` to the provider checkout adapter.
+ * Mirrors {@link QZPayProviderCreateSubscriptionInput} for the checkout path —
+ * aggregates the original caller input together with core-resolved customer and
+ * per-line-item pricing so the adapter does not re-query storage.
+ *
+ * Adapters are free to ignore fields that do not apply to their provider
+ * (e.g. Stripe ignores `backUrl`, MercadoPago ignores `providerPriceId` when the
+ * line item carries inline amount/currency for one-time payments).
+ */
+export interface QZPayProviderCreateCheckoutInput {
+    /** Original `billing.checkout.create()` input — forwarded for URLs, metadata, payer info, statement descriptor, etc. */
+    readonly input: QZPayCreateCheckoutInput;
+    /**
+     * Resolved customer record when `input.customerId` was supplied and the
+     * record was found. Omitted for guest checkouts (email-only / no customer).
+     */
+    readonly customer?: {
+        readonly id: string;
+        readonly email: string;
+        readonly firstName?: string | null;
+        readonly lastName?: string | null;
+        /** Provider-side customer identifier (MP customer ID, Stripe `cus_*`), if previously linked. */
+        readonly providerCustomerId?: string;
+    };
+    /**
+     * Per-line-item resolved pricing, index-aligned with `input.lineItems`. Each
+     * entry has either a `providerPriceId` (subscription mode / pre-registered
+     * plan) or inline `unitAmount` + `currency` (payment mode one-time charge).
+     */
+    readonly resolvedLineItems: ReadonlyArray<{
+        readonly providerPriceId?: string;
+        readonly unitAmount: number;
+        readonly currency: string;
+        readonly title: string;
+    }>;
+    /** Local checkout UUID, set as provider `external_reference` so webhooks correlate back. */
+    readonly externalReference: string;
+    /** Stable idempotency key (typically the local checkout UUID). Adapters forward as `X-Idempotency-Key`. */
+    readonly idempotencyKey: string;
+    /** Where the provider redirects the user back after authorizing / paying (MP `back_url`). */
+    readonly backUrl?: string;
+    /** Provider webhook URL for this specific checkout session (MP `notification_url`). */
+    readonly notificationUrl?: string;
+}
+
 export interface QZPayPaymentCheckoutAdapter {
-    create(input: QZPayCreateCheckoutInput, providerPriceIds: string[]): Promise<QZPayProviderCheckout>;
+    create(input: QZPayProviderCreateCheckoutInput): Promise<QZPayProviderCheckout>;
     retrieve(providerSessionId: string): Promise<QZPayProviderCheckout>;
     expire(providerSessionId: string): Promise<void>;
 }
