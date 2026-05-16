@@ -1,4 +1,4 @@
-import type { QZPayCreateCheckoutInput, QZPayPaymentCheckoutAdapter, QZPayProviderCheckout } from '@qazuor/qzpay-core';
+import type { QZPayPaymentCheckoutAdapter, QZPayProviderCheckout, QZPayProviderCreateCheckoutInput } from '@qazuor/qzpay-core';
 /**
  * Stripe Checkout Adapter
  *
@@ -13,11 +13,24 @@ export class QZPayStripeCheckoutAdapter implements QZPayPaymentCheckoutAdapter {
     /**
      * Create a Checkout Session in Stripe
      */
-    async create(input: QZPayCreateCheckoutInput, providerPriceIds: string[]): Promise<QZPayProviderCheckout> {
-        const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = providerPriceIds.map((priceId, index) => ({
-            price: priceId,
-            quantity: input.lineItems[index]?.quantity ?? 1
-        }));
+    async create(roro: QZPayProviderCreateCheckoutInput): Promise<QZPayProviderCheckout> {
+        const { input } = roro;
+        const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = roro.resolvedLineItems.map((resolved, index) => {
+            const quantity = input.lineItems[index]?.quantity ?? 1;
+            if (resolved.providerPriceId) {
+                return { price: resolved.providerPriceId, quantity };
+            }
+            // Inline-amount path: Stripe lets callers build price_data on the fly
+            // for one-time line items without a pre-registered price object.
+            return {
+                quantity,
+                price_data: {
+                    currency: resolved.currency,
+                    product_data: { name: resolved.title },
+                    unit_amount: resolved.unitAmount
+                }
+            };
+        });
 
         const params: Stripe.Checkout.SessionCreateParams = {
             line_items: lineItems,
@@ -27,11 +40,20 @@ export class QZPayStripeCheckoutAdapter implements QZPayPaymentCheckoutAdapter {
             metadata: input.metadata ? toStripeMetadata(input.metadata) : {}
         };
 
-        // Set customer if provided
-        if (input.customerId) {
-            params.customer = input.customerId;
-        } else if (input.customerEmail) {
-            params.customer_email = input.customerEmail;
+        // External reference correlates webhooks back to the local checkout
+        // UUID set by billing.checkout.create().
+        if (roro.externalReference) {
+            params.client_reference_id = roro.externalReference;
+        }
+
+        // Set customer from the resolved record when available, falling back to
+        // raw input fields for adapter-direct callers.
+        const providerCustomerId = roro.customer?.providerCustomerId ?? input.customerId;
+        const customerEmail = roro.customer?.email ?? input.customerEmail;
+        if (providerCustomerId) {
+            params.customer = providerCustomerId;
+        } else if (customerEmail) {
+            params.customer_email = customerEmail;
         }
 
         // Set expires at if provided (in minutes from now)
