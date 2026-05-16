@@ -555,6 +555,94 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
                 ).rejects.toThrow(/statement_descriptor/);
             });
         });
+
+        describe('one-time payment mode (inline amount)', () => {
+            it('skips planApi.get and uses inline unitAmount + currency when providerPriceId is unset', async () => {
+                mockPreferenceApi.create.mockResolvedValue(createMockMPPreference({ id: 'pref_onetime' }));
+
+                const result = await adapter.create({
+                    input: {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ quantity: 1, unitAmount: 12000, currency: 'ARS', title: 'Annual Pro Plan' }]
+                    },
+                    resolvedLineItems: [{ unitAmount: 12000, currency: 'ARS', title: 'Annual Pro Plan' }],
+                    externalReference: 'cs_annual_123',
+                    idempotencyKey: 'cs_annual_123'
+                });
+
+                expect(result.id).toBe('pref_onetime');
+                expect(mockPlanApi.get).not.toHaveBeenCalled();
+                expect(mockPreferenceApi.create).toHaveBeenCalledWith({
+                    body: expect.objectContaining({
+                        items: [
+                            {
+                                id: 'item_1',
+                                title: 'Annual Pro Plan',
+                                category_id: 'services',
+                                quantity: 1,
+                                unit_price: 12000,
+                                currency_id: 'ARS'
+                            }
+                        ],
+                        external_reference: 'cs_annual_123'
+                    }),
+                    requestOptions: { idempotencyKey: 'cs_annual_123' }
+                });
+            });
+
+            it('uppercases currency_id from inline currency', async () => {
+                mockPreferenceApi.create.mockResolvedValue(createMockMPPreference());
+
+                await adapter.create({
+                    input: {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ quantity: 1, unitAmount: 5000, currency: 'usd', title: 'Delta Charge' }]
+                    },
+                    resolvedLineItems: [{ unitAmount: 5000, currency: 'usd', title: 'Delta Charge' }],
+                    externalReference: 'cs_delta',
+                    idempotencyKey: 'cs_delta'
+                });
+
+                const call = mockPreferenceApi.create.mock.calls[0]?.[0] as { body: { items: Array<{ currency_id: string }> } };
+                expect(call?.body.items[0]?.currency_id).toBe('USD');
+            });
+
+            it('mixes one-time and subscription line items in a single checkout', async () => {
+                mockPreferenceApi.create.mockResolvedValue(createMockMPPreference({ id: 'pref_mixed' }));
+
+                await adapter.create({
+                    input: {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [
+                            { priceId: 'price_sub', quantity: 1 },
+                            { quantity: 1, unitAmount: 9999, currency: 'ARS', title: 'Setup Fee' }
+                        ]
+                    },
+                    resolvedLineItems: [
+                        { providerPriceId: 'price_sub', unitAmount: 0, currency: 'USD', title: '' },
+                        { unitAmount: 9999, currency: 'ARS', title: 'Setup Fee' }
+                    ],
+                    externalReference: 'cs_mixed',
+                    idempotencyKey: 'cs_mixed'
+                });
+
+                expect(mockPlanApi.get).toHaveBeenCalledTimes(1);
+                expect(mockPlanApi.get).toHaveBeenCalledWith({ preApprovalPlanId: 'price_sub' });
+
+                const call = mockPreferenceApi.create.mock.calls[0]?.[0] as {
+                    body: { items: Array<{ id: string; currency_id: string; unit_price: number }> };
+                };
+                expect(call?.body.items).toHaveLength(2);
+                expect(call?.body.items[0]?.id).toBe('price_sub');
+                expect(call?.body.items[1]).toEqual(expect.objectContaining({ id: 'item_2', unit_price: 9999, currency_id: 'ARS' }));
+            });
+        });
     });
 
     describe('retrieve', () => {

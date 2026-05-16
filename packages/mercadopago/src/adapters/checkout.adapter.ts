@@ -105,25 +105,48 @@ export class QZPayMercadoPagoCheckoutAdapter implements QZPayPaymentCheckoutAdap
 
     async create(roro: QZPayProviderCreateCheckoutInput): Promise<QZPayProviderCheckout> {
         const { input } = roro;
-        const providerPriceIds = roro.resolvedLineItems.map((li) => li.providerPriceId).filter((id): id is string => Boolean(id));
         return wrapAdapterMethod('Create checkout session', async () => {
-            // Fetch price information for each line item
+            // Build items per resolved line item. Two paths:
+            //   1) providerPriceId set → look up the MercadoPago PreApprovalPlan
+            //      to read transaction_amount + currency_id (subscription mode
+            //      with a pre-registered plan).
+            //   2) providerPriceId unset → use the inline unitAmount + currency
+            //      carried in the resolved line item (one-time payment mode for
+            //      annual upfront, delta charges, etc. — no plan to fetch).
             const items = await Promise.all(
-                providerPriceIds.map(async (priceId, index) => {
-                    const plan = await this.planApi.get({ preApprovalPlanId: priceId });
-                    const autoRecurring = plan.auto_recurring;
+                roro.resolvedLineItems.map(async (resolved, index) => {
+                    const lineItem = input.lineItems?.[index];
+                    const quantity = lineItem?.quantity ?? 1;
+                    const categoryId = lineItem?.categoryId ?? DEFAULT_ITEM_CATEGORY_ID;
+                    const fallbackTitle = resolved.title || lineItem?.description || `Item ${index + 1}`;
 
-                    if (!autoRecurring) {
-                        throw new Error(`Price ${priceId} does not have recurring configuration`);
+                    if (resolved.providerPriceId) {
+                        const plan = await this.planApi.get({ preApprovalPlanId: resolved.providerPriceId });
+                        const autoRecurring = plan.auto_recurring;
+
+                        if (!autoRecurring) {
+                            throw new Error(`Price ${resolved.providerPriceId} does not have recurring configuration`);
+                        }
+
+                        return {
+                            id: resolved.providerPriceId,
+                            title: lineItem?.description ?? fallbackTitle,
+                            category_id: categoryId,
+                            quantity,
+                            unit_price: autoRecurring.transaction_amount ?? 0,
+                            currency_id: (autoRecurring.currency_id ?? 'USD').toUpperCase()
+                        };
                     }
 
+                    // One-time payment mode: no MP plan to look up. Use the inline
+                    // amount + currency carried in resolved line item.
                     return {
-                        id: priceId,
-                        title: input.lineItems?.[index]?.description ?? `Item ${index + 1}`,
-                        category_id: input.lineItems?.[index]?.categoryId ?? DEFAULT_ITEM_CATEGORY_ID,
-                        quantity: input.lineItems?.[index]?.quantity ?? 1,
-                        unit_price: autoRecurring.transaction_amount ?? 0,
-                        currency_id: (autoRecurring.currency_id ?? 'USD').toUpperCase()
+                        id: `item_${index + 1}`,
+                        title: fallbackTitle,
+                        category_id: categoryId,
+                        quantity,
+                        unit_price: resolved.unitAmount,
+                        currency_id: resolved.currency.toUpperCase()
                     };
                 })
             );
