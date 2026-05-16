@@ -1,9 +1,27 @@
 /**
  * Stripe Checkout Adapter Tests
  */
+import type { QZPayCreateCheckoutInput, QZPayProviderCreateCheckoutInput } from '@qazuor/qzpay-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QZPayStripeCheckoutAdapter } from '../src/adapters/checkout.adapter.js';
 import { createMockStripeCheckoutSession, createMockStripeClient } from './helpers/stripe-mocks.js';
+
+/**
+ * Build the RO-RO shape expected by `QZPayStripeCheckoutAdapter.create`.
+ * Tests pass the same `QZPayCreateCheckoutInput` they used before the RO-RO
+ * refactor + a parallel `providerPriceIds[]` list; the helper assembles the
+ * resolved line items from those two arrays. Existing assertions on
+ * `line_items[].price` continue to pass because each resolved item carries a
+ * `providerPriceId` (subscription / pre-registered Stripe Price ID path).
+ */
+function asRoro(input: QZPayCreateCheckoutInput, providerPriceIds: string[] = []): QZPayProviderCreateCheckoutInput {
+    return {
+        input,
+        resolvedLineItems: providerPriceIds.map((id) => ({ providerPriceId: id, unitAmount: 0, currency: 'USD', title: '' })),
+        externalReference: '',
+        idempotencyKey: ''
+    };
+}
 
 describe('QZPayStripeCheckoutAdapter', () => {
     let adapter: QZPayStripeCheckoutAdapter;
@@ -21,13 +39,15 @@ describe('QZPayStripeCheckoutAdapter', () => {
             vi.mocked(mockStripe.checkout.sessions.create).mockResolvedValue(mockSession);
 
             const result = await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [{ priceId: 'price_123', quantity: 2 }]
-                },
-                ['price_123']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'price_123', quantity: 2 }]
+                    },
+                    ['price_123']
+                )
             );
 
             expect(result.id).toBe('cs_new123');
@@ -45,13 +65,15 @@ describe('QZPayStripeCheckoutAdapter', () => {
             vi.mocked(mockStripe.checkout.sessions.create).mockResolvedValue(mockSession);
 
             await adapter.create(
-                {
-                    mode: 'subscription',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [{ priceId: 'price_recurring', quantity: 1 }]
-                },
-                ['price_recurring']
+                asRoro(
+                    {
+                        mode: 'subscription',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'price_recurring', quantity: 1 }]
+                    },
+                    ['price_recurring']
+                )
             );
 
             expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
@@ -66,14 +88,16 @@ describe('QZPayStripeCheckoutAdapter', () => {
             vi.mocked(mockStripe.checkout.sessions.create).mockResolvedValue(mockSession);
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [{ priceId: 'price_123', quantity: 1 }],
-                    customerId: 'cus_123'
-                },
-                ['price_123']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'price_123', quantity: 1 }],
+                        customerId: 'cus_123'
+                    },
+                    ['price_123']
+                )
             );
 
             expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
@@ -88,14 +112,16 @@ describe('QZPayStripeCheckoutAdapter', () => {
             vi.mocked(mockStripe.checkout.sessions.create).mockResolvedValue(mockSession);
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [{ priceId: 'price_123', quantity: 1 }],
-                    customerEmail: 'test@example.com'
-                },
-                ['price_123']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'price_123', quantity: 1 }],
+                        customerEmail: 'test@example.com'
+                    },
+                    ['price_123']
+                )
             );
 
             expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
@@ -111,14 +137,16 @@ describe('QZPayStripeCheckoutAdapter', () => {
             const beforeCall = Math.floor(Date.now() / 1000);
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [{ priceId: 'price_123', quantity: 1 }],
-                    expiresInMinutes: 30
-                },
-                ['price_123']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'price_123', quantity: 1 }],
+                        expiresInMinutes: 30
+                    },
+                    ['price_123']
+                )
             );
 
             const call = vi.mocked(mockStripe.checkout.sessions.create).mock.calls[0]?.[0];
@@ -131,14 +159,16 @@ describe('QZPayStripeCheckoutAdapter', () => {
             vi.mocked(mockStripe.checkout.sessions.create).mockResolvedValue(mockSession);
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [{ priceId: 'price_123', quantity: 1 }],
-                    expiresInMinutes: 0
-                },
-                ['price_123']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'price_123', quantity: 1 }],
+                        expiresInMinutes: 0
+                    },
+                    ['price_123']
+                )
             );
 
             expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
@@ -153,14 +183,16 @@ describe('QZPayStripeCheckoutAdapter', () => {
             vi.mocked(mockStripe.checkout.sessions.create).mockResolvedValue(mockSession);
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [{ priceId: 'price_123', quantity: 1 }],
-                    allowPromoCodes: true
-                },
-                ['price_123']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'price_123', quantity: 1 }],
+                        allowPromoCodes: true
+                    },
+                    ['price_123']
+                )
             );
 
             expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
@@ -175,14 +207,16 @@ describe('QZPayStripeCheckoutAdapter', () => {
             vi.mocked(mockStripe.checkout.sessions.create).mockResolvedValue(mockSession);
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [{ priceId: 'price_123', quantity: 1 }],
-                    metadata: { orderId: 'order_123' }
-                },
-                ['price_123']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [{ priceId: 'price_123', quantity: 1 }],
+                        metadata: { orderId: 'order_123' }
+                    },
+                    ['price_123']
+                )
             );
 
             expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
@@ -197,16 +231,18 @@ describe('QZPayStripeCheckoutAdapter', () => {
             vi.mocked(mockStripe.checkout.sessions.create).mockResolvedValue(mockSession);
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: [
-                        { priceId: 'price_1', quantity: 2 },
-                        { priceId: 'price_2', quantity: 3 }
-                    ]
-                },
-                ['price_1', 'price_2']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: [
+                            { priceId: 'price_1', quantity: 2 },
+                            { priceId: 'price_2', quantity: 3 }
+                        ]
+                    },
+                    ['price_1', 'price_2']
+                )
             );
 
             expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
@@ -224,13 +260,15 @@ describe('QZPayStripeCheckoutAdapter', () => {
             vi.mocked(mockStripe.checkout.sessions.create).mockResolvedValue(mockSession);
 
             await adapter.create(
-                {
-                    mode: 'payment',
-                    successUrl: 'https://example.com/success',
-                    cancelUrl: 'https://example.com/cancel',
-                    lineItems: []
-                },
-                ['price_123']
+                asRoro(
+                    {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        lineItems: []
+                    },
+                    ['price_123']
+                )
             );
 
             expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(

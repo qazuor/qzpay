@@ -1,7 +1,12 @@
 /**
  * Mock Payment Adapter Tests
  */
-import type { QZPayCreateSubscriptionInput, QZPayProviderCreateSubscriptionInput } from '@qazuor/qzpay-core';
+import type {
+    QZPayCreateCheckoutInput,
+    QZPayCreateSubscriptionInput,
+    QZPayProviderCreateCheckoutInput,
+    QZPayProviderCreateSubscriptionInput
+} from '@qazuor/qzpay-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TEST_CARDS, createMockPaymentAdapter } from '../src/adapters/mock-payment.adapter.js';
 
@@ -24,6 +29,26 @@ function buildInput(
         plan: { name: 'Test Plan' },
         externalReference: 'sub_local',
         idempotencyKey: 'sub_local'
+    };
+}
+
+/**
+ * Build a provider create-checkout input for the mock adapter tests. The mock
+ * only reads `input.customerId` + `input.metadata` + `customer.id` from the
+ * RO-RO shape; everything else is populated with safe defaults.
+ */
+function buildCheckoutInput(inputOverrides: Partial<QZPayCreateCheckoutInput> = {}): QZPayProviderCreateCheckoutInput {
+    return {
+        input: {
+            mode: 'subscription',
+            lineItems: [{ priceId: 'price_123', quantity: 1 }],
+            successUrl: 'https://example.com/success',
+            cancelUrl: 'https://example.com/cancel',
+            ...inputOverrides
+        },
+        resolvedLineItems: [{ providerPriceId: 'price_123', unitAmount: 1000, currency: 'USD', title: 'Test Item' }],
+        externalReference: 'cs_local',
+        idempotencyKey: 'cs_local'
     };
 }
 
@@ -469,7 +494,7 @@ describe('createMockPaymentAdapter', () => {
     describe('adapter.checkout', () => {
         describe('create', () => {
             it('should create a checkout session', async () => {
-                const checkout = await adapter.checkout.create({}, ['price_123']);
+                const checkout = await adapter.checkout.create(buildCheckoutInput());
 
                 expect(checkout.id).toMatch(/^mock_cs_\d+$/);
                 expect(checkout.url).toMatch(/^https:\/\/mock\.qzpay\.dev\/checkout\//);
@@ -479,13 +504,13 @@ describe('createMockPaymentAdapter', () => {
             });
 
             it('should create checkout with customer ID', async () => {
-                const checkout = await adapter.checkout.create({ customerId: 'cus_123' }, ['price_123']);
+                const checkout = await adapter.checkout.create(buildCheckoutInput({ customerId: 'cus_123' }));
 
                 expect(checkout.customerId).toBe('cus_123');
             });
 
             it('should create checkout with metadata', async () => {
-                const checkout = await adapter.checkout.create({ metadata: { source: 'web' } }, ['price_123']);
+                const checkout = await adapter.checkout.create(buildCheckoutInput({ metadata: { source: 'web' } }));
 
                 expect(checkout.metadata).toEqual({ source: 'web' });
             });
@@ -493,7 +518,7 @@ describe('createMockPaymentAdapter', () => {
 
         describe('retrieve', () => {
             it('should retrieve an existing checkout session', async () => {
-                const checkout = await adapter.checkout.create({}, ['price_123']);
+                const checkout = await adapter.checkout.create(buildCheckoutInput());
 
                 const retrieved = await adapter.checkout.retrieve(checkout.id);
 
@@ -507,7 +532,7 @@ describe('createMockPaymentAdapter', () => {
 
         describe('expire', () => {
             it('should expire a checkout session', async () => {
-                const checkout = await adapter.checkout.create({}, ['price_123']);
+                const checkout = await adapter.checkout.create(buildCheckoutInput());
 
                 await adapter.checkout.expire(checkout.id);
 
@@ -791,7 +816,7 @@ describe('createMockPaymentAdapter', () => {
 
     describe('completeCheckout', () => {
         it('should complete a checkout session', async () => {
-            const checkout = await adapter.checkout.create({}, ['price_123']);
+            const checkout = await adapter.checkout.create(buildCheckoutInput());
 
             expect(checkout.status).toBe('open');
 
@@ -802,7 +827,7 @@ describe('createMockPaymentAdapter', () => {
         });
 
         it('should complete checkout with subscription ID', async () => {
-            const checkout = await adapter.checkout.create({}, ['price_123']);
+            const checkout = await adapter.checkout.create(buildCheckoutInput());
 
             completeCheckout(checkout.id, { subscriptionId: 'sub_123' });
 
@@ -811,7 +836,7 @@ describe('createMockPaymentAdapter', () => {
         });
 
         it('should complete checkout with payment intent ID', async () => {
-            const checkout = await adapter.checkout.create({}, ['price_123']);
+            const checkout = await adapter.checkout.create(buildCheckoutInput());
 
             completeCheckout(checkout.id, { paymentIntentId: 'pi_123' });
 
@@ -820,7 +845,7 @@ describe('createMockPaymentAdapter', () => {
         });
 
         it('should not affect expired checkout', async () => {
-            const checkout = await adapter.checkout.create({}, ['price_123']);
+            const checkout = await adapter.checkout.create(buildCheckoutInput());
 
             await adapter.checkout.expire(checkout.id);
             completeCheckout(checkout.id);

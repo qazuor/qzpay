@@ -142,6 +142,14 @@ function validateCustomer(input: QZPayCreateCheckoutInput, options: QZPayCheckou
 
 /**
  * Validate line items
+ *
+ * A line item must resolve its amount through ONE of two paths:
+ *   1. `priceId` — provider-side price/plan lookup (used by `mode: 'subscription'`).
+ *   2. `unitAmount` + `currency` inline — used by `mode: 'payment'` for one-time
+ *      charges with no pre-registered plan (annual upfront, delta charges).
+ *
+ * For `mode: 'payment'` items without a `priceId`, `title` is also required since
+ * there is no plan name to fall back on for the provider-facing label.
  */
 function validateLineItems(input: QZPayCreateCheckoutInput, errors: string[]): void {
     if (!input.lineItems || input.lineItems.length === 0) {
@@ -151,8 +159,15 @@ function validateLineItems(input: QZPayCreateCheckoutInput, errors: string[]): v
     for (let i = 0; i < input.lineItems.length; i++) {
         const item = input.lineItems[i];
         if (!item) continue;
-        if (!item.priceId) {
-            errors.push(`Line item ${i + 1}: Price ID is required`);
+
+        const hasPriceId = Boolean(item.priceId);
+        const hasInlineAmount = item.unitAmount !== undefined && Boolean(item.currency);
+
+        if (!hasPriceId && !hasInlineAmount) {
+            errors.push(`Line item ${i + 1}: must supply either priceId or unitAmount + currency`);
+        }
+        if (!hasPriceId && hasInlineAmount && !item.title) {
+            errors.push(`Line item ${i + 1}: title is required for inline-amount items`);
         }
         if (!item.quantity || item.quantity < 1) {
             errors.push(`Line item ${i + 1}: Quantity must be at least 1`);
@@ -256,10 +271,18 @@ export function qzpayCalculateCheckoutTotals(
     let currency: QZPayCurrency = 'USD';
 
     for (const item of lineItems) {
-        const price = prices.get(item.priceId);
-        if (price) {
-            subtotal += price.unitAmount * item.quantity;
-            currency = price.currency;
+        // Subscription line items resolve their amount via priceId. Payment-mode
+        // line items carry the amount inline (item.unitAmount + item.currency)
+        // and are summed directly without a price lookup.
+        if (item.priceId) {
+            const price = prices.get(item.priceId);
+            if (price) {
+                subtotal += price.unitAmount * item.quantity;
+                currency = price.currency;
+            }
+        } else if (item.unitAmount !== undefined) {
+            subtotal += item.unitAmount * item.quantity;
+            if (item.currency) currency = item.currency;
         }
     }
 

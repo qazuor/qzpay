@@ -24,6 +24,7 @@
  */
 import type {
     QZPayAddOn,
+    QZPayCheckoutSession,
     QZPayCreateAddOnInput,
     QZPayCreateCustomerInput,
     QZPayCreateInvoiceInput,
@@ -96,6 +97,7 @@ export interface MemoryStorageData {
     limitDefinitions: Map<string, QZPayLimit>;
     customerLimits: Map<string, QZPayCustomerLimit>;
     usageRecords: Map<string, QZPayUsageRecord>;
+    checkouts: Map<string, QZPayCheckoutSession>;
 }
 
 /**
@@ -119,6 +121,7 @@ export interface MemoryStorageSnapshot {
     limitDefinitions?: Record<string, QZPayLimit>;
     customerLimits?: Record<string, QZPayCustomerLimit>;
     usageRecords?: Record<string, QZPayUsageRecord>;
+    checkouts?: Record<string, QZPayCheckoutSession>;
 }
 
 let idCounter = 0;
@@ -169,7 +172,8 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
         customerEntitlements: new Map(),
         limitDefinitions: new Map(),
         customerLimits: new Map(),
-        usageRecords: new Map()
+        usageRecords: new Map(),
+        checkouts: new Map()
     };
 
     const reset = (): void => {
@@ -190,6 +194,7 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
         data.limitDefinitions.clear();
         data.customerLimits.clear();
         data.usageRecords.clear();
+        data.checkouts.clear();
         idCounter = 0;
     };
 
@@ -279,6 +284,11 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                 data.usageRecords.set(id, rec);
             }
         }
+        if (snapshot.checkouts) {
+            for (const [id, checkout] of Object.entries(snapshot.checkouts)) {
+                data.checkouts.set(id, checkout);
+            }
+        }
     };
 
     const getData = (): MemoryStorageData => data;
@@ -300,7 +310,8 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
         customerEntitlements: Object.fromEntries(data.customerEntitlements),
         limitDefinitions: Object.fromEntries(data.limitDefinitions),
         customerLimits: Object.fromEntries(data.customerLimits),
-        usageRecords: Object.fromEntries(data.usageRecords)
+        usageRecords: Object.fromEntries(data.usageRecords),
+        checkouts: Object.fromEntries(data.checkouts)
     });
 
     const adapter: QZPayStorageAdapter = {
@@ -1012,6 +1023,34 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                     }
                 }
                 return null;
+            }
+        },
+
+        checkouts: {
+            async create(session: QZPayCheckoutSession): Promise<QZPayCheckoutSession> {
+                if (data.checkouts.has(session.id)) {
+                    throw new Error(`Checkout ${session.id} already exists`);
+                }
+                data.checkouts.set(session.id, session);
+                return session;
+            },
+            async update(id: string, input: Partial<QZPayCheckoutSession>): Promise<QZPayCheckoutSession> {
+                const checkout = data.checkouts.get(id);
+                if (!checkout) {
+                    throw new Error(`Checkout ${id} not found`);
+                }
+                const updated: QZPayCheckoutSession = { ...checkout, ...input };
+                data.checkouts.set(id, updated);
+                return updated;
+            },
+            async findById(id: string): Promise<QZPayCheckoutSession | null> {
+                return data.checkouts.get(id) ?? null;
+            },
+            async findByCustomerId(customerId: string): Promise<QZPayCheckoutSession[]> {
+                return Array.from(data.checkouts.values()).filter((c) => c.customerId === customerId);
+            },
+            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayCheckoutSession>> {
+                return paginate(Array.from(data.checkouts.values()), options);
             }
         },
 

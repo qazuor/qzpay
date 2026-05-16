@@ -37,6 +37,12 @@ export {
     qzpayValidatePagination,
     type QZPayValidatedPagination
 } from './base.repository.js';
+// Checkout repository
+export {
+    type QZPayCheckoutSearchOptions,
+    type QZPayCheckoutStatusValue,
+    QZPayCheckoutsRepository
+} from './checkouts.repository.js';
 // Entity repositories
 export { type QZPayCustomerSearchOptions, QZPayCustomersRepository } from './customers.repository.js';
 // Entitlement repository

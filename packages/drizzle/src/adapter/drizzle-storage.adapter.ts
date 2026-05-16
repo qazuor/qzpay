@@ -1,6 +1,8 @@
 import type {
     QZPayAddOn,
     QZPayAddOnStorage,
+    QZPayCheckoutSession,
+    QZPayCheckoutStorage,
     QZPayCreateAddOnInput,
     QZPayCreateCustomerInput,
     QZPayCreateInvoiceInput,
@@ -59,6 +61,8 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
     mapCoreAddonCreateToDrizzle,
     mapCoreAddonUpdateToDrizzle,
+    mapCoreCheckoutToDrizzle,
+    mapCoreCheckoutUpdateToDrizzle,
     mapCoreCustomerCreateToDrizzle,
     mapCoreCustomerUpdateToDrizzle,
     mapCoreEntitlementToDrizzle,
@@ -83,6 +87,7 @@ import {
     mapCoreVendorPayoutToDrizzle,
     mapCoreVendorUpdateToDrizzle,
     mapDrizzleAddonToCore,
+    mapDrizzleCheckoutToCore,
     mapDrizzleCustomerEntitlementToCore,
     mapDrizzleCustomerLimitToCore,
     mapDrizzleCustomerToCore,
@@ -103,6 +108,7 @@ import {
 import {
     type QZPayPaginatedResult as DrizzlePaginatedResult,
     QZPayAddonsRepository,
+    QZPayCheckoutsRepository,
     QZPayCustomersRepository,
     QZPayEntitlementsRepository,
     QZPayInvoicesRepository,
@@ -155,6 +161,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
 
     // Repositories
     private readonly addonsRepo: QZPayAddonsRepository;
+    private readonly checkoutsRepo: QZPayCheckoutsRepository;
     private readonly customersRepo: QZPayCustomersRepository;
     private readonly subscriptionsRepo: QZPaySubscriptionsRepository;
     private readonly paymentsRepo: QZPayPaymentsRepository;
@@ -170,6 +177,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
 
     // Storage implementations
     public readonly addons: QZPayAddOnStorage;
+    public readonly checkouts: QZPayCheckoutStorage;
     public readonly customers: QZPayCustomerStorage;
     public readonly subscriptions: QZPaySubscriptionStorage;
     public readonly payments: QZPayPaymentStorage;
@@ -190,6 +198,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
         // Some repositories require QZPayDatabase for typed query builder access
         const typedDb = this.db as unknown as QZPayDatabase;
         this.addonsRepo = new QZPayAddonsRepository(this.db);
+        this.checkoutsRepo = new QZPayCheckoutsRepository(this.db);
         this.customersRepo = new QZPayCustomersRepository(typedDb);
         this.subscriptionsRepo = new QZPaySubscriptionsRepository(typedDb);
         this.paymentsRepo = new QZPayPaymentsRepository(this.db);
@@ -205,6 +214,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
 
         // Initialize storage implementations
         this.addons = this.createAddOnStorage();
+        this.checkouts = this.createCheckoutStorage();
         this.customers = this.createCustomerStorage();
         this.subscriptions = this.createSubscriptionStorage();
         this.payments = this.createPaymentStorage();
@@ -272,6 +282,44 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 const offset = options?.offset ?? 0;
                 const result = await repo.search({ livemode, limit, offset });
                 return toPaginatedResult(result, mapDrizzleCustomerToCore, limit, offset);
+            }
+        };
+    }
+
+    // ==================== Checkout Storage ====================
+
+    private createCheckoutStorage(): QZPayCheckoutStorage {
+        const repo = this.checkoutsRepo;
+        const livemode = this.livemode;
+
+        return {
+            async create(session: QZPayCheckoutSession): Promise<QZPayCheckoutSession> {
+                const drizzleInput = mapCoreCheckoutToDrizzle(session);
+                const result = await repo.create(drizzleInput);
+                return mapDrizzleCheckoutToCore(result);
+            },
+
+            async update(id: string, input: Partial<QZPayCheckoutSession>): Promise<QZPayCheckoutSession> {
+                const drizzleInput = mapCoreCheckoutUpdateToDrizzle(input);
+                const result = await repo.update(id, drizzleInput);
+                return mapDrizzleCheckoutToCore(result);
+            },
+
+            async findById(id: string): Promise<QZPayCheckoutSession | null> {
+                const result = await repo.findById(id);
+                return result ? mapDrizzleCheckoutToCore(result) : null;
+            },
+
+            async findByCustomerId(customerId: string): Promise<QZPayCheckoutSession[]> {
+                const result = await repo.findByCustomerId(customerId);
+                return result.data.map(mapDrizzleCheckoutToCore);
+            },
+
+            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayCheckoutSession>> {
+                const limit = options?.limit ?? 20;
+                const offset = options?.offset ?? 0;
+                const result = await repo.search({ livemode, limit, offset });
+                return toPaginatedResult(result, mapDrizzleCheckoutToCore, limit, offset);
             }
         };
     }

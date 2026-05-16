@@ -1,4 +1,4 @@
-import type { QZPayCreateCheckoutInput, QZPayPaymentCheckoutAdapter, QZPayProviderCheckout } from '@qazuor/qzpay-core';
+import type { QZPayPaymentCheckoutAdapter, QZPayProviderCheckout, QZPayProviderCreateCheckoutInput } from '@qazuor/qzpay-core';
 /**
  * MercadoPago Checkout Adapter
  * Uses Preference API for checkout sessions
@@ -103,25 +103,50 @@ export class QZPayMercadoPagoCheckoutAdapter implements QZPayPaymentCheckoutAdap
         this.useSandbox = useSandbox;
     }
 
-    async create(input: QZPayCreateCheckoutInput, providerPriceIds: string[]): Promise<QZPayProviderCheckout> {
+    async create(roro: QZPayProviderCreateCheckoutInput): Promise<QZPayProviderCheckout> {
+        const { input } = roro;
         return wrapAdapterMethod('Create checkout session', async () => {
-            // Fetch price information for each line item
+            // Build items per resolved line item. Two paths:
+            //   1) providerPriceId set → look up the MercadoPago PreApprovalPlan
+            //      to read transaction_amount + currency_id (subscription mode
+            //      with a pre-registered plan).
+            //   2) providerPriceId unset → use the inline unitAmount + currency
+            //      carried in the resolved line item (one-time payment mode for
+            //      annual upfront, delta charges, etc. — no plan to fetch).
             const items = await Promise.all(
-                providerPriceIds.map(async (priceId, index) => {
-                    const plan = await this.planApi.get({ preApprovalPlanId: priceId });
-                    const autoRecurring = plan.auto_recurring;
+                roro.resolvedLineItems.map(async (resolved, index) => {
+                    const lineItem = input.lineItems?.[index];
+                    const quantity = lineItem?.quantity ?? 1;
+                    const categoryId = lineItem?.categoryId ?? DEFAULT_ITEM_CATEGORY_ID;
+                    const fallbackTitle = resolved.title || lineItem?.description || `Item ${index + 1}`;
 
-                    if (!autoRecurring) {
-                        throw new Error(`Price ${priceId} does not have recurring configuration`);
+                    if (resolved.providerPriceId) {
+                        const plan = await this.planApi.get({ preApprovalPlanId: resolved.providerPriceId });
+                        const autoRecurring = plan.auto_recurring;
+
+                        if (!autoRecurring) {
+                            throw new Error(`Price ${resolved.providerPriceId} does not have recurring configuration`);
+                        }
+
+                        return {
+                            id: resolved.providerPriceId,
+                            title: lineItem?.description ?? fallbackTitle,
+                            category_id: categoryId,
+                            quantity,
+                            unit_price: autoRecurring.transaction_amount ?? 0,
+                            currency_id: (autoRecurring.currency_id ?? 'USD').toUpperCase()
+                        };
                     }
 
+                    // One-time payment mode: no MP plan to look up. Use the inline
+                    // amount + currency carried in resolved line item.
                     return {
-                        id: priceId,
-                        title: input.lineItems?.[index]?.description ?? `Item ${index + 1}`,
-                        category_id: input.lineItems?.[index]?.categoryId ?? DEFAULT_ITEM_CATEGORY_ID,
-                        quantity: input.lineItems?.[index]?.quantity ?? 1,
-                        unit_price: autoRecurring.transaction_amount ?? 0,
-                        currency_id: (autoRecurring.currency_id ?? 'USD').toUpperCase()
+                        id: `item_${index + 1}`,
+                        title: fallbackTitle,
+                        category_id: categoryId,
+                        quantity,
+                        unit_price: resolved.unitAmount,
+                        currency_id: resolved.currency.toUpperCase()
                     };
                 })
             );
@@ -141,28 +166,37 @@ export class QZPayMercadoPagoCheckoutAdapter implements QZPayPaymentCheckoutAdap
                 }
             };
 
-            // Add optional notification URL
-            if (input.notificationUrl) {
-                body.notification_url = input.notificationUrl;
+            // Add optional notification URL — prefer the orchestrator-derived
+            // value (roro.notificationUrl) when set, fall back to input.
+            const notificationUrl = roro.notificationUrl ?? input.notificationUrl;
+            if (notificationUrl) {
+                body.notification_url = notificationUrl;
             }
 
             // SPEC-125: full payer info (email + first_name + last_name) so
             // MP's fraud engine can score the transaction properly. MP's
             // quality checklist treats missing payer fields as a high-risk
-            // signal.
+            // signal. The resolved customer record (when present) takes
+            // precedence over the raw input fields.
             const payer = buildPayer({
-                customerEmail: input.customerEmail,
+                customerEmail: roro.customer?.email ?? input.customerEmail,
                 customerName: input.customerName,
-                payerFirstName: input.payerFirstName,
-                payerLastName: input.payerLastName
+                payerFirstName: roro.customer?.firstName ?? input.payerFirstName,
+                payerLastName: roro.customer?.lastName ?? input.payerLastName
             });
             if (payer) {
                 body.payer = payer;
             }
 
-            // Add optional external reference
-            if (input.customerId) {
-                body.external_reference = input.customerId;
+            // External reference points at the LOCAL checkout UUID so webhooks
+            // can find the matching local record. Falls back to input.customerId
+            // for backwards-compat when the orchestrator provides no reference
+            // (should not happen via billing.checkout but the adapter remains
+            // permissive). Only emit the field when a value is actually present
+            // — MP rejects empty strings on external_reference.
+            const externalReference = roro.externalReference || input.customerId;
+            if (externalReference) {
+                body.external_reference = externalReference;
             }
 
             // Add expiration if specified
@@ -178,11 +212,11 @@ export class QZPayMercadoPagoCheckoutAdapter implements QZPayPaymentCheckoutAdap
                 body.statement_descriptor = validateStatementDescriptor(input.statementDescriptor);
             }
 
-            // SPEC-125: caller-supplied idempotency key (e.g. a local order
-            // UUID). When omitted, MP auto-generates its own.
-            const response = await this.preferenceApi.create(
-                input.idempotencyKey ? { body, requestOptions: { idempotencyKey: input.idempotencyKey } } : { body }
-            );
+            // Caller-supplied idempotency key (typically the local checkout
+            // UUID). When the orchestrator-set roro.idempotencyKey is present,
+            // prefer it over input.idempotencyKey.
+            const idempotencyKey = roro.idempotencyKey || input.idempotencyKey;
+            const response = await this.preferenceApi.create(idempotencyKey ? { body, requestOptions: { idempotencyKey } } : { body });
 
             return this.mapToProviderCheckout(response);
         });
