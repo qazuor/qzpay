@@ -28,6 +28,15 @@ export {
     type QZPayBillingAuditLog,
     type QZPayBillingAuditLogInsert
 } from './audit-logs.schema.js';
+// Checkout schema
+export {
+    billingCheckoutInsertSchema,
+    billingCheckoutSelectSchema,
+    billingCheckouts,
+    type QZPayBillingCheckout,
+    type QZPayBillingCheckoutInsert,
+    type QZPayBillingCheckoutInsertInput
+} from './checkouts.schema.js';
 // Customer schema
 export {
     billingCustomerInsertSchema,
@@ -217,6 +226,7 @@ export const QZPAY_DRIZZLE_SCHEMA_VERSION = '0.0.1';
  */
 import * as addonSchema from './addons.schema.js';
 import * as auditLogSchema from './audit-logs.schema.js';
+import * as checkoutSchema from './checkouts.schema.js';
 import * as customerSchema from './customers.schema.js';
 import * as entitlementSchema from './entitlements.schema.js';
 import * as idempotencySchema from './idempotency.schema.js';
@@ -238,6 +248,7 @@ export const qzpaySchema = {
     billingAddons: addonSchema.billingAddons,
     billingSubscriptionAddons: addonSchema.billingSubscriptionAddons,
     billingAuditLogs: auditLogSchema.billingAuditLogs,
+    billingCheckouts: checkoutSchema.billingCheckouts,
     billingCustomers: customerSchema.billingCustomers,
     billingCustomerEntitlements: entitlementSchema.billingCustomerEntitlements,
     billingEntitlements: entitlementSchema.billingEntitlements,

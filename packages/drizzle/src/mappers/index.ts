@@ -14,6 +14,12 @@ export {
     mapDrizzleAddonToCore,
     mapDrizzleSubscriptionAddonToCore
 } from './addon.mapper.js';
+// Checkout mappers
+export {
+    mapCoreCheckoutToDrizzle,
+    mapCoreCheckoutUpdateToDrizzle,
+    mapDrizzleCheckoutToCore
+} from './checkout.mapper.js';
 // Customer mappers
 export {
     mapCoreCustomerCreateToDrizzle,
