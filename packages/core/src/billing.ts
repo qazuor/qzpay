@@ -2,7 +2,11 @@
  * QZPayBilling factory and main entry point
  */
 import type { QZPayEmailAdapter } from './adapters/email.adapter.js';
-import type { QZPayPaymentAdapter, QZPayProviderCreateSubscriptionInput } from './adapters/payment.adapter.js';
+import type {
+    QZPayPaymentAdapter,
+    QZPayProviderCreateCheckoutInput,
+    QZPayProviderCreateSubscriptionInput
+} from './adapters/payment.adapter.js';
 import type { QZPayStorageAdapter } from './adapters/storage.adapter.js';
 import type { QZPayBillingEvent, QZPayCurrency, QZPayPaymentStatus, QZPaySubscriptionStatus } from './constants/index.js';
 import { QZPayConflictError, QZPayErrorCode, QZPayNotFoundError, QZPayProviderSyncError, QZPayValidationError } from './errors/index.js';
@@ -13,6 +17,7 @@ import {
     qzpayCreateSubscriptionWithHelpers
 } from './helpers/subscription-with-helpers.js';
 import { qzpayCalculateSubscriptionProration } from './helpers/subscription.helper.js';
+import { qzpayCreateCheckoutSession, qzpayValidateCheckoutInput } from './services/checkout.service.js';
 import {
     qzpayCalculateChurnMetrics,
     qzpayCalculateDashboardMetrics,
@@ -27,6 +32,7 @@ import type {
     QZPaySubscriptionAddOn,
     QZPayUpdateAddOnInput
 } from './types/addon.types.js';
+import type { QZPayCheckoutSession, QZPayCreateCheckoutInput } from './types/checkout.types.js';
 import type { QZPayMetadata, QZPaySourceType } from './types/common.types.js';
 import type { QZPayCustomerEntitlement, QZPayGrantEntitlementInput } from './types/entitlements.types.js';
 import type { QZPayEventMap, QZPayTypedEventHandler } from './types/events.types.js';
@@ -739,6 +745,62 @@ export interface QZPayPaymentMethodService {
 /**
  * Main QZPayBilling interface
  */
+/**
+ * A persisted checkout session augmented with the provider-hosted URLs returned
+ * from `billing.checkout.create()`. The base record (status, lineItems, etc.)
+ * comes from storage; `providerInitPoint` / `providerSandboxInitPoint` are set
+ * by core after the provider adapter successfully creates the checkout session.
+ *
+ * Consumers redirect the end user to `providerInitPoint` (or the sandbox URL in
+ * test mode) to complete the payment / subscription authorization on the
+ * provider's hosted page.
+ */
+export interface QZPayCheckoutWithHelpers extends QZPayCheckoutSession {
+    /** Provider-hosted authorization URL (e.g. MercadoPago Preference `init_point`). */
+    providerInitPoint?: string;
+    /** Sandbox equivalent of `providerInitPoint`, used during local development. */
+    providerSandboxInitPoint?: string;
+}
+
+/**
+ * Public checkout service exposed as `billing.checkout`.
+ *
+ * Creates checkout sessions (one-time payments OR subscription authorization)
+ * that orchestrate the local persisted record + the provider call in a single
+ * atomic flow:
+ *   1. Validate the input against `QZPayCreateCheckoutInput` contract.
+ *   2. Build the local session (UUID, timestamps, status='open') and persist
+ *      via `storage.checkouts.create` BEFORE the provider call so a process
+ *      crash never leaves an orphan checkout on the provider side.
+ *   3. Resolve per-line-item pricing (price/plan lookup for subscription mode,
+ *      inline unitAmount + currency for one-time payment mode).
+ *   4. Call `paymentAdapter.checkout.create` with the RO-RO shape.
+ *   5. On success: write `providerSessionIds[provider]` back to storage and
+ *      emit `checkout.created`. On failure: dispatch on
+ *      `providerSyncErrorStrategy` (`throw` → mark session as `expired` and
+ *      re-throw; `log` → keep local pending so the user can retry).
+ */
+export interface QZPayCheckoutService {
+    /**
+     * Create a new checkout session.
+     * Returns the persisted session with provider URLs attached when the
+     * provider sync succeeded.
+     */
+    create: (input: QZPayCreateCheckoutInput) => Promise<QZPayCheckoutWithHelpers>;
+    /**
+     * Get a checkout session by ID.
+     */
+    get: (id: string) => Promise<QZPayCheckoutSession | null>;
+    /**
+     * Get all checkout sessions for a customer (open + completed + expired).
+     */
+    getByCustomerId: (customerId: string) => Promise<QZPayCheckoutSession[]>;
+    /**
+     * List checkout sessions with pagination.
+     */
+    list: (options?: Parameters<QZPayStorageAdapter['checkouts']['list']>[0]) => ReturnType<QZPayStorageAdapter['checkouts']['list']>;
+}
+
 export interface QZPayBilling {
     /**
      * Customer management
@@ -794,6 +856,11 @@ export interface QZPayBilling {
      * Payment method management
      */
     readonly paymentMethods: QZPayPaymentMethodService;
+
+    /**
+     * Checkout sessions — one-time payments + hosted subscription authorization
+     */
+    readonly checkout: QZPayCheckoutService;
 
     /**
      * Subscribe to billing events
@@ -1378,6 +1445,142 @@ class QZPayBillingImpl implements QZPayBilling {
                 return wrapWithHelpers(linked);
             },
             list: (options) => storage.subscriptions.list(options)
+        };
+    }
+
+    get checkout(): QZPayCheckoutService {
+        const storage = this.storage;
+        const emitter = this.emitter;
+        const planMap = this.planMap;
+        const paymentAdapter = this.paymentAdapter;
+        const providerSyncErrorStrategy = this.providerSyncErrorStrategy;
+        const logger = this.logger;
+        const livemode = this.livemode;
+        const defaultCurrency = this.defaultCurrency;
+
+        return {
+            create: async (input) => {
+                // 1. Validate input — mode, line items, URLs.
+                const validation = qzpayValidateCheckoutInput(input);
+                if (!validation.valid) {
+                    throw new QZPayValidationError(`Invalid checkout input: ${validation.errors.join('; ')}`, 'input');
+                }
+
+                // 2. Resolve per-line-item pricing. Subscription-mode items
+                // (those with priceId) resolve via the in-memory plan map to
+                // pull amount/currency/providerPriceId; payment-mode items
+                // (no priceId) use their inline unitAmount + currency + title.
+                const adapterProvider = paymentAdapter?.provider;
+                const resolvedLineItems = input.lineItems.map((item) => {
+                    if (item.priceId) {
+                        let resolvedPrice: QZPayPrice | undefined;
+                        let resolvedPlan: QZPayPlan | undefined;
+                        for (const plan of planMap.values()) {
+                            const match = plan.prices.find((p) => p.id === item.priceId);
+                            if (match) {
+                                resolvedPlan = plan;
+                                resolvedPrice = match;
+                                break;
+                            }
+                        }
+                        if (!resolvedPrice) {
+                            throw new QZPayValidationError(
+                                `Checkout line item references unknown priceId '${item.priceId}'`,
+                                'priceId',
+                                item.priceId
+                            );
+                        }
+                        const providerPriceId = adapterProvider ? resolvedPrice.providerPriceIds?.[adapterProvider] : undefined;
+                        return {
+                            ...(providerPriceId ? { providerPriceId } : {}),
+                            unitAmount: resolvedPrice.unitAmount,
+                            currency: resolvedPrice.currency as string,
+                            title: item.title ?? resolvedPlan?.name ?? 'Item'
+                        };
+                    }
+                    // biome-ignore lint/style/noNonNullAssertion: validator enforces presence on the inline path
+                    return { unitAmount: item.unitAmount!, currency: item.currency as string, title: item.title! };
+                });
+
+                // 3. Build the local session. Currency comes from the first
+                // resolved line item (subscription items inherit from price,
+                // inline-amount items carry their own); falls back to the
+                // billing-wide default currency.
+                const sessionCurrency = (resolvedLineItems[0]?.currency as QZPayCurrency | undefined) ?? defaultCurrency;
+                const session = qzpayCreateCheckoutSession(input, livemode, sessionCurrency);
+
+                // 4. Persist BEFORE provider call — Decision 1A: no orphans.
+                await storage.checkouts.create(session);
+
+                // 5. If a payment adapter is configured, sync with the provider.
+                if (paymentAdapter?.checkout) {
+                    let resolvedCustomer: QZPayProviderCreateCheckoutInput['customer'];
+                    if (input.customerId) {
+                        const customer = await storage.customers.findById(input.customerId);
+                        if (customer) {
+                            const [firstName, ...rest] = (customer.name ?? '').trim().split(/\s+/);
+                            const providerCustomerId = customer.providerCustomerIds?.[paymentAdapter.provider];
+                            resolvedCustomer = {
+                                id: customer.id,
+                                email: customer.email,
+                                ...(firstName ? { firstName } : {}),
+                                ...(rest.length > 0 ? { lastName: rest.join(' ') } : {}),
+                                ...(providerCustomerId ? { providerCustomerId } : {})
+                            };
+                        }
+                    }
+
+                    const providerInput: QZPayProviderCreateCheckoutInput = {
+                        input,
+                        ...(resolvedCustomer ? { customer: resolvedCustomer } : {}),
+                        resolvedLineItems,
+                        externalReference: session.id,
+                        idempotencyKey: session.id,
+                        ...(input.notificationUrl ? { notificationUrl: input.notificationUrl } : {})
+                    };
+
+                    try {
+                        const providerResult = await paymentAdapter.checkout.create(providerInput);
+                        const linked = await storage.checkouts.update(session.id, {
+                            providerSessionIds: { [paymentAdapter.provider]: providerResult.id }
+                        });
+                        await emitter.emit('checkout.created', linked);
+                        return {
+                            ...linked,
+                            ...(providerResult.url ? { providerInitPoint: providerResult.url } : {})
+                        };
+                    } catch (error) {
+                        if (providerSyncErrorStrategy === 'throw') {
+                            // Mark expired (soft delete) so the local audit
+                            // record is preserved and the same UUID is not
+                            // reusable. Storage `delete` is intentionally
+                            // omitted from the QZPayCheckoutStorage contract
+                            // — the session lifecycle is open→complete/expired.
+                            await storage.checkouts.update(session.id, { status: 'expired' });
+                            throw new QZPayProviderSyncError(
+                                `Failed to create provider checkout: ${error instanceof Error ? error.message : String(error)}`,
+                                paymentAdapter.provider,
+                                'checkout.create',
+                                { checkoutId: session.id },
+                                error instanceof Error ? error : undefined
+                            );
+                        }
+                        logger.warn('Failed to create provider checkout, keeping local pending (providerSyncErrorStrategy=log)', {
+                            error: error instanceof Error ? error.message : String(error),
+                            checkoutId: session.id,
+                            provider: paymentAdapter.provider
+                        });
+                    }
+                }
+
+                // No payment adapter configured, OR provider sync failed under
+                // `log` strategy — return the un-enriched local session.
+                await emitter.emit('checkout.created', session);
+                return session;
+            },
+            get: async (id) => storage.checkouts.findById(id),
+            getByCustomerId: async (customerId) => storage.checkouts.findByCustomerId(customerId),
+            list: (options) => storage.checkouts.list(options)
         };
     }
 
