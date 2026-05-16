@@ -253,14 +253,14 @@ describe('Checkout Validation', () => {
             expect(result.errors).toContain('Cancel URL is not a valid URL');
         });
 
-        it('should reject line items without priceId', () => {
+        it('should reject line items without priceId or inline amount', () => {
             const input = createCheckoutInput({
                 lineItems: [{ priceId: '', quantity: 1 }]
             });
             const result = qzpayValidateCheckoutInput(input);
 
             expect(result.valid).toBe(false);
-            expect(result.errors.some((e) => e.includes('Price ID is required'))).toBe(true);
+            expect(result.errors.some((e) => e.includes('must supply either priceId or unitAmount + currency'))).toBe(true);
         });
 
         it('should reject line items with invalid quantity', () => {

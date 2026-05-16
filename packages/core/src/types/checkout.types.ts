@@ -25,8 +25,35 @@ export interface QZPayCheckoutSession {
 }
 
 export interface QZPayCheckoutLineItem {
-    priceId: string;
+    /**
+     * Provider-resolved price identifier. Required for `mode: 'subscription'`
+     * (the adapter looks up the recurring plan/price by this ID). Optional for
+     * `mode: 'payment'` — supply `unitAmount` + `currency` inline instead,
+     * which is the path used for one-time charges that do not have a
+     * pre-registered plan on the provider side (e.g. annual upfront, delta
+     * charges on plan upgrade).
+     */
+    priceId?: string;
     quantity: number;
+    /**
+     * One-time amount in the smallest currency unit (e.g. cents). Required for
+     * `mode: 'payment'` line items that do not resolve via `priceId`. Ignored
+     * for subscription line items, where the recurring amount comes from the
+     * provider-side plan.
+     */
+    unitAmount?: number;
+    /**
+     * Currency for `unitAmount`. Required alongside `unitAmount`. Ignored for
+     * subscription line items (the currency is dictated by the plan).
+     */
+    currency?: QZPayCurrency;
+    /**
+     * Human-readable label shown on the provider's checkout page and in receipts.
+     * Required for `mode: 'payment'` line items that do not resolve via `priceId`
+     * (since there is no plan name to default to). For subscription line items
+     * the plan name is used when this field is omitted.
+     */
+    title?: string;
     description?: string;
     /**
      * Provider-specific category code for this line item (e.g. MercadoPago
