@@ -50,6 +50,7 @@ export type QZPayEventMap = {
     'invoice.paid': QZPayInvoice;
     'invoice.payment_failed': QZPayInvoice;
     'invoice.voided': QZPayInvoice;
+    'checkout.created': QZPayCheckoutSession;
     'checkout.completed': QZPayCheckoutSession;
     'checkout.expired': QZPayCheckoutSession;
     'vendor.created': QZPayVendor;
