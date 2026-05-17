@@ -389,6 +389,7 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                     cancelAtPeriodEnd: false,
                     providerSubscriptionIds: {},
                     metadata: input.metadata ?? {},
+                    scheduledPlanChange: null,
                     livemode: false,
                     createdAt: now,
                     updatedAt: now,

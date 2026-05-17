@@ -96,7 +96,8 @@ describe('SubscriptionLifecycleService', () => {
                         livemode: false,
                         createdAt: new Date(),
                         updatedAt: new Date(),
-                        deletedAt: null
+                        deletedAt: null,
+                        scheduledPlanChange: null
                     } as QZPaySubscription)
                 )
             },
@@ -155,7 +156,8 @@ describe('SubscriptionLifecycleService', () => {
                 livemode: false,
                 createdAt: new Date(),
                 updatedAt: new Date(),
-                deletedAt: null
+                deletedAt: null,
+                scheduledPlanChange: null
             };
 
             mockStorage.subscriptions.list = vi.fn().mockResolvedValue({
@@ -224,7 +226,8 @@ describe('SubscriptionLifecycleService', () => {
                 livemode: false,
                 createdAt: new Date(),
                 updatedAt: new Date(),
-                deletedAt: null
+                deletedAt: null,
+                scheduledPlanChange: null
             };
 
             mockStorage.subscriptions.list = vi.fn().mockResolvedValue({
@@ -282,7 +285,8 @@ describe('SubscriptionLifecycleService', () => {
                 livemode: false,
                 createdAt: new Date(),
                 updatedAt: new Date(),
-                deletedAt: null
+                deletedAt: null,
+                scheduledPlanChange: null
             };
 
             mockStorage.subscriptions.list = vi.fn().mockResolvedValue({
@@ -347,7 +351,8 @@ describe('SubscriptionLifecycleService', () => {
                 livemode: false,
                 createdAt: new Date(),
                 updatedAt: new Date(),
-                deletedAt: null
+                deletedAt: null,
+                scheduledPlanChange: null
             };
 
             mockStorage.subscriptions.list = vi.fn().mockResolvedValue({
@@ -409,7 +414,8 @@ describe('SubscriptionLifecycleService', () => {
                 livemode: false,
                 createdAt: new Date(),
                 updatedAt: new Date(),
-                deletedAt: null
+                deletedAt: null,
+                scheduledPlanChange: null
             };
 
             mockStorage.subscriptions.list = vi.fn().mockResolvedValue({
@@ -472,7 +478,8 @@ describe('SubscriptionLifecycleService', () => {
                 livemode: false,
                 createdAt: new Date(),
                 updatedAt: new Date(),
-                deletedAt: null
+                deletedAt: null,
+                scheduledPlanChange: null
             };
 
             mockStorage.subscriptions.list = vi.fn().mockResolvedValue({
