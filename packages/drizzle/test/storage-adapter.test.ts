@@ -201,6 +201,91 @@ describe('QZPayDrizzleStorageAdapter', () => {
 
             expect(updated.metadata).toEqual({ updated: true });
         });
+
+        it('defaults scheduledPlanChange to null on a fresh subscription', async () => {
+            const now = new Date();
+            const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+            const created = await adapter.subscriptions.create({
+                customerId,
+                planId,
+                status: 'active',
+                billingInterval: 'month',
+                intervalCount: 1,
+                currentPeriodStart: now,
+                currentPeriodEnd: periodEnd
+            });
+
+            expect(created.scheduledPlanChange).toBeNull();
+        });
+
+        it('persists and reads a scheduledPlanChange via update', async () => {
+            const now = new Date();
+            const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+            const created = await adapter.subscriptions.create({
+                customerId,
+                planId,
+                status: 'active',
+                billingInterval: 'month',
+                intervalCount: 1,
+                currentPeriodStart: now,
+                currentPeriodEnd: periodEnd
+            });
+
+            const scheduled = {
+                newPlanId: 'plan_basic',
+                newPriceId: 'price_basic_monthly',
+                targetTransactionAmountMajor: 5_000,
+                applyAt: periodEnd.toISOString(),
+                requestedAt: now.toISOString(),
+                requestedBy: 'user_42',
+                status: 'pending' as const,
+                attemptCount: 0
+            };
+
+            const updated = await adapter.subscriptions.update(created.id, {
+                scheduledPlanChange: scheduled
+            });
+
+            expect(updated.scheduledPlanChange).toEqual(scheduled);
+
+            const refetched = await adapter.subscriptions.findById(created.id);
+            expect(refetched?.scheduledPlanChange).toEqual(scheduled);
+        });
+
+        it('clears scheduledPlanChange when explicitly set to null', async () => {
+            const now = new Date();
+            const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+            const created = await adapter.subscriptions.create({
+                customerId,
+                planId,
+                status: 'active',
+                billingInterval: 'month',
+                intervalCount: 1,
+                currentPeriodStart: now,
+                currentPeriodEnd: periodEnd
+            });
+
+            await adapter.subscriptions.update(created.id, {
+                scheduledPlanChange: {
+                    newPlanId: 'plan_basic',
+                    newPriceId: 'price_basic_monthly',
+                    targetTransactionAmountMajor: 5_000,
+                    applyAt: periodEnd.toISOString(),
+                    requestedAt: now.toISOString(),
+                    status: 'pending',
+                    attemptCount: 0
+                }
+            });
+
+            const cleared = await adapter.subscriptions.update(created.id, {
+                scheduledPlanChange: null
+            });
+
+            expect(cleared.scheduledPlanChange).toBeNull();
+        });
     });
 
     describe('payments storage', () => {

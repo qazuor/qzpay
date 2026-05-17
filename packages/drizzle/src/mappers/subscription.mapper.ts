@@ -7,6 +7,7 @@ import type {
     QZPayBillingInterval,
     QZPayCreateSubscriptionInput,
     QZPayMetadata,
+    QZPayScheduledPlanChange,
     QZPaySubscription,
     QZPaySubscriptionStatus,
     QZPayUpdateSubscriptionInput
@@ -45,6 +46,7 @@ export function mapDrizzleSubscriptionToCore(drizzle: QZPayBillingSubscription):
         cancelAtPeriodEnd: drizzle.cancelAtPeriodEnd ?? false,
         providerSubscriptionIds,
         metadata: (drizzle.metadata as QZPayMetadata) ?? {},
+        scheduledPlanChange: (drizzle.scheduledPlanChange as QZPayScheduledPlanChange | null) ?? null,
         livemode: drizzle.livemode,
         createdAt: drizzle.createdAt,
         updatedAt: drizzle.updatedAt,
@@ -151,6 +153,12 @@ export function mapCoreSubscriptionUpdateToDrizzle(input: QZPayUpdateSubscriptio
         if (mpId !== undefined) {
             update.mpSubscriptionId = mpId;
         }
+    }
+    // Explicit `null` clears a pending schedule (cancellation /
+    // post-upgrade cleanup); an object value writes/replaces it.
+    // `undefined` is the "leave untouched" partial-update default.
+    if (input.scheduledPlanChange !== undefined) {
+        update.scheduledPlanChange = input.scheduledPlanChange;
     }
 
     return update;

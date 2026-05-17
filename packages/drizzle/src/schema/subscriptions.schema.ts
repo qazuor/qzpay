@@ -3,6 +3,7 @@
  *
  * Stores subscription records with complete lifecycle data.
  */
+import { sql } from 'drizzle-orm';
 import { boolean, index, integer, jsonb, pgTable, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import type { z } from 'zod';
@@ -43,6 +44,15 @@ export const billingSubscriptions = pgTable(
         nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
         stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
         mpSubscriptionId: varchar('mp_subscription_id', { length: 255 }),
+        /**
+         * Plan change scheduled to apply at a future point in time
+         * (typically `current_period_end`). Stored as JSONB so the
+         * shape can evolve without a migration; conforms to
+         * `QZPayScheduledPlanChange` in qzpay-core. Null when no
+         * change is pending. The application-level scheduler (cron)
+         * owns the lifecycle — qzpay-drizzle provides storage only.
+         */
+        scheduledPlanChange: jsonb('scheduled_plan_change'),
         livemode: boolean('livemode').notNull().default(true),
         metadata: jsonb('metadata').default({}),
         version: uuid('version').notNull().defaultRandom(),
@@ -74,7 +84,14 @@ export const billingSubscriptions = pgTable(
         // Supports findTrialsEndingSoon() query
         lifecycleTrialIdx: index('idx_subscriptions_lifecycle_trial').on(table.status, table.trialEnd),
         // Supports findScheduledForCancellation() query
-        lifecycleCancelIdx: index('idx_subscriptions_lifecycle_cancel').on(table.cancelAtPeriodEnd, table.status, table.currentPeriodEnd)
+        lifecycleCancelIdx: index('idx_subscriptions_lifecycle_cancel').on(table.cancelAtPeriodEnd, table.status, table.currentPeriodEnd),
+        // Partial index for the scheduled-plan-change cron query —
+        // only rows with a pending scheduled change need to be
+        // scanned, so a partial index keeps the per-tick cost O(k)
+        // where k = #pending changes (NOT O(n) full table scan).
+        lifecyclePendingPlanChangeIdx: index('idx_subscriptions_pending_plan_change')
+            .on(table.scheduledPlanChange)
+            .where(sql`scheduled_plan_change IS NOT NULL AND (scheduled_plan_change->>'status') = 'pending'`)
     })
 );
 
