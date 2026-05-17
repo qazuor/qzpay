@@ -51,7 +51,7 @@ import type { QZPayCreatePaymentMethodInput, QZPayPaymentMethod, QZPayUpdatePaym
 import type { QZPayPayment } from './types/payment.types.js';
 import type { QZPayPlan, QZPayPrice } from './types/plan.types.js';
 import type { QZPayPromoCode } from './types/promo-code.types.js';
-import type { QZPaySubscription } from './types/subscription.types.js';
+import type { QZPayScheduledPlanChange, QZPaySubscription } from './types/subscription.types.js';
 import { createDefaultLogger } from './utils/default-logger.js';
 import { qzpayCreateValidator } from './utils/validation.utils.js';
 
@@ -94,6 +94,22 @@ export interface QZPayUpdateSubscriptionServiceInput {
     trialEnd?: Date | null;
     /** SPEC-124: new recurring charge amount (major units, e.g. ARS) for plan-change scenarios. */
     transactionAmount?: number;
+    /**
+     * Replace, clear, or update the scheduled plan change attached to
+     * the subscription. Passing `null` clears any pending schedule
+     * (e.g. on cancel or after an upgrade resolves mid-period before
+     * the queued downgrade fires); passing a full
+     * {@link QZPayScheduledPlanChange} value writes / replaces it.
+     * Omit to leave the existing value untouched (standard
+     * partial-update semantics).
+     *
+     * Mirrors the slot already present on
+     * `QZPayUpdateSubscriptionInput` (storage shape); exposing it on
+     * the public service interface lets app-level schedulers and
+     * webhook handlers manage the queued change without dropping
+     * into the storage adapter directly.
+     */
+    scheduledPlanChange?: QZPayScheduledPlanChange | null;
 }
 
 /**
@@ -1317,6 +1333,12 @@ class QZPayBillingImpl implements QZPayBilling {
                 if (input.currentPeriodStart !== undefined) updateInput.currentPeriodStart = input.currentPeriodStart;
                 if (input.currentPeriodEnd !== undefined) updateInput.currentPeriodEnd = input.currentPeriodEnd;
                 if (input.trialEnd !== undefined) updateInput.trialEnd = input.trialEnd;
+                // `scheduledPlanChange` accepts an explicit `null` to clear
+                // the field, so we distinguish "omitted" (leave untouched)
+                // from "null" (clear) instead of using a truthy check.
+                if (input.scheduledPlanChange !== undefined) {
+                    updateInput.scheduledPlanChange = input.scheduledPlanChange;
+                }
 
                 const subscription = await storage.subscriptions.update(id, updateInput);
                 await emitter.emit('subscription.updated', subscription);
