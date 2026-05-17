@@ -1,5 +1,21 @@
 # @qazuor/qzpay-dev
 
+## 1.2.1
+
+### Patch Changes
+
+- 4d37d82: chore(dev): hydrate `scheduledPlanChange: null` on memory storage subscription create
+
+  Tracks the additive `scheduledPlanChange` field qzpay-core 1.6.0 added
+  to `QZPaySubscription`. The memory storage adapter (used for in-process
+  playgrounds and end-to-end harness apps) now initializes the field to
+  `null` on `subscriptions.create` and relies on the spread in
+  `subscriptions.update` to honour partial writes from callers. No
+  behaviour change for consumers that ignore the field.
+
+- Updated dependencies [4d37d82]
+  - @qazuor/qzpay-core@1.6.0
+
 ## 1.2.0
 
 ### Minor Changes
@@ -10,12 +26,9 @@
   mock payment adapter for the new RO-RO checkout signature shipped in
   `@qazuor/qzpay-core` 1.5.0:
 
-  - **Memory storage**:
-    - `MemoryStorageData` and `MemoryStorageSnapshot` gain a `checkouts` map.
-    - Reset / seed / `getSnapshot` wire through the new map.
-    - `adapter.checkouts` implements `create / update / findById /
+  - **Memory storage**: - `MemoryStorageData` and `MemoryStorageSnapshot` gain a `checkouts` map. - Reset / seed / `getSnapshot` wire through the new map. - `adapter.checkouts` implements `create / update / findById /
 findByCustomerId / list` (paginated). `create` rejects duplicate IDs to
-      mirror the subscriptions slot semantics.
+    mirror the subscriptions slot semantics.
   - **Mock payment adapter**: `adapter.checkout.create` accepts the new RO-RO
     `QZPayProviderCreateCheckoutInput`. It reads `customer?.id` (with
     fallback to `input.customerId`) and `input.metadata` to populate the
