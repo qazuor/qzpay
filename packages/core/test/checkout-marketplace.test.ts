@@ -134,7 +134,10 @@ describe('Checkout Session Helpers', () => {
             const input = createCheckoutInput();
             const session = qzpayCreateCheckoutSession(input, false);
 
-            expect(session.id).toMatch(/^cs_/);
+            // Session IDs are UUIDv4 to match the `uuid` column in qzpay-drizzle
+            // and other UUID-typed storage adapters. Previously asserted the
+            // Stripe-style `cs_<base36>` prefix, which produced invalid IDs.
+            expect(session.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
             expect(session.status).toBe('open');
             expect(session.mode).toBe('payment');
             expect(session.lineItems).toHaveLength(1);
