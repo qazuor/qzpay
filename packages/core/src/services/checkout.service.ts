@@ -4,7 +4,6 @@
  * Provides utilities for checkout session management, validation,
  * and URL generation.
  */
-import { randomUUID } from 'node:crypto';
 import type { QZPayCheckoutMode, QZPayCurrency } from '../constants/index.js';
 import type {
     QZPayCheckoutLineItem,
@@ -72,7 +71,13 @@ export function qzpayCreateCheckoutSession(
         // qzpay entities (subscriptions, payments, invoices, customers,
         // plans, prices, …) already use `crypto.randomUUID()` so checkout
         // sessions now align with the rest of the contract.
-        id: randomUUID(),
+        //
+        // Uses the global `crypto.randomUUID` (Web Crypto API, available in
+        // Node 19+ and all modern browsers) rather than importing from
+        // `node:crypto`. The Node import would force the playground / any
+        // browser-bound bundle to externalize `node:crypto` and fail at
+        // build time with an unresolved `randomUUID` export.
+        id: crypto.randomUUID(),
         customerId: input.customerId ?? null,
         customerEmail: input.customerEmail ?? null,
         mode: input.mode,
