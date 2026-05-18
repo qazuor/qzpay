@@ -4,6 +4,7 @@
  * Provides utilities for checkout session management, validation,
  * and URL generation.
  */
+import { randomUUID } from 'node:crypto';
 import type { QZPayCheckoutMode, QZPayCurrency } from '../constants/index.js';
 import type {
     QZPayCheckoutLineItem,
@@ -12,7 +13,6 @@ import type {
     QZPayCreateCheckoutInput,
     QZPayPrice
 } from '../types/index.js';
-import { qzpayGenerateId } from '../utils/hash.utils.js';
 
 // ==================== Types ====================
 
@@ -64,7 +64,15 @@ export function qzpayCreateCheckoutSession(
     const expiresAt = new Date(now.getTime() + expirationMinutes * 60 * 1000);
 
     return {
-        id: qzpayGenerateId('cs'),
+        // UUID matches the `id: uuid('id')` column on `billing_checkouts` in
+        // qzpay-drizzle (and the equivalent typed column in other storage
+        // adapters). The previous `qzpayGenerateId('cs')` produced
+        // Stripe-style `cs_<base36>` strings that PostgreSQL rejected at
+        // INSERT time with a uuid type-mismatch error. All other persisted
+        // qzpay entities (subscriptions, payments, invoices, customers,
+        // plans, prices, …) already use `crypto.randomUUID()` so checkout
+        // sessions now align with the rest of the contract.
+        id: randomUUID(),
         customerId: input.customerId ?? null,
         customerEmail: input.customerEmail ?? null,
         mode: input.mode,
