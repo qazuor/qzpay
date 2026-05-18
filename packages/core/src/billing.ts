@@ -1226,8 +1226,27 @@ class QZPayBillingImpl implements QZPayBilling {
 
         return {
             create: async (input) => {
-                const plan = planMap.get(input.planId);
-                const price = plan?.prices.find((p) => p.id === input.priceId) ?? plan?.prices[0];
+                // Plan/price lookup: check the in-memory config first, then fall back
+                // to storage when the plan is managed at runtime (admin tools, dynamic
+                // catalogs) instead of declared in the `config.plans` array. Mirrors
+                // the dual-lookup pattern that `billing.plans.get()` and the
+                // upgrade/downgrade path already use. Without this fallback, paid mode
+                // crashes for every storage-backed plan even though `billing.plans.list()`
+                // correctly returns the plan from storage — an inconsistency that made
+                // hosts (e.g. Hospeda) unable to use `mode: 'paid'` without duplicating
+                // the catalog into config.
+                let plan = planMap.get(input.planId);
+                if (!plan) {
+                    plan = (await storage.plans.findById(input.planId)) ?? undefined;
+                }
+                // If the plan loaded from storage does not carry its prices in-line
+                // (some adapters return plan rows without joined prices), fetch them
+                // separately. Same fallback pattern used by the plan-change path.
+                let prices = plan?.prices ?? [];
+                if (plan && prices.length === 0) {
+                    prices = await storage.prices.findByPlanId(input.planId);
+                }
+                const price = prices.find((p) => p.id === input.priceId) ?? prices[0];
 
                 // Build create input, only including defined values
                 const createInput: Parameters<typeof storage.subscriptions.create>[0] = {
