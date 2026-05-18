@@ -1439,6 +1439,106 @@ describe('billing.subscriptions', () => {
             expect(subscriptionAdapter.create).not.toHaveBeenCalled();
         });
 
+        // Regression guard for the storage-fallback bug: prior to this fix,
+        // `subscriptions.create({ mode: 'paid' })` only checked `planMap` (the
+        // in-memory snapshot of `config.plans`) and threw
+        // `QZPayValidationError('Cannot create paid subscription: plan ... is
+        // not configured')` for any plan that lived only in storage. Hosts
+        // managing their catalog at runtime (admin-created plans, dynamic
+        // configs — Hospeda's pattern) could never use paid mode without
+        // duplicating the catalog into `config.plans`. The fix mirrors the
+        // dual-lookup pattern that `billing.plans.get()` and the
+        // upgrade/downgrade path already use: try planMap first, then fall
+        // back to `storage.plans.findById`. Prices loaded from storage may
+        // come without their `prices[]` joined, so we also fall back to
+        // `storage.prices.findByPlanId` when the plan carries no prices in-line.
+        it('resolves storage-only plans (not declared in config.plans) for paid mode', async () => {
+            const storage = createMockStorage();
+            const storagePlan: QZPayPlan = {
+                id: 'storage-plan',
+                name: 'Storage Plan',
+                description: null,
+                active: true,
+                prices: [], // intentionally empty; prices come via storage.prices.findByPlanId
+                metadata: {}
+            };
+            const storagePrice: QZPayPrice = {
+                id: 'price_storage_1',
+                planId: 'storage-plan',
+                nickname: null,
+                currency: 'ARS',
+                unitAmount: 1500,
+                billingInterval: 'month',
+                intervalCount: 1,
+                trialDays: null,
+                active: true,
+                providerPriceIds: { mercadopago: 'mp_price_storage' },
+                metadata: {},
+                createdAt: new Date(),
+                updatedAt: new Date()
+            };
+            // biome-ignore lint/suspicious/noExplicitAny: vi.fn override of mock storage
+            (storage.plans.findById as any) = vi.fn(async (id: string) => (id === 'storage-plan' ? storagePlan : null));
+            // biome-ignore lint/suspicious/noExplicitAny: vi.fn override of mock storage
+            (storage.prices.findByPlanId as any) = vi.fn(async (planId: string) => (planId === 'storage-plan' ? [storagePrice] : []));
+
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => ({
+                    id: 'preapproval_storage',
+                    status: 'pending',
+                    currentPeriodStart: new Date(),
+                    currentPeriodEnd: new Date(),
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                    trialStart: null,
+                    trialEnd: null,
+                    metadata: {},
+                    initPoint: 'https://mp.example.com/preapproval/storage'
+                })),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            // KEY: no `plans:` field passed to createQZPayBilling. The fix
+            // must work without any in-memory config snapshot, sourcing the
+            // plan and prices from storage only.
+            const billing = createQZPayBilling({
+                storage,
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            const result = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'storage-plan',
+                mode: 'paid'
+            });
+
+            // Adapter received the plan + price resolved from storage.
+            expect(subscriptionAdapter.create).toHaveBeenCalledTimes(1);
+            const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+            expect(adapterCall.plan).toEqual({ name: 'Storage Plan' });
+            expect(adapterCall.price).toEqual({
+                amount: 1500,
+                currency: 'ARS',
+                interval: 'month',
+                intervalCount: 1
+            });
+            expect(adapterCall.providerPriceId).toBe('mp_price_storage');
+
+            // Returned subscription carries the provider id + init point.
+            expect(result.providerSubscriptionIds.mercadopago).toBe('preapproval_storage');
+            expect(result.providerInitPoint).toBe('https://mp.example.com/preapproval/storage');
+
+            // Both storage methods were hit (the fix path executed instead
+            // of the planMap shortcut — without these calls the plan would
+            // not have been found).
+            expect(storage.plans.findById).toHaveBeenCalledWith('storage-plan');
+            expect(storage.prices.findByPlanId).toHaveBeenCalledWith('storage-plan');
+        });
+
         // Regression guard for the bug pattern fixed in SPEC-123 (payment adapter):
         // the idempotency key MUST be derived from a value that is stable across the
         // entire create flow (the local subscription UUID). If a future refactor
