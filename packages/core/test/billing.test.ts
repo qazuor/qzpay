@@ -1539,6 +1539,63 @@ describe('billing.subscriptions', () => {
             expect(storage.prices.findByPlanId).toHaveBeenCalledWith('storage-plan');
         });
 
+        // Regression guard for the initial-status bug: storage adapters had
+        // no way to know that a subscription was being created for paid mode
+        // (the provider preapproval flow). The drizzle adapter defaulted to
+        // `status: 'active'` immediately, BEFORE any provider call. That
+        // freebie/entitlement-leak window meant Hospeda customers obtained
+        // active-only features the instant they hit `/start-paid`, even if
+        // they never authorized the charge at MercadoPago. The fix propagates
+        // `input.mode` to the storage layer so adapters can pick a non-active
+        // status (e.g. `'incomplete'`) until the webhook flips the row.
+        //
+        // This test asserts the propagation contract: when `mode: 'paid'` is
+        // passed to `billing.subscriptions.create`, the storage adapter's
+        // create method receives `mode: 'paid'` in its input. The actual
+        // status decision (`'incomplete'` vs `'active'` vs `'trialing'`) is
+        // adapter-specific and covered by adapter test suites.
+        it("propagates input.mode to the storage adapter (so adapters can pick the right initial status for 'paid' mode)", async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => ({
+                    id: 'preapproval_mp_mode_propagation',
+                    status: 'pending',
+                    currentPeriodStart: new Date(),
+                    currentPeriodEnd: new Date(),
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                    trialStart: null,
+                    trialEnd: null,
+                    metadata: {},
+                    initPoint: 'https://mp.example.com/preapproval?id=mode'
+                })),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                mode: 'paid'
+            });
+
+            // Storage create was invoked once with mode: 'paid' in the input.
+            // Without this, adapters cannot distinguish paid-mode rows from
+            // trial-mode rows at insert time and the status bug recurs.
+            expect(storage.subscriptions.create).toHaveBeenCalledTimes(1);
+            const storageCall = (storage.subscriptions.create as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as Record<string, unknown>;
+            expect(storageCall.mode).toBe('paid');
+        });
+
         // Regression guard for the bug pattern fixed in SPEC-123 (payment adapter):
         // the idempotency key MUST be derived from a value that is stable across the
         // entire create flow (the local subscription UUID). If a future refactor

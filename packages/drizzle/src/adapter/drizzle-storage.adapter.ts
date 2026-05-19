@@ -336,13 +336,29 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 const hasTrial = input.trialDays !== undefined && input.trialDays > 0;
                 const trialEnd = hasTrial && input.trialDays ? new Date(now.getTime() + input.trialDays * 24 * 60 * 60 * 1000) : null;
 
+                // `mode: 'paid'` (SPEC-124) drives the provider preapproval flow:
+                // the local row is persisted FIRST and the provider call happens
+                // AFTER in `billing.subscriptions.create`. The user has not yet
+                // authorized the recurring charge at the provider, so the
+                // subscription must NOT enter `active`/`trialing` here —
+                // entitlement gates that key off those statuses would otherwise
+                // grant features before any payment lands (a real freebie /
+                // entitlement-leak bug). The webhook handler flips the row to
+                // `active`/`trialing` after the provider confirms authorization.
+                //
+                // Status selection:
+                //  - mode==='paid' → 'incomplete' (waiting for provider auth)
+                //  - hasTrial      → 'trialing'   (free trial active)
+                //  - default       → 'active'     (no provider step required)
+                const initialStatus = input.mode === 'paid' ? 'incomplete' : hasTrial ? 'trialing' : 'active';
+
                 const drizzleInput = mapCoreSubscriptionCreateToDrizzle(input, {
                     livemode,
                     billingInterval: 'month',
                     intervalCount: 1,
                     currentPeriodStart: now,
                     currentPeriodEnd: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-                    status: hasTrial ? 'trialing' : 'active',
+                    status: initialStatus,
                     trialStart: hasTrial ? now : null,
                     trialEnd
                 });

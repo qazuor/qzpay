@@ -1258,6 +1258,13 @@ class QZPayBillingImpl implements QZPayBilling {
                 if (input.metadata !== undefined) createInput.metadata = input.metadata;
                 if (input.trialDays !== undefined) createInput.trialDays = input.trialDays;
                 else if (price?.trialDays != null) createInput.trialDays = price.trialDays;
+                // Propagate `mode` so the storage adapter can pick the correct
+                // initial status. `mode: 'paid'` subs must NOT land in `active`
+                // until the provider authorizes the recurring charge — otherwise
+                // entitlement gates (which key off `active` / `trialing` status)
+                // would grant features before the user pays. The storage adapter
+                // uses `mode` to map to `incomplete` until the webhook flips it.
+                if (input.mode !== undefined) createInput.mode = input.mode;
 
                 const subscription = await storage.subscriptions.create(createInput);
 
