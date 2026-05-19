@@ -3,7 +3,7 @@
  *
  * Stores webhook event processing records.
  */
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 
 /**
@@ -27,7 +27,14 @@ export const billingWebhookEvents = pgTable(
         createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
     },
     (table) => ({
-        providerIdIdx: index('idx_webhook_events_provider_id').on(table.providerEventId),
+        // UNIQUE index on `provider_event_id` underpins the optimistic-insert
+        // idempotency pattern adopted by consumers: handlers try the INSERT
+        // first and treat a UNIQUE violation as "duplicate webhook, skip".
+        // Without the UNIQUE constraint a duplicate event lands twice and the
+        // downstream dispatcher runs twice — a silent double-activation bug.
+        // Discovered while validating Hospeda SPEC-143 T-143-15 (e2e webhook
+        // idempotency).
+        providerIdIdx: uniqueIndex('idx_webhook_events_provider_id').on(table.providerEventId),
         typeIdx: index('idx_webhook_events_type').on(table.type),
         statusIdx: index('idx_webhook_events_status').on(table.status)
     })
