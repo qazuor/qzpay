@@ -66,16 +66,24 @@ export function createWebhookRouter(config: QZPayWebhookRouterConfig): Hono<QZPa
         const response = createWebhookResponse(c);
 
         try {
+            // Call generic handler FIRST. Consumers typically use `onEvent`
+            // for cross-cutting concerns that must run BEFORE any type-
+            // specific dispatch — idempotency tracking, event persistence,
+            // audit logging. If the generic handler returns a Response
+            // (e.g. "this event is a duplicate, short-circuit") the
+            // type-specific handler is skipped, which is the correct
+            // semantics for those use cases. Type-specific handlers run
+            // after and can rely on the cross-cutting work having
+            // completed.
+            if (onEvent) {
+                const result = await onEvent(c, event);
+                if (result) return result;
+            }
+
             // Call specific handler if exists
             const handler = handlers[event.type];
             if (handler) {
                 const result = await handler(c, event);
-                if (result) return result;
-            }
-
-            // Call generic handler if exists
-            if (onEvent) {
-                const result = await onEvent(c, event);
                 if (result) return result;
             }
 
