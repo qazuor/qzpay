@@ -1100,4 +1100,401 @@ describe('Admin Routes', () => {
             expect(authMiddleware).toHaveBeenCalled();
         });
     });
+
+    // -----------------------------------------------------------------
+    // Get-by-id endpoints (added in v1.3)
+    // -----------------------------------------------------------------
+
+    describe('GET /admin/subscriptions/:id', () => {
+        it('returns the subscription', async () => {
+            const billing = createMockBilling();
+            const adminRoutes = createAdminRoutes({ billing, authMiddleware: mockAuthMiddleware });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1');
+
+            expect(res.status).toBe(200);
+            const body = await res.json();
+            expect(body.success).toBe(true);
+            expect(body.data).toMatchObject({ id: 'sub_1' });
+            expect(billing.subscriptions.get).toHaveBeenCalledWith('sub_1');
+        });
+    });
+
+    describe('GET /admin/payments/:id', () => {
+        it('returns the payment', async () => {
+            const billing = createMockBilling();
+            const adminRoutes = createAdminRoutes({ billing, authMiddleware: mockAuthMiddleware });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/payments/pay_1');
+
+            expect(res.status).toBe(200);
+            const body = await res.json();
+            expect(body.success).toBe(true);
+            expect(body.data).toMatchObject({ id: 'pay_1' });
+        });
+    });
+
+    describe('GET /admin/invoices/:id', () => {
+        it('returns the invoice', async () => {
+            const billing = createMockBilling();
+            const adminRoutes = createAdminRoutes({ billing, authMiddleware: mockAuthMiddleware });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/invoices/inv_1');
+
+            expect(res.status).toBe(200);
+            const body = await res.json();
+            expect(body.success).toBe(true);
+            expect(body.data).toMatchObject({ id: 'inv_1' });
+        });
+    });
+
+    // -----------------------------------------------------------------
+    // Hookable cancel
+    // -----------------------------------------------------------------
+
+    describe('POST /admin/subscriptions/:id/cancel (hookable)', () => {
+        it('defaults to cancelAtPeriodEnd: true', async () => {
+            const billing = createMockBilling();
+            const adminRoutes = createAdminRoutes({ billing, authMiddleware: mockAuthMiddleware });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/cancel', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ reason: 'churn' })
+            });
+
+            expect(res.status).toBe(200);
+            expect(billing.subscriptions.cancel).toHaveBeenCalledWith('sub_1', {
+                cancelAtPeriodEnd: true,
+                reason: 'churn'
+            });
+        });
+
+        it('forwards immediate: true as cancelAtPeriodEnd: false', async () => {
+            const billing = createMockBilling();
+            const adminRoutes = createAdminRoutes({ billing, authMiddleware: mockAuthMiddleware });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            await app.request('/admin/subscriptions/sub_1/cancel', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ immediate: true })
+            });
+
+            expect(billing.subscriptions.cancel).toHaveBeenCalledWith('sub_1', expect.objectContaining({ cancelAtPeriodEnd: false }));
+        });
+
+        it('invokes onBeforeSubscriptionCancel before cancelling', async () => {
+            const billing = createMockBilling();
+            const onBefore = vi.fn(async () => ({ ok: true as const }));
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onBeforeSubscriptionCancel: onBefore }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/cancel', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ immediate: false, reason: 'churn' })
+            });
+
+            expect(res.status).toBe(200);
+            expect(onBefore).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    subscriptionId: 'sub_1',
+                    immediate: false,
+                    reason: 'churn'
+                })
+            );
+            expect(billing.subscriptions.cancel).toHaveBeenCalled();
+        });
+
+        it('aborts with 422 when onBefore returns ok: false', async () => {
+            const billing = createMockBilling();
+            const onBefore = vi.fn(async () => ({
+                ok: false as const,
+                reason: 'addon revocation failed'
+            }));
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onBeforeSubscriptionCancel: onBefore }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/cancel', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            expect(res.status).toBe(422);
+            const body = await res.json();
+            expect(body.success).toBe(false);
+            expect(body.error.message).toBe('addon revocation failed');
+            expect(billing.subscriptions.cancel).not.toHaveBeenCalled();
+        });
+
+        it('invokes onAfterSubscriptionCancel after a successful cancel', async () => {
+            const billing = createMockBilling();
+            const onAfter = vi.fn(async () => undefined);
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onAfterSubscriptionCancel: onAfter }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/cancel', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ immediate: true })
+            });
+
+            expect(res.status).toBe(200);
+            expect(onAfter).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    immediate: true,
+                    subscription: expect.objectContaining({ id: 'sub_1' })
+                })
+            );
+        });
+
+        it('does not fail the response when onAfter throws', async () => {
+            const billing = createMockBilling();
+            const onAfter = vi.fn(async () => {
+                throw new Error('audit log down');
+            });
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onAfterSubscriptionCancel: onAfter }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            // Silence the expected console.error from safeAfterHook
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+            const res = await app.request('/admin/subscriptions/sub_1/cancel', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            expect(res.status).toBe(200);
+            expect(consoleSpy).toHaveBeenCalled();
+            consoleSpy.mockRestore();
+        });
+    });
+
+    // -----------------------------------------------------------------
+    // Extend trial
+    // -----------------------------------------------------------------
+
+    describe('POST /admin/subscriptions/:id/extend-trial', () => {
+        it('rejects non-positive additionalDays with 400', async () => {
+            const billing = createMockBilling();
+            const adminRoutes = createAdminRoutes({ billing, authMiddleware: mockAuthMiddleware });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/extend-trial', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ additionalDays: -1 })
+            });
+            expect(res.status).toBe(400);
+        });
+
+        it('returns 404 when the subscription is not found', async () => {
+            const billing = createMockBilling();
+            (billing.subscriptions.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+            const adminRoutes = createAdminRoutes({ billing, authMiddleware: mockAuthMiddleware });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_x/extend-trial', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ additionalDays: 7 })
+            });
+            expect(res.status).toBe(404);
+        });
+
+        it('calls update with a trialEnd advanced by additionalDays', async () => {
+            const billing = createMockBilling();
+            (billing.subscriptions.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+                id: 'sub_1',
+                trialEnd: null
+            });
+            (billing.subscriptions.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+                id: 'sub_1',
+                trialEnd: new Date()
+            });
+            const adminRoutes = createAdminRoutes({ billing, authMiddleware: mockAuthMiddleware });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/extend-trial', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ additionalDays: 3 })
+            });
+
+            expect(res.status).toBe(200);
+            const updateCall = (billing.subscriptions.update as ReturnType<typeof vi.fn>).mock.calls[0];
+            const [id, patch] = updateCall;
+            expect(id).toBe('sub_1');
+            const trialEnd = patch.trialEnd as Date;
+            const expectedMs = Date.now() + 3 * 24 * 60 * 60 * 1000;
+            expect(Math.abs(trialEnd.getTime() - expectedMs)).toBeLessThan(60_000);
+        });
+
+        it('invokes onAfterSubscriptionTrialExtended', async () => {
+            const billing = createMockBilling();
+            (billing.subscriptions.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+                id: 'sub_1',
+                trialEnd: null
+            });
+            (billing.subscriptions.update as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+                id: 'sub_1',
+                trialEnd: new Date()
+            });
+            const onAfter = vi.fn(async () => undefined);
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onAfterSubscriptionTrialExtended: onAfter }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            await app.request('/admin/subscriptions/sub_1/extend-trial', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ additionalDays: 5 })
+            });
+
+            expect(onAfter).toHaveBeenCalledWith(expect.objectContaining({ additionalDays: 5 }));
+        });
+    });
+
+    // -----------------------------------------------------------------
+    // Hookable refund
+    // -----------------------------------------------------------------
+
+    describe('POST /admin/payments/:id/refund (hookable)', () => {
+        it('refunds and invokes onAfterPaymentRefund', async () => {
+            const billing = createMockBilling();
+            const onAfter = vi.fn(async () => undefined);
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onAfterPaymentRefund: onAfter }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/payments/pay_1/refund', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ amount: 500, reason: 'customer requested' })
+            });
+
+            expect(res.status).toBe(200);
+            expect(billing.payments.refund).toHaveBeenCalledWith(expect.objectContaining({ paymentId: 'pay_1', amount: 500 }));
+            expect(onAfter).toHaveBeenCalledWith(expect.objectContaining({ amount: 500, reason: 'customer requested' }));
+        });
+    });
+
+    // -----------------------------------------------------------------
+    // Hookable invoice pay / void
+    // -----------------------------------------------------------------
+
+    describe('POST /admin/invoices/:id/pay (hookable)', () => {
+        it('marks paid and invokes onAfterInvoicePay', async () => {
+            const billing = createMockBilling();
+            const onAfter = vi.fn(async () => undefined);
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onAfterInvoicePay: onAfter }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/invoices/inv_1/pay', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ paymentId: 'pay_link_1' })
+            });
+
+            expect(res.status).toBe(200);
+            expect(billing.invoices.markPaid).toHaveBeenCalledWith('inv_1', 'pay_link_1');
+            expect(onAfter).toHaveBeenCalledWith(expect.objectContaining({ invoice: expect.objectContaining({ id: 'inv_1' }) }));
+        });
+    });
+
+    describe('POST /admin/invoices/:id/void (hookable)', () => {
+        it('voids and invokes onAfterInvoiceVoid', async () => {
+            const billing = createMockBilling();
+            const onAfter = vi.fn(async () => undefined);
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onAfterInvoiceVoid: onAfter }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/invoices/inv_1/void', { method: 'POST' });
+
+            expect(res.status).toBe(200);
+            expect(onAfter).toHaveBeenCalled();
+        });
+    });
+
+    // -----------------------------------------------------------------
+    // Hooks-optional contract
+    // -----------------------------------------------------------------
+
+    describe('Lifecycle hooks are optional', () => {
+        it('hookable routes work when no hooks config is provided', async () => {
+            const billing = createMockBilling();
+            const adminRoutes = createAdminRoutes({ billing, authMiddleware: mockAuthMiddleware });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const cancelRes = await app.request('/admin/subscriptions/sub_1/cancel', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ reason: 'no-hook' })
+            });
+            const refundRes = await app.request('/admin/payments/pay_1/refund', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            const voidRes = await app.request('/admin/invoices/inv_1/void', { method: 'POST' });
+
+            expect(cancelRes.status).toBe(200);
+            expect(refundRes.status).toBe(200);
+            expect(voidRes.status).toBe(200);
+        });
+    });
 });

@@ -4,8 +4,8 @@
  * Administrative routes for managing billing operations.
  * These routes should be protected with admin-level authentication.
  */
-import type { QZPayBilling } from '@qazuor/qzpay-core';
-import type { MiddlewareHandler } from 'hono';
+import type { QZPayBilling, QZPayInvoice, QZPayPayment, QZPaySubscription } from '@qazuor/qzpay-core';
+import type { Context, MiddlewareHandler } from 'hono';
 import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { mapErrorToHttpStatus } from '../errors/error-mapper.js';
@@ -17,6 +17,123 @@ import type { QZPayApiListResponse, QZPayApiResponse, QZPayHonoEnv } from '../ty
 import { zValidator } from '../validators/zod-validator.js';
 
 /**
+ * Outcome of a "before" lifecycle hook: either `ok: true` to let the
+ * operation proceed, or `ok: false` with a `reason` string explaining why
+ * the operation must be aborted. When aborted, the route responds with
+ * HTTP 422 and `{ success: false, error: { message: reason } }`.
+ */
+export type QZPayAdminLifecycleAbortable = { readonly ok: true } | { readonly ok: false; readonly reason: string };
+
+/**
+ * Lifecycle hooks for QZPay admin write operations.
+ *
+ * Hooks are OPTIONAL. When a hook is provided it is invoked at the
+ * documented point in the operation lifecycle. The host application uses
+ * these to plug in side effects (audit logging, revoking linked resources,
+ * Sentry tagging, cache invalidation, etc.) without forking the route
+ * handler.
+ *
+ * ### Before vs After
+ *
+ * - `onBefore*` runs **before** QZPay commits the operation. The hook may
+ *   abort the operation by returning `{ ok: false, reason }`. The
+ *   response status becomes 422 with the reason in the body.
+ * - `onAfter*` runs **after** QZPay has committed the operation
+ *   (subscription cancelled in DB and at provider, refund issued, etc).
+ *   If the hook throws, the error is logged but the route still returns
+ *   success — rolling back is impossible at that point.
+ *
+ * ### Context access
+ *
+ * Every hook receives the live Hono `Context` so the host can read actor
+ * info, set response headers, instrument with Sentry, etc.
+ *
+ * @example
+ * ```typescript
+ * createAdminRoutes({
+ *   billing,
+ *   authMiddleware: requireAdmin,
+ *   hooks: {
+ *     onBeforeSubscriptionCancel: async ({ subscriptionId, ctx }) => {
+ *       const ok = await revokeLinkedAddons(subscriptionId);
+ *       return ok ? { ok: true } : { ok: false, reason: 'addon revocation failed' };
+ *     },
+ *     onAfterSubscriptionCancel: async ({ subscription, ctx }) => {
+ *       await auditLog.insert({ subscriptionId: subscription.id, action: 'cancel' });
+ *     }
+ *   }
+ * });
+ * ```
+ */
+export interface QZPayAdminLifecycleHooks {
+    /**
+     * Fires before the cancel operation is committed in QZPay. Return
+     * `{ ok: false, reason }` to abort with HTTP 422.
+     */
+    onBeforeSubscriptionCancel?: (params: {
+        readonly subscriptionId: string;
+        readonly immediate: boolean;
+        readonly reason?: string;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<QZPayAdminLifecycleAbortable>;
+
+    /**
+     * Fires after a subscription cancel has been committed in QZPay.
+     * Hook errors are logged but do not fail the response.
+     */
+    onAfterSubscriptionCancel?: (params: {
+        readonly subscription: QZPaySubscription;
+        readonly immediate: boolean;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+
+    /**
+     * Fires after a successful plan-change committed in QZPay.
+     */
+    onAfterSubscriptionChangePlan?: (params: {
+        readonly subscription: QZPaySubscription;
+        readonly previousPlanId: string;
+        readonly newPlanId: string;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+
+    /**
+     * Fires after a successful trial extension committed in QZPay.
+     */
+    onAfterSubscriptionTrialExtended?: (params: {
+        readonly subscription: QZPaySubscription;
+        readonly additionalDays: number;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+
+    /**
+     * Fires after a payment refund has been committed in QZPay.
+     */
+    onAfterPaymentRefund?: (params: {
+        readonly payment: QZPayPayment;
+        readonly amount?: number;
+        readonly reason?: string;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+
+    /**
+     * Fires after an invoice has been marked paid in QZPay.
+     */
+    onAfterInvoicePay?: (params: {
+        readonly invoice: QZPayInvoice;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+
+    /**
+     * Fires after an invoice has been voided in QZPay.
+     */
+    onAfterInvoiceVoid?: (params: {
+        readonly invoice: QZPayInvoice;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+}
+
+/**
  * Admin routes configuration
  */
 export interface QZPayAdminRoutesConfig {
@@ -26,6 +143,12 @@ export interface QZPayAdminRoutesConfig {
     prefix?: string;
     /** Auth middleware for admin authentication (required) */
     authMiddleware: MiddlewareHandler;
+    /**
+     * Optional lifecycle hooks for write operations. See
+     * {@link QZPayAdminLifecycleHooks} for the supported hooks and their
+     * before/after semantics.
+     */
+    hooks?: QZPayAdminLifecycleHooks;
 }
 
 /**
@@ -66,7 +189,7 @@ interface QZPayDashboardStats {
  * ```
  */
 export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHonoEnv> {
-    const { billing, prefix = '/admin', authMiddleware } = config;
+    const { billing, prefix = '/admin', authMiddleware, hooks } = config;
 
     const router = new Hono<QZPayHonoEnv>();
 
@@ -75,6 +198,22 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
 
     // Apply auth middleware (required for admin routes)
     router.use('*', authMiddleware);
+
+    /**
+     * Invoke an `onAfter*` hook safely. The core operation has already
+     * committed at this point, so we never let a hook failure flip the
+     * response to an error — we log it and continue. The hook name is
+     * included in the log line for traceability.
+     */
+    const safeAfterHook = async <T>(hookName: string, hookFn: ((params: T) => Promise<void>) | undefined, params: T): Promise<void> => {
+        if (!hookFn) return;
+        try {
+            await hookFn(params);
+        } catch (hookError) {
+            // biome-ignore lint/suspicious/noConsole: lifecycle hook errors are logged
+            console.error(`[qzpay-hono] ${hookName} hook failed:`, hookError instanceof Error ? hookError.message : hookError);
+        }
+    };
 
     // Dashboard stats
     router.get(`${prefix}/dashboard`, async (c) => {
@@ -249,7 +388,22 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
         }
     });
 
-    // Force cancel subscription (admin only)
+    // Get a single subscription by id (admin only, no ownership filter)
+    router.get(`${prefix}/subscriptions/:id`, async (c) => {
+        try {
+            const subscription = await billing.subscriptions.get(c.req.param('id'));
+            const response: QZPayApiResponse<typeof subscription> = {
+                success: true,
+                data: subscription
+            };
+            return c.json(response);
+        } catch (error) {
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
+        }
+    });
+
+    // Force cancel subscription (admin only) — raw cancel, no hooks
     router.post(`${prefix}/subscriptions/:id/force-cancel`, async (c) => {
         try {
             const body = await c.req.json().catch(() => ({}));
@@ -265,17 +419,130 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
         }
     });
 
-    // Change subscription plan (admin only)
+    // Cancel subscription (admin only) — honors lifecycle hooks. Defaults to
+    // end-of-period; pass { immediate: true } in the body for instant cancel.
+    router.post(`${prefix}/subscriptions/:id/cancel`, async (c) => {
+        try {
+            const body = await c.req.json().catch(() => ({}));
+            const immediate = body.immediate === true;
+            const reason = typeof body.reason === 'string' ? body.reason : undefined;
+            const subscriptionId = c.req.param('id');
+
+            // BEFORE hook — can abort the cancel
+            if (hooks?.onBeforeSubscriptionCancel) {
+                const result = await hooks.onBeforeSubscriptionCancel({
+                    subscriptionId,
+                    immediate,
+                    reason,
+                    ctx: c
+                });
+                if (!result.ok) {
+                    return c.json({ success: false, error: { message: result.reason } }, 422);
+                }
+            }
+
+            const subscription = await billing.subscriptions.cancel(subscriptionId, {
+                cancelAtPeriodEnd: !immediate,
+                reason: reason || 'Admin cancellation'
+            });
+
+            // AFTER hook — log on failure but never fail the response
+            await safeAfterHook('onAfterSubscriptionCancel', hooks?.onAfterSubscriptionCancel, {
+                subscription,
+                immediate,
+                ctx: c
+            });
+
+            const response: QZPayApiResponse<typeof subscription> = {
+                success: true,
+                data: subscription
+            };
+            return c.json(response);
+        } catch (error) {
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
+        }
+    });
+
+    // Change subscription plan (admin only) — honors lifecycle hooks
     router.post(`${prefix}/subscriptions/:id/change-plan`, async (c) => {
         try {
             const body = await c.req.json();
-            const result = await billing.subscriptions.changePlan(c.req.param('id'), {
+            const subscriptionId = c.req.param('id');
+
+            // Capture previousPlanId BEFORE the change so the after-hook
+            // can record the transition.
+            const previous = hooks?.onAfterSubscriptionChangePlan ? await billing.subscriptions.get(subscriptionId) : null;
+            const previousPlanId = previous?.planId;
+
+            const result = await billing.subscriptions.changePlan(subscriptionId, {
                 newPlanId: body.newPlanId,
                 newPriceId: body.newPriceId,
                 prorationBehavior: body.prorationBehavior || 'create_prorations',
                 applyAt: body.applyAt || 'immediately'
             });
+
+            // changePlan may return a ScheduledPlanChange (not a subscription)
+            // when applyAt is 'period_end'. The after-hook only fires if we
+            // can resolve a subscription shape with a planId. For scheduled
+            // changes the host should listen to the lifecycle event when the
+            // schedule actually applies.
+            if (hooks?.onAfterSubscriptionChangePlan && previousPlanId) {
+                const refreshed = await billing.subscriptions.get(subscriptionId);
+                if (refreshed) {
+                    await safeAfterHook('onAfterSubscriptionChangePlan', hooks.onAfterSubscriptionChangePlan, {
+                        subscription: refreshed,
+                        previousPlanId,
+                        newPlanId: refreshed.planId,
+                        ctx: c
+                    });
+                }
+            }
+
             const response: QZPayApiResponse<typeof result> = { success: true, data: result };
+            return c.json(response);
+        } catch (error) {
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
+        }
+    });
+
+    // Extend trial period (admin only). Computes new trialEnd by adding
+    // `additionalDays` to the existing trialEnd (or to "now" if the
+    // subscription has no current trial). Calls billing.subscriptions.update
+    // with the new trialEnd.
+    router.post(`${prefix}/subscriptions/:id/extend-trial`, async (c) => {
+        try {
+            const body = await c.req.json().catch(() => ({}));
+            const additionalDays = Number(body.additionalDays);
+            if (!Number.isInteger(additionalDays) || additionalDays <= 0) {
+                return c.json(
+                    {
+                        success: false,
+                        error: {
+                            message: '`additionalDays` must be a positive integer'
+                        }
+                    },
+                    400
+                );
+            }
+            const id = c.req.param('id');
+            const current = await billing.subscriptions.get(id);
+            if (!current) {
+                return c.json({ success: false, error: { message: `Subscription ${id} not found` } }, 404);
+            }
+            const baseDate = current.trialEnd && current.trialEnd > new Date() ? current.trialEnd : new Date();
+            const newTrialEnd = new Date(baseDate);
+            newTrialEnd.setDate(newTrialEnd.getDate() + additionalDays);
+            const updated = await billing.subscriptions.update(id, { trialEnd: newTrialEnd });
+
+            await safeAfterHook('onAfterSubscriptionTrialExtended', hooks?.onAfterSubscriptionTrialExtended, {
+                subscription: updated,
+                additionalDays,
+                ctx: c
+            });
+
+            const response: QZPayApiResponse<typeof updated> = { success: true, data: updated };
             return c.json(response);
         } catch (error) {
             const [errorResponse, statusCode] = createErrorResponse(error);
@@ -319,7 +586,19 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
         }
     });
 
-    // Force refund payment (admin only)
+    // Get a single payment by id (admin only)
+    router.get(`${prefix}/payments/:id`, async (c) => {
+        try {
+            const payment = await billing.payments.get(c.req.param('id'));
+            const response: QZPayApiResponse<typeof payment> = { success: true, data: payment };
+            return c.json(response);
+        } catch (error) {
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
+        }
+    });
+
+    // Force refund payment (admin only) — raw, no hooks
     router.post(`${prefix}/payments/:id/force-refund`, async (c) => {
         try {
             const body = await c.req.json().catch(() => ({}));
@@ -328,6 +607,33 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
                 amount: body.amount,
                 reason: body.reason || 'Admin force refund'
             });
+            const response: QZPayApiResponse<typeof payment> = { success: true, data: payment };
+            return c.json(response);
+        } catch (error) {
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
+        }
+    });
+
+    // Refund payment (admin only) — honors lifecycle hooks
+    router.post(`${prefix}/payments/:id/refund`, async (c) => {
+        try {
+            const body = await c.req.json().catch(() => ({}));
+            const amount = typeof body.amount === 'number' ? body.amount : undefined;
+            const reason = typeof body.reason === 'string' ? body.reason : undefined;
+            const payment = await billing.payments.refund({
+                paymentId: c.req.param('id'),
+                amount,
+                reason: reason || 'Admin refund'
+            });
+
+            await safeAfterHook('onAfterPaymentRefund', hooks?.onAfterPaymentRefund, {
+                payment,
+                amount,
+                reason,
+                ctx: c
+            });
+
             const response: QZPayApiResponse<typeof payment> = { success: true, data: payment };
             return c.json(response);
         } catch (error) {
@@ -369,7 +675,19 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
         }
     });
 
-    // Mark invoice as paid (admin only)
+    // Get a single invoice by id (admin only)
+    router.get(`${prefix}/invoices/:id`, async (c) => {
+        try {
+            const invoice = await billing.invoices.get(c.req.param('id'));
+            const response: QZPayApiResponse<typeof invoice> = { success: true, data: invoice };
+            return c.json(response);
+        } catch (error) {
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
+        }
+    });
+
+    // Mark invoice as paid (admin only) — raw, no hooks
     router.post(`${prefix}/invoices/:id/mark-paid`, async (c) => {
         try {
             const body = await c.req.json().catch(() => ({}));
@@ -382,10 +700,38 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
         }
     });
 
-    // Void invoice (admin only)
+    // Pay invoice (admin only) — honors lifecycle hooks. The host can use
+    // body.paymentId to link a known payment, otherwise a `manual_<ts>` id is
+    // generated by billing.invoices.markPaid internally.
+    router.post(`${prefix}/invoices/:id/pay`, async (c) => {
+        try {
+            const body = await c.req.json().catch(() => ({}));
+            const paymentId = typeof body.paymentId === 'string' ? body.paymentId : `manual_${Date.now()}`;
+            const invoice = await billing.invoices.markPaid(c.req.param('id'), paymentId);
+
+            await safeAfterHook('onAfterInvoicePay', hooks?.onAfterInvoicePay, {
+                invoice,
+                ctx: c
+            });
+
+            const response: QZPayApiResponse<typeof invoice> = { success: true, data: invoice };
+            return c.json(response);
+        } catch (error) {
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
+        }
+    });
+
+    // Void invoice (admin only) — honors lifecycle hooks
     router.post(`${prefix}/invoices/:id/void`, async (c) => {
         try {
             const invoice = await billing.invoices.void(c.req.param('id'));
+
+            await safeAfterHook('onAfterInvoiceVoid', hooks?.onAfterInvoiceVoid, {
+                invoice,
+                ctx: c
+            });
+
             const response: QZPayApiResponse<typeof invoice> = { success: true, data: invoice };
             return c.json(response);
         } catch (error) {
