@@ -4,8 +4,8 @@
  * Administrative routes for managing billing operations.
  * These routes should be protected with admin-level authentication.
  */
-import type { QZPayBilling } from '@qazuor/qzpay-core';
-import type { MiddlewareHandler } from 'hono';
+import type { QZPayBilling, QZPayInvoice, QZPayPayment, QZPaySubscription } from '@qazuor/qzpay-core';
+import type { Context, MiddlewareHandler } from 'hono';
 import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { mapErrorToHttpStatus } from '../errors/error-mapper.js';
@@ -17,6 +17,123 @@ import type { QZPayApiListResponse, QZPayApiResponse, QZPayHonoEnv } from '../ty
 import { zValidator } from '../validators/zod-validator.js';
 
 /**
+ * Outcome of a "before" lifecycle hook: either `ok: true` to let the
+ * operation proceed, or `ok: false` with a `reason` string explaining why
+ * the operation must be aborted. When aborted, the route responds with
+ * HTTP 422 and `{ success: false, error: { message: reason } }`.
+ */
+export type QZPayAdminLifecycleAbortable = { readonly ok: true } | { readonly ok: false; readonly reason: string };
+
+/**
+ * Lifecycle hooks for QZPay admin write operations.
+ *
+ * Hooks are OPTIONAL. When a hook is provided it is invoked at the
+ * documented point in the operation lifecycle. The host application uses
+ * these to plug in side effects (audit logging, revoking linked resources,
+ * Sentry tagging, cache invalidation, etc.) without forking the route
+ * handler.
+ *
+ * ### Before vs After
+ *
+ * - `onBefore*` runs **before** QZPay commits the operation. The hook may
+ *   abort the operation by returning `{ ok: false, reason }`. The
+ *   response status becomes 422 with the reason in the body.
+ * - `onAfter*` runs **after** QZPay has committed the operation
+ *   (subscription cancelled in DB and at provider, refund issued, etc).
+ *   If the hook throws, the error is logged but the route still returns
+ *   success — rolling back is impossible at that point.
+ *
+ * ### Context access
+ *
+ * Every hook receives the live Hono `Context` so the host can read actor
+ * info, set response headers, instrument with Sentry, etc.
+ *
+ * @example
+ * ```typescript
+ * createAdminRoutes({
+ *   billing,
+ *   authMiddleware: requireAdmin,
+ *   hooks: {
+ *     onBeforeSubscriptionCancel: async ({ subscriptionId, ctx }) => {
+ *       const ok = await revokeLinkedAddons(subscriptionId);
+ *       return ok ? { ok: true } : { ok: false, reason: 'addon revocation failed' };
+ *     },
+ *     onAfterSubscriptionCancel: async ({ subscription, ctx }) => {
+ *       await auditLog.insert({ subscriptionId: subscription.id, action: 'cancel' });
+ *     }
+ *   }
+ * });
+ * ```
+ */
+export interface QZPayAdminLifecycleHooks {
+    /**
+     * Fires before the cancel operation is committed in QZPay. Return
+     * `{ ok: false, reason }` to abort with HTTP 422.
+     */
+    onBeforeSubscriptionCancel?: (params: {
+        readonly subscriptionId: string;
+        readonly immediate: boolean;
+        readonly reason?: string;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<QZPayAdminLifecycleAbortable>;
+
+    /**
+     * Fires after a subscription cancel has been committed in QZPay.
+     * Hook errors are logged but do not fail the response.
+     */
+    onAfterSubscriptionCancel?: (params: {
+        readonly subscription: QZPaySubscription;
+        readonly immediate: boolean;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+
+    /**
+     * Fires after a successful plan-change committed in QZPay.
+     */
+    onAfterSubscriptionChangePlan?: (params: {
+        readonly subscription: QZPaySubscription;
+        readonly previousPlanId: string;
+        readonly newPlanId: string;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+
+    /**
+     * Fires after a successful trial extension committed in QZPay.
+     */
+    onAfterSubscriptionTrialExtended?: (params: {
+        readonly subscription: QZPaySubscription;
+        readonly additionalDays: number;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+
+    /**
+     * Fires after a payment refund has been committed in QZPay.
+     */
+    onAfterPaymentRefund?: (params: {
+        readonly payment: QZPayPayment;
+        readonly amount?: number;
+        readonly reason?: string;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+
+    /**
+     * Fires after an invoice has been marked paid in QZPay.
+     */
+    onAfterInvoicePay?: (params: {
+        readonly invoice: QZPayInvoice;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+
+    /**
+     * Fires after an invoice has been voided in QZPay.
+     */
+    onAfterInvoiceVoid?: (params: {
+        readonly invoice: QZPayInvoice;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+}
+
+/**
  * Admin routes configuration
  */
 export interface QZPayAdminRoutesConfig {
@@ -26,6 +143,12 @@ export interface QZPayAdminRoutesConfig {
     prefix?: string;
     /** Auth middleware for admin authentication (required) */
     authMiddleware: MiddlewareHandler;
+    /**
+     * Optional lifecycle hooks for write operations. See
+     * {@link QZPayAdminLifecycleHooks} for the supported hooks and their
+     * before/after semantics.
+     */
+    hooks?: QZPayAdminLifecycleHooks;
 }
 
 /**
