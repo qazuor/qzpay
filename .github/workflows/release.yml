@@ -3,6 +3,10 @@ name: Release
 on:
     push:
         branches: [main]
+    # Manual trigger for the cases when an auto-publish failed (npm token
+    # rotated, transient registry error, etc.) and you want to retry without
+    # adding a no-op commit to main. Run via Actions tab > Release > Run workflow.
+    workflow_dispatch:
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
