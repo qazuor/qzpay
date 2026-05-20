@@ -87,7 +87,15 @@ export {
 } from './middleware/error.middleware.js';
 
 // Routes
-export { createWebhookRouter, createSimpleWebhookHandler, createBillingRoutes } from './routes/index.js';
+export {
+    createWebhookRouter,
+    createSimpleWebhookHandler,
+    createBillingRoutes,
+    createAdminRoutes,
+    type QZPayAdminRoutesConfig,
+    type QZPayAdminLifecycleHooks,
+    type QZPayAdminLifecycleAbortable
+} from './routes/index.js';
 
 // Rate limiting
 export {
