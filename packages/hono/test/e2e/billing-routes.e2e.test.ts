@@ -550,6 +550,7 @@ async function createSchema(sql: ReturnType<typeof postgres>): Promise<void> {
             external_id VARCHAR(255) NOT NULL,
             email VARCHAR(255) NOT NULL,
             name VARCHAR(255),
+            phone VARCHAR(20),
             stripe_customer_id VARCHAR(255),
             mp_customer_id VARCHAR(255),
             preferred_language VARCHAR(10) DEFAULT 'en',
@@ -587,6 +588,26 @@ async function createSchema(sql: ReturnType<typeof postgres>): Promise<void> {
     `;
 
     await sql`
+        CREATE TABLE IF NOT EXISTS billing_prices (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            plan_id UUID NOT NULL REFERENCES billing_plans(id) ON DELETE CASCADE,
+            nickname VARCHAR(255),
+            currency VARCHAR(3) NOT NULL,
+            unit_amount INTEGER NOT NULL,
+            billing_interval VARCHAR(50) NOT NULL,
+            interval_count INTEGER NOT NULL DEFAULT 1,
+            trial_days INTEGER,
+            active BOOLEAN NOT NULL DEFAULT true,
+            stripe_price_id VARCHAR(255),
+            mp_price_id VARCHAR(255),
+            metadata JSONB NOT NULL DEFAULT '{}',
+            livemode BOOLEAN NOT NULL DEFAULT true,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `;
+
+    await sql`
         CREATE TABLE IF NOT EXISTS billing_subscriptions (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             customer_id UUID NOT NULL REFERENCES billing_customers(id),
@@ -602,6 +623,7 @@ async function createSchema(sql: ReturnType<typeof postgres>): Promise<void> {
             trial_converted_at TIMESTAMPTZ,
             cancel_at TIMESTAMPTZ,
             canceled_at TIMESTAMPTZ,
+            cancel_at_period_end BOOLEAN DEFAULT false,
             ended_at TIMESTAMPTZ,
             promo_code_id UUID,
             default_payment_method_id UUID,
@@ -610,6 +632,7 @@ async function createSchema(sql: ReturnType<typeof postgres>): Promise<void> {
             next_retry_at TIMESTAMPTZ,
             stripe_subscription_id VARCHAR(255),
             mp_subscription_id VARCHAR(255),
+            scheduled_plan_change JSONB,
             livemode BOOLEAN NOT NULL DEFAULT true,
             metadata JSONB DEFAULT '{}',
             version UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -632,7 +655,7 @@ async function createSchema(sql: ReturnType<typeof postgres>): Promise<void> {
             exchange_rate NUMERIC(18, 8),
             status VARCHAR(50) NOT NULL,
             provider VARCHAR(50) NOT NULL DEFAULT 'internal',
-            provider_payment_id VARCHAR(255),
+            provider_payment_ids JSONB DEFAULT '{}',
             payment_method_id UUID,
             refunded_amount INTEGER DEFAULT 0,
             failure_code VARCHAR(100),
