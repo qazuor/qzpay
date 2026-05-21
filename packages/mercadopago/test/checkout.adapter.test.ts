@@ -582,7 +582,13 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
                                 title: 'Annual Pro Plan',
                                 category_id: 'services',
                                 quantity: 1,
-                                unit_price: 12000,
+                                // `resolvedLineItems[0].unitAmount` is 12000 cents
+                                // ($120 ARS) — see `QZPayProviderCreateCheckoutInput.resolvedLineItems`
+                                // JSDoc. The adapter divides by 100 at the MP
+                                // boundary because MercadoPago `unit_price` is in
+                                // decimal currency units. See regression test
+                                // 'REGRESSION: converts unitAmount from cents...' below.
+                                unit_price: 120,
                                 currency_id: 'ARS'
                             }
                         ],
@@ -590,6 +596,36 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
                     }),
                     requestOptions: { idempotencyKey: 'cs_annual_123' }
                 });
+            });
+
+            it('REGRESSION: converts resolvedLineItems[].unitAmount from cents to MP decimal (divide by 100)', async () => {
+                // Smoke session 2026-05-21 surfaced the same cents-vs-decimal bug
+                // that affected the subscription adapter (see
+                // `subscription.adapter.test.ts` regression). The checkout
+                // adapter forwards `resolvedLineItems[].unitAmount` to MercadoPago
+                // preference items as `unit_price`. MP expects decimal currency
+                // units, not cents. With realistic prices (e.g. 1500000 cents =
+                // $15000 ARS) the missing conversion would either fail MP
+                // validation or charge 100x the intended amount. This pin keeps
+                // the conversion explicit so a future refactor cannot regress.
+                mockPreferenceApi.create.mockResolvedValue(createMockMPPreference());
+
+                await adapter.create({
+                    input: {
+                        mode: 'payment',
+                        successUrl: 'https://example.com/success',
+                        cancelUrl: 'https://example.com/cancel',
+                        // 1500000 cents = $15000.00 ARS
+                        lineItems: [{ quantity: 1, unitAmount: 1500000, currency: 'ARS', title: 'Realistic Plan' }]
+                    },
+                    resolvedLineItems: [{ unitAmount: 1500000, currency: 'ARS', title: 'Realistic Plan' }],
+                    externalReference: 'cs_regression_001',
+                    idempotencyKey: 'cs_regression_001'
+                });
+
+                const body = mockPreferenceApi.create.mock.calls.at(-1)?.[0]?.body;
+                expect(body?.items?.[0]?.unit_price).toBe(15000);
+                expect(typeof body?.items?.[0]?.unit_price).toBe('number');
             });
 
             it('uppercases currency_id from inline currency', async () => {

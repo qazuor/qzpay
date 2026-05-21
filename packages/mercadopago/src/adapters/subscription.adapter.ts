@@ -174,7 +174,12 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
             auto_recurring: {
                 frequency: intervalFrequency,
                 frequency_type: intervalType,
-                transaction_amount: providerInput.price.amount,
+                // MercadoPago expects decimal currency units (e.g. 100.00 ARS),
+                // not the smallest currency unit. Internally qzpay carries
+                // `unitAmount` in cents (per `price.types.ts:27` and the
+                // sibling adapters at `payment.adapter.ts:76` and
+                // `price.adapter.ts:24`); divide by 100 to convert.
+                transaction_amount: providerInput.price.amount / 100,
                 currency_id: providerInput.price.currency,
                 ...(freeTrial !== undefined ? { free_trial: freeTrial } : {})
             }
