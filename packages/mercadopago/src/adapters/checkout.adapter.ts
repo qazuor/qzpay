@@ -140,12 +140,16 @@ export class QZPayMercadoPagoCheckoutAdapter implements QZPayPaymentCheckoutAdap
 
                     // One-time payment mode: no MP plan to look up. Use the inline
                     // amount + currency carried in resolved line item.
+                    // MercadoPago expects decimal currency units (e.g. 100.00 ARS),
+                    // not cents — `resolved.unitAmount` carries qzpay's canonical
+                    // cents value, divide by 100 to convert. Same convention as
+                    // `payment.adapter.ts:76` and `price.adapter.ts:24`.
                     return {
                         id: `item_${index + 1}`,
                         title: fallbackTitle,
                         category_id: categoryId,
                         quantity,
-                        unit_price: resolved.unitAmount,
+                        unit_price: resolved.unitAmount / 100,
                         currency_id: resolved.currency.toUpperCase()
                     };
                 })

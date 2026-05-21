@@ -99,8 +99,20 @@ export interface QZPayProviderCustomer {
  * `providerPriceId`).
  */
 export interface QZPayProviderCreateSubscriptionInput {
-    /** Provider-side customer identifier (e.g. MP customer ID, Stripe `cus_*`). */
-    readonly providerCustomerId: string;
+    /**
+     * Provider-side customer identifier (e.g. MP customer ID, Stripe `cus_*`).
+     *
+     * Optional because not every provider needs an existing provider-side
+     * customer to create a subscription: MercadoPago's `/preapproval` ad-hoc
+     * flow creates the subscription against a `payer_email` and never
+     * references the customer id. Adapters that DO require it (Stripe-style)
+     * MUST validate it explicitly when undefined and throw a clear
+     * adapter-level error — core no longer gates on this field globally
+     * because doing so blocked otherwise-valid flows (e.g. sandbox signups
+     * where the customer-create sync fails for reasons unrelated to the
+     * subscription, see hospeda staging smoke 2026-05-21 Finding #4).
+     */
+    readonly providerCustomerId?: string;
     /** Provider-side price identifier — set for Stripe-style providers. Optional for ad-hoc preapprovals (MP). */
     readonly providerPriceId?: string;
     /** Original `billing.subscriptions.create()` input, forwarded for metadata/quantity/mode-specific fields. */
@@ -111,8 +123,27 @@ export interface QZPayProviderCreateSubscriptionInput {
         readonly firstName?: string | null;
         readonly lastName?: string | null;
     };
-    /** Resolved price record — used to build the provider charge body (amount, currency, cadence). */
+    /**
+     * Resolved price record — used to build the provider charge body (amount, currency, cadence).
+     *
+     * `amount` is in the **smallest currency unit (cents)** — the canonical
+     * internal convention across qzpay-core (matches `Price.unitAmount`,
+     * `Addon.unitAmount`, `Subscription.transactionAmount` update field
+     * documentation aside — see note below).
+     *
+     * Adapters that talk to providers expecting major units (decimal pesos /
+     * dollars), like MercadoPago `/preapproval`, MUST divide by 100 at the
+     * provider boundary. Adapters whose providers also accept smallest-unit
+     * (e.g. Stripe `unit_amount`) can forward verbatim.
+     *
+     * Historical note: `Subscription.update` input documents `transactionAmount`
+     * in **major units** (`subscription.types.ts:177`). That convention only
+     * applies to the explicit update flow which takes input from external
+     * callers; the `create` flow's `price.amount` here is **always cents**
+     * because it comes from the resolved storage record.
+     */
     readonly price: {
+        /** Amount in cents (smallest currency unit). Adapters convert at provider boundary. */
         readonly amount: number;
         readonly currency: string;
         readonly interval: 'day' | 'week' | 'month' | 'year';
@@ -219,8 +250,17 @@ export interface QZPayProviderCreateCheckoutInput {
      * entry has either a `providerPriceId` (subscription mode / pre-registered
      * plan) or inline `unitAmount` + `currency` (payment mode one-time charge).
      */
+    /**
+     * `unitAmount` is in the **smallest currency unit (cents)** — same
+     * canonical convention as `QZPayProviderCreateSubscriptionInput.price.amount`.
+     * Adapters that talk to providers expecting major units (MercadoPago
+     * preference `unit_price` is decimal) MUST divide by 100 at the provider
+     * boundary. Adapters whose providers also accept smallest-unit (Stripe)
+     * forward verbatim.
+     */
     readonly resolvedLineItems: ReadonlyArray<{
         readonly providerPriceId?: string;
+        /** Per-unit amount in cents (smallest currency unit). Adapters convert at provider boundary. */
         readonly unitAmount: number;
         readonly currency: string;
         readonly title: string;

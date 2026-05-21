@@ -1281,18 +1281,20 @@ class QZPayBillingImpl implements QZPayBilling {
                     if (!customer) {
                         throw new QZPayNotFoundError('Customer', input.customerId);
                     }
+                    // `providerCustomerId` is forwarded to the adapter but core
+                    // no longer requires it to be populated. The MP `/preapproval`
+                    // ad-hoc flow does not reference it; adapters that DO need it
+                    // (Stripe-style) must validate at the adapter boundary and
+                    // throw a clear error. See `QZPayProviderCreateSubscriptionInput
+                    // .providerCustomerId` JSDoc for rationale (hospeda smoke
+                    // 2026-05-21 Finding #4 — the validation here was blocking
+                    // otherwise-valid sandbox / error-recovery flows).
                     const providerCustomerId = customer.providerCustomerIds?.[paymentAdapter.provider];
-                    if (!providerCustomerId) {
-                        throw new QZPayValidationError(
-                            `Customer ${input.customerId} has no provider customer ID for '${paymentAdapter.provider}'`,
-                            'customerId'
-                        );
-                    }
 
                     const [firstName, ...rest] = (customer.name ?? '').trim().split(/\s+/);
                     const providerPriceId = price.providerPriceIds?.[paymentAdapter.provider];
                     const providerInput: QZPayProviderCreateSubscriptionInput = {
-                        providerCustomerId,
+                        ...(providerCustomerId ? { providerCustomerId } : {}),
                         input,
                         customer: {
                             email: customer.email,

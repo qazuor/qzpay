@@ -24,7 +24,10 @@ function buildCreateInput(overrides: Partial<QZPayProviderCreateSubscriptionInpu
         providerPriceId: 'price_mp_123',
         input: { customerId: 'cus_local_1', planId: 'plan_local_1' },
         customer: { email: 'test@example.com', firstName: 'Ada', lastName: 'Lovelace' },
-        price: { amount: 1999.99, currency: 'ARS', interval: 'month', intervalCount: 1 },
+        // `price.amount` is in **cents** (smallest currency unit) — see
+        // `QZPayProviderCreateSubscriptionInput.price` JSDoc. 199999 cents =
+        // $1999.99 ARS — the adapter divides by 100 at the MP boundary.
+        price: { amount: 199999, currency: 'ARS', interval: 'month', intervalCount: 1 },
         plan: { name: 'Pro Plan' },
         externalReference: 'sub_local_uuid_1',
         idempotencyKey: 'sub_local_uuid_1',
@@ -128,10 +131,36 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
             expect(body?.reason).toBe('Premium - Anual');
         });
 
+        it('REGRESSION: converts price.amount from cents to MP decimal (divide by 100)', async () => {
+            // Smoke session 2026-05-21 discovered that the adapter was forwarding
+            // `providerInput.price.amount` verbatim to MercadoPago, which expects
+            // decimal currency units (e.g. 100.00 ARS) and NOT cents. With a
+            // realistic plan price (1500000 cents = $15000 ARS) MP returned HTTP 500
+            // because it interpreted the value as $1.5 million pesos and tripped
+            // an internal limit / fraud check. The other MP adapters (`payment`,
+            // `price`, `checkout`) already follow the convention "core passes
+            // cents, adapter divides by 100 at the provider boundary"; this test
+            // pins that convention for the subscription adapter too.
+            mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+
+            // 1500000 cents = $15000.00 ARS — the staging plan price at the time.
+            await adapter.create(
+                buildCreateInput({
+                    price: { amount: 1500000, currency: 'ARS', interval: 'month', intervalCount: 1 }
+                })
+            );
+
+            const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+            expect(body?.auto_recurring.transaction_amount).toBe(15000);
+            expect(typeof body?.auto_recurring.transaction_amount).toBe('number');
+        });
+
         it('converts price interval=week to days (count * 7)', async () => {
             mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
             const providerInput = buildCreateInput({
-                price: { amount: 100, currency: 'ARS', interval: 'week', intervalCount: 2 }
+                // 10000 cents = $100 ARS. This test asserts cadence conversion;
+                // the amount itself is incidental but kept in canonical cents.
+                price: { amount: 10000, currency: 'ARS', interval: 'week', intervalCount: 2 }
             });
 
             await adapter.create(providerInput);
@@ -143,7 +172,8 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
         it('converts price interval=year to months (count * 12)', async () => {
             mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
             const providerInput = buildCreateInput({
-                price: { amount: 100, currency: 'ARS', interval: 'year', intervalCount: 1 }
+                // 10000 cents = $100 ARS — same convention as the week test above.
+                price: { amount: 10000, currency: 'ARS', interval: 'year', intervalCount: 1 }
             });
 
             await adapter.create(providerInput);

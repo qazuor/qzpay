@@ -1379,10 +1379,23 @@ describe('billing.subscriptions', () => {
             expect(storage.subscriptions.delete).not.toHaveBeenCalled();
         });
 
-        it('throws ValidationError when the customer has no provider ID for the configured provider', async () => {
+        it('passes undefined providerCustomerId to the adapter when customer has no provider ID (no longer throws — see Finding #4 / hospeda smoke 2026-05-21)', async () => {
+            // Previously core threw a ValidationError requiring
+            // `customer.providerCustomerIds[provider]` to be populated before
+            // calling the subscription adapter. That gate blocked otherwise
+            // valid flows (e.g. MP test credentials cannot sync customers via
+            // `/v1/customers`, leaving the column NULL — but `/preapproval`
+            // never references the customer id, so the subscription create
+            // would have succeeded). Core now forwards `providerCustomerId`
+            // when available and omits it otherwise; adapters that genuinely
+            // need it MUST validate at their own boundary.
             const storage = createMockStorage();
             const subscriptionAdapter: MockSubscriptionAdapter = {
-                create: vi.fn(),
+                create: vi.fn().mockResolvedValue({
+                    id: 'preapproval_synthetic',
+                    status: 'pending',
+                    initPoint: 'https://mp.example.com/init'
+                }),
                 update: vi.fn(),
                 cancel: vi.fn(),
                 pause: vi.fn(),
@@ -1394,7 +1407,6 @@ describe('billing.subscriptions', () => {
                 plans: [proPlanWithPrice],
                 paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
             });
-            // Seed a customer without providerCustomerIds.mercadopago
             const customer = await storage.customers.create({
                 email: 'no-mp@example.com',
                 name: 'NoMP',
@@ -1402,10 +1414,19 @@ describe('billing.subscriptions', () => {
                 providerCustomerIds: {}
             } as never);
 
-            await expect(billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' })).rejects.toThrow(
-                'no provider customer ID'
-            );
-            expect(subscriptionAdapter.create).not.toHaveBeenCalled();
+            const result = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                mode: 'paid'
+            });
+
+            expect(result.id).toBeDefined();
+            expect(subscriptionAdapter.create).toHaveBeenCalledTimes(1);
+            // The adapter received providerCustomerId omitted (or undefined),
+            // and is responsible for deciding whether that is OK for the
+            // specific provider.
+            const adapterArg = subscriptionAdapter.create.mock.calls[0]?.[0];
+            expect(adapterArg?.providerCustomerId).toBeUndefined();
         });
 
         it('throws ValidationError when the plan has no price configured', async () => {
