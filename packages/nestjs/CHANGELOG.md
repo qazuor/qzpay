@@ -1,5 +1,12 @@
 # @qazuor/qzpay-nestjs
 
+## 1.1.11
+
+### Patch Changes
+
+- Updated dependencies [9256ca7]
+  - @qazuor/qzpay-core@1.6.5
+
 ## 1.1.10
 
 ### Patch Changes
