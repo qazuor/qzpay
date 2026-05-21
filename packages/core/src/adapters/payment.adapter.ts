@@ -99,8 +99,20 @@ export interface QZPayProviderCustomer {
  * `providerPriceId`).
  */
 export interface QZPayProviderCreateSubscriptionInput {
-    /** Provider-side customer identifier (e.g. MP customer ID, Stripe `cus_*`). */
-    readonly providerCustomerId: string;
+    /**
+     * Provider-side customer identifier (e.g. MP customer ID, Stripe `cus_*`).
+     *
+     * Optional because not every provider needs an existing provider-side
+     * customer to create a subscription: MercadoPago's `/preapproval` ad-hoc
+     * flow creates the subscription against a `payer_email` and never
+     * references the customer id. Adapters that DO require it (Stripe-style)
+     * MUST validate it explicitly when undefined and throw a clear
+     * adapter-level error — core no longer gates on this field globally
+     * because doing so blocked otherwise-valid flows (e.g. sandbox signups
+     * where the customer-create sync fails for reasons unrelated to the
+     * subscription, see hospeda staging smoke 2026-05-21 Finding #4).
+     */
+    readonly providerCustomerId?: string;
     /** Provider-side price identifier — set for Stripe-style providers. Optional for ad-hoc preapprovals (MP). */
     readonly providerPriceId?: string;
     /** Original `billing.subscriptions.create()` input, forwarded for metadata/quantity/mode-specific fields. */
