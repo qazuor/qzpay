@@ -40,6 +40,16 @@ export class QZPayStripeSubscriptionAdapter implements QZPayPaymentSubscriptionA
                 if (!providerInput.providerPriceId) {
                     throw new Error('Stripe subscription create requires providerPriceId');
                 }
+                // Stripe's `customer` field is required at the API boundary —
+                // core no longer gates this globally (the MercadoPago adapter
+                // does not need it), so each adapter that needs it validates
+                // here. See `QZPayProviderCreateSubscriptionInput.providerCustomerId`
+                // JSDoc for the convention.
+                if (!providerInput.providerCustomerId) {
+                    throw new Error(
+                        'Stripe subscription create requires providerCustomerId (the local customer must have providerCustomerIds["stripe"] populated)'
+                    );
+                }
                 const params: Stripe.SubscriptionCreateParams = {
                     customer: providerInput.providerCustomerId,
                     items: [{ price: providerInput.providerPriceId, quantity: providerInput.input.quantity ?? 1 }],
