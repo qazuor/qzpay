@@ -676,7 +676,8 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
                 };
                 expect(call?.body.items).toHaveLength(2);
                 expect(call?.body.items[0]?.id).toBe('price_sub');
-                expect(call?.body.items[1]).toEqual(expect.objectContaining({ id: 'item_2', unit_price: 9999, currency_id: 'ARS' }));
+                // 9999 cents = $99.99 ARS — adapter divides by 100 at the MP boundary.
+                expect(call?.body.items[1]).toEqual(expect.objectContaining({ id: 'item_2', unit_price: 99.99, currency_id: 'ARS' }));
             });
         });
     });
