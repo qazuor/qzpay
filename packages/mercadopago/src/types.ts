@@ -2,6 +2,7 @@
  * MercadoPago adapter types
  */
 
+import type { QZPayLogger } from '@qazuor/qzpay-core';
 import type { RetryConfig } from './utils/retry.utils.js';
 
 /**
@@ -41,6 +42,17 @@ export interface QZPayMercadoPagoConfig {
      * @default false
      */
     webhookFailClosedWhenSecretMissing?: boolean | undefined;
+
+    /**
+     * Optional structured logger. When provided, it is forwarded to the
+     * internal sub-adapters that emit logs — currently the webhook
+     * adapter (`QZPayMercadoPagoWebhookAdapter`). This is the single
+     * place to configure logging for the entire MercadoPago integration
+     * when constructing via `createQZPayMercadoPagoAdapter`; without it
+     * the sub-adapters are silent (no `console.*` fallback at this
+     * layer).
+     */
+    logger?: QZPayLogger | undefined;
 
     /**
      * Whether this adapter is operating against MercadoPago's sandbox /
