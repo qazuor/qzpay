@@ -50,6 +50,15 @@ export function createWebhookRouter(config: QZPayWebhookRouterConfig): Hono<QZPa
 
     const router = new Hono<QZPayWebhookEnv>();
 
+    logger?.debug('Webhook router constructed', {
+        provider: paymentAdapter.provider,
+        operation: 'createWebhookRouter',
+        signatureHeader,
+        handlerCount: Object.keys(handlers).length,
+        hasOnEvent: Boolean(onEvent),
+        hasOnError: Boolean(onError)
+    });
+
     // Apply webhook middleware
     router.use(
         '*',
@@ -67,6 +76,13 @@ export function createWebhookRouter(config: QZPayWebhookRouterConfig): Hono<QZPa
         const event = c.get('webhookEvent');
         const response = createWebhookResponse(c);
 
+        logger?.debug('Webhook event dispatch starting', {
+            provider: paymentAdapter.provider,
+            operation: 'webhookDispatch',
+            eventId: event.id,
+            eventType: event.type
+        });
+
         try {
             // Call generic handler FIRST. Consumers typically use `onEvent`
             // for cross-cutting concerns that must run BEFORE any type-
@@ -79,18 +95,47 @@ export function createWebhookRouter(config: QZPayWebhookRouterConfig): Hono<QZPa
             // completed.
             if (onEvent) {
                 const result = await onEvent(c, event);
-                if (result) return result;
+                if (result) {
+                    logger?.debug('Webhook onEvent short-circuited dispatch', {
+                        provider: paymentAdapter.provider,
+                        operation: 'webhookDispatch',
+                        eventId: event.id,
+                        eventType: event.type
+                    });
+                    return result;
+                }
             }
 
             // Call specific handler if exists
             const handler = handlers[event.type];
             if (handler) {
+                logger?.debug('Webhook handler invoking', {
+                    provider: paymentAdapter.provider,
+                    operation: 'webhookDispatch',
+                    eventId: event.id,
+                    eventType: event.type
+                });
                 const result = await handler(c, event);
                 if (result) return result;
+            } else {
+                logger?.info('Webhook event has no registered handler', {
+                    provider: paymentAdapter.provider,
+                    operation: 'webhookDispatch',
+                    eventId: event.id,
+                    eventType: event.type
+                });
             }
 
             return response.success();
         } catch (error) {
+            logger?.error('Webhook handler threw', {
+                provider: paymentAdapter.provider,
+                operation: 'webhookDispatch',
+                eventId: event.id,
+                eventType: event.type,
+                error
+            });
+
             if (onError) {
                 const result = await onError(error instanceof Error ? error : new Error(String(error)), c);
                 if (result) return result;

@@ -79,15 +79,31 @@ export function createWebhookMiddleware(config: QZPayWebhookMiddlewareConfig): M
                 });
                 return c.json({ error: 'Invalid webhook signature' }, 401);
             }
+            logger?.debug('Webhook signature verified', {
+                provider: paymentAdapter.provider,
+                operation: 'webhookMiddleware',
+                payloadBytes: payload.length
+            });
         }
 
         // Parse webhook event
         if (!paymentAdapter.webhooks) {
+            logger?.error('Webhook middleware invoked but adapter has no webhooks support', {
+                provider: paymentAdapter.provider,
+                operation: 'webhookMiddleware'
+            });
             return c.json({ error: 'Payment adapter does not support webhooks' }, 500);
         }
 
         try {
             const event = paymentAdapter.webhooks.constructEvent(payload, signature, requestId);
+
+            logger?.debug('Webhook event constructed', {
+                provider: paymentAdapter.provider,
+                operation: 'webhookMiddleware',
+                eventId: event.id,
+                eventType: event.type
+            });
 
             // Set variables on context
             c.set('qzpay', billing);

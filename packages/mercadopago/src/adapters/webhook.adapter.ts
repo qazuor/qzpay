@@ -135,8 +135,18 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
         }
 
         const mpEvent = JSON.parse(payloadString) as MercadoPagoWebhookPayload;
+        const qzpayEvent = this.mapToQZPayEvent(mpEvent);
 
-        return this.mapToQZPayEvent(mpEvent);
+        this.logger?.debug('MercadoPago webhook event constructed', {
+            provider: 'mercadopago',
+            operation: 'constructEvent',
+            mpId: String(mpEvent.id),
+            mpType: mpEvent.type,
+            mpAction: mpEvent.action,
+            qzpayType: qzpayEvent.type
+        });
+
+        return qzpayEvent;
     }
 
     /**
@@ -181,6 +191,11 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
             // Validate timestamp to prevent replay attacks
             const timestampSeconds = Number.parseInt(timestamp, 10);
             if (Number.isNaN(timestampSeconds)) {
+                this.logger?.warn('MercadoPago webhook signature has non-numeric ts component', {
+                    provider: 'mercadopago',
+                    operation: 'verifySignature',
+                    ts: timestamp
+                });
                 return false;
             }
 
@@ -188,6 +203,12 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
             const timeDifference = Math.abs(currentTimeSeconds - timestampSeconds);
 
             if (timeDifference > this.timestampToleranceSeconds) {
+                this.logger?.warn('MercadoPago webhook signature timestamp outside tolerance window', {
+                    provider: 'mercadopago',
+                    operation: 'verifySignature',
+                    timeDifferenceSeconds: timeDifference,
+                    toleranceSeconds: this.timestampToleranceSeconds
+                });
                 return false;
             }
 
@@ -217,14 +238,34 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
             const sigBuffer = Buffer.from(sig);
             const expectedBuffer = Buffer.from(expectedSignature);
             if (sigBuffer.length !== expectedBuffer.length) {
-                this.logger?.debug('MercadoPago webhook signature length mismatch', {
+                this.logger?.warn('MercadoPago webhook signature length mismatch', {
                     provider: 'mercadopago',
-                    operation: 'verifySignature'
+                    operation: 'verifySignature',
+                    receivedLength: sigBuffer.length,
+                    expectedLength: expectedBuffer.length
                 });
                 return false;
             }
 
-            return crypto.timingSafeEqual(sigBuffer, expectedBuffer);
+            const matches = crypto.timingSafeEqual(sigBuffer, expectedBuffer);
+            if (matches) {
+                this.logger?.debug('MercadoPago webhook signature verified', {
+                    provider: 'mercadopago',
+                    operation: 'verifySignature',
+                    dataId,
+                    requestId,
+                    ts: timestamp
+                });
+            } else {
+                this.logger?.warn('MercadoPago webhook signature HMAC mismatch', {
+                    provider: 'mercadopago',
+                    operation: 'verifySignature',
+                    dataId,
+                    requestId,
+                    ts: timestamp
+                });
+            }
+            return matches;
         } catch (error) {
             this.logger?.error('MercadoPago webhook signature verification threw', {
                 provider: 'mercadopago',
@@ -329,12 +370,22 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
  */
 export class QZPayMercadoPagoIPNHandler {
     private readonly handlers: QZPayMPIPNHandlerMap = {};
+    private readonly logger: QZPayLogger | undefined;
+
+    constructor(options?: { logger?: QZPayLogger }) {
+        this.logger = options?.logger;
+    }
 
     /**
      * Register a handler for a specific IPN type
      */
     on(type: QZPayMPIPNType, handler: QZPayMPIPNHandler): void {
         this.handlers[type] = handler;
+        this.logger?.debug('MercadoPago IPN handler registered', {
+            provider: 'mercadopago',
+            operation: 'ipnHandler.on',
+            type
+        });
     }
 
     /**
@@ -342,6 +393,11 @@ export class QZPayMercadoPagoIPNHandler {
      */
     off(type: QZPayMPIPNType): void {
         delete this.handlers[type];
+        this.logger?.debug('MercadoPago IPN handler removed', {
+            provider: 'mercadopago',
+            operation: 'ipnHandler.off',
+            type
+        });
     }
 
     /**
@@ -351,6 +407,13 @@ export class QZPayMercadoPagoIPNHandler {
         const handler = this.handlers[notification.type];
 
         if (!handler) {
+            this.logger?.warn('MercadoPago IPN received with no registered handler', {
+                provider: 'mercadopago',
+                operation: 'ipnHandler.process',
+                type: notification.type,
+                action: notification.action,
+                resourceId: notification.data.id
+            });
             return {
                 processed: false,
                 eventType: notification.type,
@@ -362,6 +425,13 @@ export class QZPayMercadoPagoIPNHandler {
 
         try {
             await handler(notification);
+            this.logger?.debug('MercadoPago IPN handled', {
+                provider: 'mercadopago',
+                operation: 'ipnHandler.process',
+                type: notification.type,
+                action: notification.action,
+                resourceId: notification.data.id
+            });
             return {
                 processed: true,
                 eventType: notification.type,
@@ -369,6 +439,14 @@ export class QZPayMercadoPagoIPNHandler {
                 resourceId: notification.data.id
             };
         } catch (error) {
+            this.logger?.error('MercadoPago IPN handler threw', {
+                provider: 'mercadopago',
+                operation: 'ipnHandler.process',
+                type: notification.type,
+                action: notification.action,
+                resourceId: notification.data.id,
+                error
+            });
             return {
                 processed: false,
                 eventType: notification.type,

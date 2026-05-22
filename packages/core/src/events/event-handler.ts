@@ -3,6 +3,7 @@
  */
 import type { QZPayBillingEvent } from '../constants/index.js';
 import type { QZPayEvent, QZPayEventMap, QZPayTypedEventHandler } from '../types/events.types.js';
+import type { QZPayLogger } from '../types/logger.types.js';
 
 /**
  * Middleware function type
@@ -36,26 +37,46 @@ export function qzpayWithMiddleware<K extends keyof QZPayEventMap>(
 }
 
 /**
- * Logging middleware for event handlers
+ * Logging middleware for event handlers.
+ *
+ * Accepts either:
+ * - A bare function `(message, data?) => void` (legacy form, defaults to
+ *   `console.log` for backwards compatibility).
+ * - A `QZPayLogger` instance — preferred — which routes received/handled
+ *   lines through `logger.info` and errors through `logger.error`.
  */
 export function qzpayLoggingMiddleware<T = unknown>(
-    logger: (message: string, data?: Record<string, unknown>) => void = console.log
+    logger: ((message: string, data?: Record<string, unknown>) => void) | QZPayLogger = console.log
 ): QZPayEventMiddleware<T> {
+    const isQZPayLogger = (l: unknown): l is QZPayLogger =>
+        typeof l === 'object' &&
+        l !== null &&
+        typeof (l as QZPayLogger).info === 'function' &&
+        typeof (l as QZPayLogger).error === 'function';
+
+    const logInfo = isQZPayLogger(logger)
+        ? (message: string, data?: Record<string, unknown>) => logger.info(message, data)
+        : (message: string, data?: Record<string, unknown>) => logger(message, data);
+
+    const logError = isQZPayLogger(logger)
+        ? (message: string, data?: Record<string, unknown>) => logger.error(message, data)
+        : (message: string, data?: Record<string, unknown>) => logger(message, data);
+
     return async (event, next) => {
         const start = Date.now();
-        logger(`[QZPay] Event received: ${event.type}`, {
+        logInfo(`[QZPay] Event received: ${event.type}`, {
             eventId: event.id,
             livemode: event.livemode
         });
 
         try {
             await next();
-            logger(`[QZPay] Event handled: ${event.type}`, {
+            logInfo(`[QZPay] Event handled: ${event.type}`, {
                 eventId: event.id,
                 duration: Date.now() - start
             });
         } catch (error) {
-            logger(`[QZPay] Event handler error: ${event.type}`, {
+            logError(`[QZPay] Event handler error: ${event.type}`, {
                 eventId: event.id,
                 error: error instanceof Error ? error.message : String(error),
                 duration: Date.now() - start
@@ -168,14 +189,19 @@ export function qzpayDebounceHandler<K extends keyof QZPayEventMap>(
 }
 
 /**
- * Batch handler - collects events and processes them together
+ * Batch handler - collects events and processes them together.
+ *
+ * Pass a `logger` to capture flush-side errors (the trailing timeout
+ * flush is fire-and-forget, so without a logger errors land in
+ * `console.error`).
  */
 export function qzpayBatchHandler<K extends keyof QZPayEventMap>(
     handler: (events: QZPayEvent<QZPayEventMap[K]>[]) => Promise<void> | void,
-    options?: { maxSize?: number; maxWaitMs?: number }
+    options?: { maxSize?: number; maxWaitMs?: number; logger?: QZPayLogger }
 ): QZPayTypedEventHandler<K> {
     const maxSize = options?.maxSize ?? 10;
     const maxWaitMs = options?.maxWaitMs ?? 1000;
+    const logger = options?.logger;
 
     let batch: QZPayEvent<QZPayEventMap[K]>[] = [];
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -204,7 +230,13 @@ export function qzpayBatchHandler<K extends keyof QZPayEventMap>(
 
         if (!timeoutId) {
             timeoutId = setTimeout(() => {
-                flush().catch(console.error);
+                flush().catch((error) => {
+                    if (logger) {
+                        logger.error('Batch handler flush failed', { operation: 'qzpayBatchHandler.flush', error });
+                    } else {
+                        console.error(error);
+                    }
+                });
             }, maxWaitMs);
         }
     };
