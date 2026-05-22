@@ -182,6 +182,55 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
             expect(adapter.verifySignature(payload, signature)).toBe(false);
         });
 
+        it('should prefer explicit dataId param over body extraction', () => {
+            const secret = 'test_webhook_secret';
+            const adapter = new QZPayMercadoPagoWebhookAdapter(secret);
+
+            // Body has a DIFFERENT data.id than what we pass via param.
+            // Per MP docs, the URL data.id is canonical for HMAC.
+            const payload = JSON.stringify({ id: 123, data: { id: 'body-id-wrong' } });
+            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const requestId = 'req-prefer-param';
+            const urlDataId = 'url-correct-id';
+
+            const signedPayload = `id:${urlDataId};request-id:${requestId};ts:${timestamp};`;
+            const expectedSig = crypto.createHmac('sha256', secret).update(signedPayload).digest('hex');
+            const signature = `ts=${timestamp},v1=${expectedSig}`;
+
+            expect(adapter.verifySignature(payload, signature, requestId, urlDataId)).toBe(true);
+        });
+
+        it('should fall back to body extraction when dataId param is undefined', () => {
+            const secret = 'test_webhook_secret';
+            const adapter = new QZPayMercadoPagoWebhookAdapter(secret);
+
+            const payload = JSON.stringify({ id: 123, data: { id: 'body_only_id' } });
+            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const requestId = 'req-fallback';
+
+            const signedPayload = `id:body_only_id;request-id:${requestId};ts:${timestamp};`;
+            const expectedSig = crypto.createHmac('sha256', secret).update(signedPayload).digest('hex');
+            const signature = `ts=${timestamp},v1=${expectedSig}`;
+
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(true);
+        });
+
+        it('should lowercase dataId from param before HMAC', () => {
+            const secret = 'test_webhook_secret';
+            const adapter = new QZPayMercadoPagoWebhookAdapter(secret);
+
+            const payload = JSON.stringify({ id: 123, data: { id: 'whatever' } });
+            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const requestId = 'req-case';
+            const urlDataIdMixed = 'ABC-mixed-CASE';
+
+            const signedPayload = `id:abc-mixed-case;request-id:${requestId};ts:${timestamp};`;
+            const expectedSig = crypto.createHmac('sha256', secret).update(signedPayload).digest('hex');
+            const signature = `ts=${timestamp},v1=${expectedSig}`;
+
+            expect(adapter.verifySignature(payload, signature, requestId, urlDataIdMixed)).toBe(true);
+        });
+
         it('should return false for wrong signature', () => {
             const adapter = new QZPayMercadoPagoWebhookAdapter('secret_123');
 

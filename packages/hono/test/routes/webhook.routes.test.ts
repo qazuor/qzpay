@@ -209,7 +209,7 @@ describe('Webhook Routes', () => {
                 body: 'payload'
             });
 
-            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'test_sig', undefined);
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'test_sig', undefined, undefined);
         });
 
         it('should use default x-signature header for mercadopago', async () => {
@@ -229,7 +229,7 @@ describe('Webhook Routes', () => {
                 body: 'payload'
             });
 
-            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'mp_sig', '');
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'mp_sig', '', undefined);
         });
 
         it('should use custom signature header when provided', async () => {
@@ -250,7 +250,7 @@ describe('Webhook Routes', () => {
                 body: 'payload'
             });
 
-            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'custom_sig', undefined);
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'custom_sig', undefined, undefined);
         });
 
         it('should return 401 for invalid signature', async () => {
@@ -345,7 +345,7 @@ describe('Webhook Routes', () => {
                 body: 'payload'
             });
 
-            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'custom_sig', undefined);
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'custom_sig', undefined, undefined);
         });
 
         it('should work without onEvent handler', async () => {

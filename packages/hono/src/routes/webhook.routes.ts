@@ -67,6 +67,7 @@ export function createWebhookRouter(config: QZPayWebhookRouterConfig): Hono<QZPa
             paymentAdapter,
             signatureHeader,
             ...(config.requestIdHeader !== undefined ? { requestIdHeader: config.requestIdHeader } : {}),
+            ...(config.dataIdQueryParams !== undefined ? { dataIdQueryParams: config.dataIdQueryParams } : {}),
             ...(logger ? { logger } : {})
         })
     );
@@ -157,6 +158,7 @@ export interface QZPaySimpleWebhookConfig {
     paymentAdapter: QZPayWebhookRouterConfig['paymentAdapter'];
     signatureHeader?: string;
     requestIdHeader?: QZPayWebhookRouterConfig['requestIdHeader'];
+    dataIdQueryParams?: QZPayWebhookRouterConfig['dataIdQueryParams'];
     onEvent?: QZPayWebhookRouterConfig['onEvent'];
     logger?: QZPayWebhookRouterConfig['logger'];
 }
@@ -189,6 +191,7 @@ export function createSimpleWebhookHandler(config: QZPaySimpleWebhookConfig): Ho
         paymentAdapter,
         signatureHeader,
         ...(config.requestIdHeader !== undefined ? { requestIdHeader: config.requestIdHeader } : {}),
+        ...(config.dataIdQueryParams !== undefined ? { dataIdQueryParams: config.dataIdQueryParams } : {}),
         onEvent,
         ...(logger ? { logger } : {})
     });
