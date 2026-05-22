@@ -15,6 +15,16 @@ const DEFAULT_SIGNATURE_HEADERS: Record<string, string> = {
 };
 
 /**
+ * Default request-id header names by provider. `null` means the provider
+ * does not use a separate request-id header (e.g. Stripe embeds everything
+ * in `stripe-signature`).
+ */
+const DEFAULT_REQUEST_ID_HEADERS: Record<string, string | null> = {
+    stripe: null,
+    mercadopago: 'x-request-id'
+};
+
+/**
  * Create webhook middleware that verifies and parses webhook events
  *
  * @example
@@ -39,22 +49,34 @@ const DEFAULT_SIGNATURE_HEADERS: Record<string, string> = {
  * ```
  */
 export function createWebhookMiddleware(config: QZPayWebhookMiddlewareConfig): MiddlewareHandler<QZPayWebhookEnv> {
-    const { billing, paymentAdapter, verifySignature = true } = config;
+    const { billing, paymentAdapter, verifySignature = true, logger } = config;
 
     // Determine signature header
     const signatureHeader = config.signatureHeader ?? DEFAULT_SIGNATURE_HEADERS[paymentAdapter.provider] ?? 'x-signature';
+
+    // Determine request-id header. `null` (either explicit or from the provider
+    // defaults) means the adapter does not need a separate request-id.
+    const requestIdHeader =
+        config.requestIdHeader === undefined ? (DEFAULT_REQUEST_ID_HEADERS[paymentAdapter.provider] ?? null) : config.requestIdHeader;
 
     return async (c, next) => {
         // Get raw body
         const payload = await c.req.text();
 
-        // Get signature header
+        // Get signature + request-id headers
         const signature = c.req.header(signatureHeader) ?? '';
+        const requestId = requestIdHeader ? (c.req.header(requestIdHeader) ?? '') : undefined;
 
         // Verify signature if enabled
         if (verifySignature && paymentAdapter.webhooks) {
-            const isValid = paymentAdapter.webhooks.verifySignature(payload, signature);
+            const isValid = paymentAdapter.webhooks.verifySignature(payload, signature, requestId);
             if (!isValid) {
+                logger?.warn('Webhook signature verification failed', {
+                    provider: paymentAdapter.provider,
+                    operation: 'webhookMiddleware',
+                    hasSignature: signature.length > 0,
+                    hasRequestId: Boolean(requestId)
+                });
                 return c.json({ error: 'Invalid webhook signature' }, 401);
             }
         }
@@ -65,7 +87,7 @@ export function createWebhookMiddleware(config: QZPayWebhookMiddlewareConfig): M
         }
 
         try {
-            const event = paymentAdapter.webhooks.constructEvent(payload, signature);
+            const event = paymentAdapter.webhooks.constructEvent(payload, signature, requestId);
 
             // Set variables on context
             c.set('qzpay', billing);
@@ -76,6 +98,11 @@ export function createWebhookMiddleware(config: QZPayWebhookMiddlewareConfig): M
             await next();
             return;
         } catch (error) {
+            logger?.error('Webhook event construction threw', {
+                provider: paymentAdapter.provider,
+                operation: 'webhookMiddleware',
+                error
+            });
             const message = error instanceof Error ? error.message : 'Failed to parse webhook event';
             return c.json({ error: message }, 400);
         }

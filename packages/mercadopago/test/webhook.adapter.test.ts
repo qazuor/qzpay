@@ -36,7 +36,7 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
             const adapter = new QZPayMercadoPagoWebhookAdapter('secret_123');
             const payload = createMockMPWebhookPayload('payment', 'created');
 
-            expect(() => adapter.constructEvent(JSON.stringify(payload), 'invalid_signature')).toThrow(
+            expect(() => adapter.constructEvent(JSON.stringify(payload), 'invalid_signature', 'req-1')).toThrow(
                 'Invalid MercadoPago webhook signature'
             );
         });
@@ -106,7 +106,7 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
         it('should return true when no secret is configured', () => {
             const adapter = new QZPayMercadoPagoWebhookAdapter();
 
-            const result = adapter.verifySignature('any payload', 'any signature');
+            const result = adapter.verifySignature('any payload', 'any signature', 'req-1');
 
             expect(result).toBe(true);
         });
@@ -114,7 +114,7 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
         it('should return false for invalid signature format', () => {
             const adapter = new QZPayMercadoPagoWebhookAdapter('secret_123');
 
-            const result = adapter.verifySignature('payload', 'invalid');
+            const result = adapter.verifySignature('payload', 'invalid', 'req-1');
 
             expect(result).toBe(false);
         });
@@ -122,7 +122,7 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
         it('should return false for missing timestamp', () => {
             const adapter = new QZPayMercadoPagoWebhookAdapter('secret_123');
 
-            const result = adapter.verifySignature('payload', 'v1=signature');
+            const result = adapter.verifySignature('payload', 'v1=signature', 'req-1');
 
             expect(result).toBe(false);
         });
@@ -130,7 +130,7 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
         it('should return false for missing signature', () => {
             const adapter = new QZPayMercadoPagoWebhookAdapter('secret_123');
 
-            const result = adapter.verifySignature('payload', 'ts=123456789');
+            const result = adapter.verifySignature('payload', 'ts=123456789', 'req-1');
 
             expect(result).toBe(false);
         });
@@ -141,16 +141,45 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
 
             const payload = JSON.stringify({ id: 123, data: { id: 'test_id' } });
             const timestamp = Math.floor(Date.now() / 1000).toString();
+            const requestId = 'abc-123-def-456';
 
-            // Create the expected signature
-            const signedPayload = `id:test_id;request-id:${timestamp};ts:${timestamp};`;
+            // Create the expected signature — manifest uses requestId param + lowercased dataId
+            const signedPayload = `id:test_id;request-id:${requestId};ts:${timestamp};`;
             const expectedSig = crypto.createHmac('sha256', secret).update(signedPayload).digest('hex');
 
             const signature = `ts=${timestamp},v1=${expectedSig}`;
 
-            const result = adapter.verifySignature(payload, signature);
+            const result = adapter.verifySignature(payload, signature, requestId);
 
             expect(result).toBe(true);
+        });
+
+        it('should lowercase data.id before HMAC computation', () => {
+            const secret = 'test_webhook_secret';
+            const adapter = new QZPayMercadoPagoWebhookAdapter(secret);
+
+            // dataId in payload is UPPERCASE but manifest must use lowercase
+            const payload = JSON.stringify({ id: 123, data: { id: 'ABC-MIXED-Case' } });
+            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const requestId = 'req-lowercase';
+
+            const signedPayload = `id:abc-mixed-case;request-id:${requestId};ts:${timestamp};`;
+            const expectedSig = crypto.createHmac('sha256', secret).update(signedPayload).digest('hex');
+            const signature = `ts=${timestamp},v1=${expectedSig}`;
+
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(true);
+        });
+
+        it('should return false when requestId is missing and secret is set', () => {
+            const secret = 'test_webhook_secret';
+            const adapter = new QZPayMercadoPagoWebhookAdapter(secret);
+
+            const payload = JSON.stringify({ id: 123, data: { id: 'test_id' } });
+            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const signature = `ts=${timestamp},v1=anything`;
+
+            // No requestId passed → must fail loudly (no fallback to ts)
+            expect(adapter.verifySignature(payload, signature)).toBe(false);
         });
 
         it('should return false for wrong signature', () => {
@@ -159,7 +188,7 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'test_id' } });
             const signature = 'ts=1234567890,v1=wrong_signature_hash_value_here_x';
 
-            const result = adapter.verifySignature(payload, signature);
+            const result = adapter.verifySignature(payload, signature, 'req-1');
 
             expect(result).toBe(false);
         });
@@ -168,7 +197,7 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
             const adapter = new QZPayMercadoPagoWebhookAdapter('secret_123');
 
             const buffer = Buffer.from('{"id": 123, "data": {"id": "test"}}');
-            const result = adapter.verifySignature(buffer, 'ts=123,v1=invalid');
+            const result = adapter.verifySignature(buffer, 'ts=123,v1=invalid', 'req-1');
 
             expect(result).toBe(false);
         });
@@ -176,9 +205,34 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
         it('should handle malformed JSON gracefully', () => {
             const adapter = new QZPayMercadoPagoWebhookAdapter('secret_123');
 
-            const result = adapter.verifySignature('not json', 'ts=123,v1=sig');
+            const result = adapter.verifySignature('not json', 'ts=123,v1=sig', 'req-1');
 
             expect(result).toBe(false);
+        });
+
+        it('should route warnings through the provided logger', () => {
+            const warnings: Array<{ message: string; meta?: unknown }> = [];
+            const logger = {
+                debug: () => undefined,
+                info: () => undefined,
+                warn: (message: string, meta?: unknown) => {
+                    warnings.push({ message, meta });
+                },
+                error: () => undefined
+            };
+            const adapter = new QZPayMercadoPagoWebhookAdapter({
+                webhookSecret: 'secret_123',
+                logger
+            });
+
+            const payload = JSON.stringify({ id: 1, data: { id: 'x' } });
+            const timestamp = Math.floor(Date.now() / 1000).toString();
+
+            // Missing requestId — should log a warn
+            adapter.verifySignature(payload, `ts=${timestamp},v1=zz`);
+
+            expect(warnings.length).toBeGreaterThan(0);
+            expect(warnings.some((w) => w.message.includes('requestId'))).toBe(true);
         });
     });
 
@@ -228,7 +282,7 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
                 failClosedWhenSecretMissing: true
             });
 
-            expect(() => strict.verifySignature('{}', 'ts=1,v1=abc')).toThrow(/failClosedWhenSecretMissing=true/);
+            expect(() => strict.verifySignature('{}', 'ts=1,v1=abc', 'req-1')).toThrow(/failClosedWhenSecretMissing=true/);
         });
 
         it('throws on constructEvent() when secret is missing and failClosed is true', () => {
@@ -246,13 +300,13 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
                 data: { id: '1' }
             });
 
-            expect(() => strict.constructEvent(payload, '')).toThrow(/failClosedWhenSecretMissing=true/);
+            expect(() => strict.constructEvent(payload, '', 'req-1')).toThrow(/failClosedWhenSecretMissing=true/);
         });
 
         it('does NOT throw when failClosed is false (default) and secret is missing', () => {
             const lenient = new QZPayMercadoPagoWebhookAdapter({});
 
-            expect(lenient.verifySignature('{}', 'ts=1,v1=abc')).toBe(true);
+            expect(lenient.verifySignature('{}', 'ts=1,v1=abc', 'req-1')).toBe(true);
         });
 
         it('proceeds with HMAC verification when secret IS set and failClosed is true', () => {
@@ -262,7 +316,7 @@ describe('QZPayMercadoPagoWebhookAdapter', () => {
             });
 
             // Empty/invalid signature → returns false (not throws — different code path).
-            expect(strict.verifySignature('{}', '')).toBe(false);
+            expect(strict.verifySignature('{}', '', 'req-1')).toBe(false);
         });
     });
 });

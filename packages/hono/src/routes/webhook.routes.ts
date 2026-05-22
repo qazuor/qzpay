@@ -44,7 +44,7 @@ const DEFAULT_SIGNATURE_HEADERS: Record<string, string> = {
  * ```
  */
 export function createWebhookRouter(config: QZPayWebhookRouterConfig): Hono<QZPayWebhookEnv> {
-    const { billing, paymentAdapter, handlers = {}, onEvent, onError } = config;
+    const { billing, paymentAdapter, handlers = {}, onEvent, onError, logger } = config;
 
     const signatureHeader = config.signatureHeader ?? DEFAULT_SIGNATURE_HEADERS[paymentAdapter.provider] ?? 'x-signature';
 
@@ -56,7 +56,9 @@ export function createWebhookRouter(config: QZPayWebhookRouterConfig): Hono<QZPa
         createWebhookMiddleware({
             billing,
             paymentAdapter,
-            signatureHeader
+            signatureHeader,
+            ...(config.requestIdHeader !== undefined ? { requestIdHeader: config.requestIdHeader } : {}),
+            ...(logger ? { logger } : {})
         })
     );
 
@@ -109,7 +111,9 @@ export interface QZPaySimpleWebhookConfig {
     billing: QZPayWebhookRouterConfig['billing'];
     paymentAdapter: QZPayWebhookRouterConfig['paymentAdapter'];
     signatureHeader?: string;
+    requestIdHeader?: QZPayWebhookRouterConfig['requestIdHeader'];
     onEvent?: QZPayWebhookRouterConfig['onEvent'];
+    logger?: QZPayWebhookRouterConfig['logger'];
 }
 
 /**
@@ -133,12 +137,14 @@ export interface QZPaySimpleWebhookConfig {
  * ```
  */
 export function createSimpleWebhookHandler(config: QZPaySimpleWebhookConfig): Hono<QZPayWebhookEnv> {
-    const { billing, paymentAdapter, signatureHeader, onEvent } = config;
+    const { billing, paymentAdapter, signatureHeader, onEvent, logger } = config;
 
     return createWebhookRouter({
         billing,
         paymentAdapter,
         signatureHeader,
-        onEvent
+        ...(config.requestIdHeader !== undefined ? { requestIdHeader: config.requestIdHeader } : {}),
+        onEvent,
+        ...(logger ? { logger } : {})
     });
 }
