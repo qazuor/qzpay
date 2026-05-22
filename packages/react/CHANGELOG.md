@@ -1,5 +1,12 @@
 # @qazuor/qzpay-react
 
+## 1.1.12
+
+### Patch Changes
+
+- Updated dependencies [f031919]
+  - @qazuor/qzpay-core@1.8.0
+
 ## 1.1.11
 
 ### Patch Changes
