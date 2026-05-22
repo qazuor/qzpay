@@ -87,6 +87,16 @@ export interface QZPayWebhookMiddlewareConfig {
     requestIdHeader?: string | null;
 
     /**
+     * URL query parameter names from which to extract the resource id
+     * (`data.id` per MercadoPago docs) that participates in the HMAC
+     * manifest. The middleware tries each name in order and uses the
+     * first non-empty match. MercadoPago defaults to `['data.id', 'id']`
+     * (Webhooks v2 + legacy IPN); Stripe defaults to `[]` because the
+     * request id is embedded in `stripe-signature`. Pass `[]` to disable.
+     */
+    dataIdQueryParams?: readonly string[];
+
+    /**
      * Whether to verify the webhook signature (default: true)
      */
     verifySignature?: boolean;
@@ -138,6 +148,12 @@ export interface QZPayWebhookRouterConfig {
      * See `QZPayWebhookMiddlewareConfig.requestIdHeader`.
      */
     requestIdHeader?: string | null | undefined;
+
+    /**
+     * URL query parameter names for the resource id used in the HMAC
+     * manifest. See `QZPayWebhookMiddlewareConfig.dataIdQueryParams`.
+     */
+    dataIdQueryParams?: readonly string[] | undefined;
 
     /**
      * Custom handlers for specific event types

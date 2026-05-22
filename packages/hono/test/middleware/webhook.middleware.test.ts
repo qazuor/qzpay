@@ -117,7 +117,7 @@ describe('Webhook Middleware', () => {
                 body: 'payload'
             });
 
-            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'test_sig', undefined);
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'test_sig', undefined, undefined);
         });
 
         it('should use default x-signature header for MercadoPago', async () => {
@@ -141,7 +141,7 @@ describe('Webhook Middleware', () => {
                 body: 'payload'
             });
 
-            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'test_sig', '');
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'test_sig', '', undefined);
         });
 
         it('should use custom signature header when provided', async () => {
@@ -166,7 +166,114 @@ describe('Webhook Middleware', () => {
                 body: 'payload'
             });
 
-            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'custom_sig', undefined);
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'custom_sig', undefined, undefined);
+        });
+
+        it('should forward the resource id from `?data.id=` query for MercadoPago HMAC', async () => {
+            const mockBilling = createMockBilling();
+            const mockAdapter = createMockPaymentAdapter('mercadopago');
+            const mockEvent = createMockWebhookEvent('payment.created');
+            vi.mocked(mockAdapter.webhooks?.constructEvent).mockReturnValue(mockEvent);
+
+            const app = new Hono<QZPayWebhookEnv>();
+
+            app.post(
+                '/webhook',
+                createWebhookMiddleware({
+                    billing: mockBilling,
+                    paymentAdapter: mockAdapter
+                }),
+                (c) => c.json({ received: true })
+            );
+
+            await app.request('/webhook?data.id=12345&type=payment', {
+                method: 'POST',
+                headers: { 'x-signature': 'mp_sig', 'x-request-id': 'req-uuid' },
+                body: '{}'
+            });
+
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('{}', 'mp_sig', 'req-uuid', '12345');
+            expect(mockAdapter.webhooks?.constructEvent).toHaveBeenCalledWith('{}', 'mp_sig', 'req-uuid', '12345');
+        });
+
+        it('should fall back to legacy `?id=` query when `?data.id=` is absent', async () => {
+            const mockBilling = createMockBilling();
+            const mockAdapter = createMockPaymentAdapter('mercadopago');
+            const mockEvent = createMockWebhookEvent('payment.created');
+            vi.mocked(mockAdapter.webhooks?.constructEvent).mockReturnValue(mockEvent);
+
+            const app = new Hono<QZPayWebhookEnv>();
+
+            app.post(
+                '/webhook',
+                createWebhookMiddleware({
+                    billing: mockBilling,
+                    paymentAdapter: mockAdapter
+                }),
+                (c) => c.json({ received: true })
+            );
+
+            await app.request('/webhook?id=999&type=payment', {
+                method: 'POST',
+                headers: { 'x-signature': 'mp_sig', 'x-request-id': 'req-uuid' },
+                body: '{}'
+            });
+
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('{}', 'mp_sig', 'req-uuid', '999');
+        });
+
+        it('should honor a custom `dataIdQueryParams` override', async () => {
+            const mockBilling = createMockBilling();
+            const mockAdapter = createMockPaymentAdapter('mercadopago');
+            const mockEvent = createMockWebhookEvent('payment.created');
+            vi.mocked(mockAdapter.webhooks?.constructEvent).mockReturnValue(mockEvent);
+
+            const app = new Hono<QZPayWebhookEnv>();
+
+            app.post(
+                '/webhook',
+                createWebhookMiddleware({
+                    billing: mockBilling,
+                    paymentAdapter: mockAdapter,
+                    dataIdQueryParams: ['resource_id']
+                }),
+                (c) => c.json({ received: true })
+            );
+
+            await app.request('/webhook?resource_id=R-42', {
+                method: 'POST',
+                headers: { 'x-signature': 'mp_sig', 'x-request-id': 'req-uuid' },
+                body: '{}'
+            });
+
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('{}', 'mp_sig', 'req-uuid', 'R-42');
+        });
+
+        it('should pass undefined dataId when `dataIdQueryParams` is empty', async () => {
+            const mockBilling = createMockBilling();
+            const mockAdapter = createMockPaymentAdapter('mercadopago');
+            const mockEvent = createMockWebhookEvent('payment.created');
+            vi.mocked(mockAdapter.webhooks?.constructEvent).mockReturnValue(mockEvent);
+
+            const app = new Hono<QZPayWebhookEnv>();
+
+            app.post(
+                '/webhook',
+                createWebhookMiddleware({
+                    billing: mockBilling,
+                    paymentAdapter: mockAdapter,
+                    dataIdQueryParams: []
+                }),
+                (c) => c.json({ received: true })
+            );
+
+            await app.request('/webhook?data.id=999', {
+                method: 'POST',
+                headers: { 'x-signature': 'mp_sig', 'x-request-id': 'req-uuid' },
+                body: '{}'
+            });
+
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('{}', 'mp_sig', 'req-uuid', undefined);
         });
 
         it('should return 500 when adapter does not support webhooks', async () => {

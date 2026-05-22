@@ -96,14 +96,17 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
      * Construct a normalized webhook event from a MercadoPago payload.
      *
      * Per the MercadoPago Webhooks v2 specification, the HMAC manifest is
-     * `id:{dataId};request-id:{x-request-id};ts:{ts};` — the `request-id`
-     * value MUST come from the `x-request-id` header sent by MercadoPago,
-     * NOT from the `ts` field. Earlier versions of this adapter (<= 1.x)
-     * incorrectly reused `ts` for both fields, which silently passed in
-     * test scenarios but rejected all real-world webhooks. Always pass
-     * `requestId` when the adapter is configured with a secret.
+     * `id:{dataId};request-id:{x-request-id};ts:{ts};` — the `dataId` is
+     * canonicalized from the URL query string (`?data.id=<id>` or legacy
+     * `?id=<id>`), NOT the JSON body. When the host extracts and passes
+     * the `dataId` argument explicitly, the adapter uses it directly. When
+     * omitted, the adapter falls back to reading `data.id` from the JSON
+     * body — best-effort only, since real MP webhooks routinely arrive
+     * with the id only in the URL. The `request-id` value MUST come from
+     * the `x-request-id` header sent by MercadoPago, NOT from the `ts`
+     * field (earlier 1.x versions had this bug).
      */
-    constructEvent(payload: string | Buffer, signature: string, requestId?: string): QZPayWebhookEvent {
+    constructEvent(payload: string | Buffer, signature: string, requestId?: string, dataId?: string): QZPayWebhookEvent {
         const payloadString = typeof payload === 'string' ? payload : payload.toString('utf-8');
 
         // Fail closed when configured and no secret is set (defense in depth).
@@ -114,7 +117,7 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
         }
 
         // Verify signature if secret is configured
-        if (this.webhookSecret && !this.verifySignature(payload, signature, requestId)) {
+        if (this.webhookSecret && !this.verifySignature(payload, signature, requestId, dataId)) {
             // Check if the failure is due to timestamp being too old
             const parts = signature.split(',');
             const timestamp = parts.find((p) => p.startsWith('ts='))?.slice(3);
@@ -159,10 +162,17 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
      * is logged — this is intentional defense-in-depth, since silently
      * substituting `ts` would mask integration bugs.
      *
+     * `dataId` should be extracted from the URL query string (`?data.id=`
+     * or legacy `?id=`) — this is the source MercadoPago itself uses when
+     * computing the manifest. When omitted, the adapter falls back to
+     * reading `data.id` from the JSON body, which is best-effort only and
+     * will fail HMAC verification whenever the body lacks the field or
+     * carries a different value.
+     *
      * The `dataId` is lowercased before hashing to match the canonicalization
      * the MercadoPago server performs when computing the signature.
      */
-    verifySignature(payload: string | Buffer, signature: string, requestId?: string): boolean {
+    verifySignature(payload: string | Buffer, signature: string, requestId?: string, dataId?: string): boolean {
         if (!this.webhookSecret) {
             if (this.failClosedWhenSecretMissing) {
                 throw new Error(
@@ -228,11 +238,15 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
             }
 
             // Build the canonical signed payload exactly as the MercadoPago
-            // server does. The `dataId` is lowercased before hashing because
-            // the server canonicalizes it that way; passing it verbatim would
-            // mismatch for any non-numeric ID.
-            const dataId = this.extractId(payloadString).toLowerCase();
-            const signedPayload = `id:${dataId};request-id:${requestId};ts:${timestamp};`;
+            // server does. Prefer the explicit `dataId` (from URL query)
+            // over body extraction — MP signs against the URL value. The
+            // `dataId` is lowercased before hashing because the server
+            // canonicalizes it that way; passing it verbatim would mismatch
+            // for any non-numeric ID.
+            const bodyDataId = this.extractId(payloadString);
+            const effectiveDataId = (dataId ?? bodyDataId).toLowerCase();
+            const dataIdSource = dataId !== undefined ? 'url' : 'body';
+            const signedPayload = `id:${effectiveDataId};request-id:${requestId};ts:${timestamp};`;
             const expectedSignature = crypto.createHmac('sha256', this.webhookSecret).update(signedPayload).digest('hex');
 
             const sigBuffer = Buffer.from(sig);
@@ -242,7 +256,12 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
                     provider: 'mercadopago',
                     operation: 'verifySignature',
                     receivedLength: sigBuffer.length,
-                    expectedLength: expectedBuffer.length
+                    expectedLength: expectedBuffer.length,
+                    dataIdSource,
+                    effectiveDataId,
+                    bodyDataId: bodyDataId || '<missing>',
+                    requestId,
+                    ts: timestamp
                 });
                 return false;
             }
@@ -252,17 +271,29 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
                 this.logger?.debug('MercadoPago webhook signature verified', {
                     provider: 'mercadopago',
                     operation: 'verifySignature',
-                    dataId,
+                    dataIdSource,
+                    effectiveDataId,
                     requestId,
                     ts: timestamp
                 });
             } else {
+                // On HMAC mismatch, dump enough context to diagnose without
+                // leaking the secret: the canonical manifest computed, the
+                // first/last bytes of the received signature, source of dataId
+                // (url vs body), and the body-side data.id (so the host can
+                // tell if body and URL diverged).
                 this.logger?.warn('MercadoPago webhook signature HMAC mismatch', {
                     provider: 'mercadopago',
                     operation: 'verifySignature',
-                    dataId,
+                    dataIdSource,
+                    effectiveDataId,
+                    bodyDataId: bodyDataId || '<missing>',
                     requestId,
-                    ts: timestamp
+                    ts: timestamp,
+                    manifest: signedPayload,
+                    receivedSigPrefix: `${sig.slice(0, 8)}...${sig.slice(-8)}`,
+                    expectedSigPrefix: `${expectedSignature.slice(0, 8)}...${expectedSignature.slice(-8)}`,
+                    payloadBytes: payloadString.length
                 });
             }
             return matches;

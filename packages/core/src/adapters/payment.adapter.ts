@@ -316,10 +316,11 @@ export interface QZPayPaymentWebhookAdapter {
      * @param payload - Raw request body (must be the verbatim bytes received from the provider — JSON re-serialization breaks HMAC verification).
      * @param signature - Value of the provider's signature header (e.g. MercadoPago `x-signature`, Stripe `stripe-signature`).
      * @param requestId - Value of the provider's request-id header when applicable. Required by MercadoPago (since v2.0.0) because it is part of the signed manifest (`request-id:{x-request-id};`). Ignored by Stripe.
+     * @param dataId - Value of the resource id MercadoPago places in the URL query string as `?data.id=<id>` (or legacy IPN `?id=<id>`). Per MP docs the HMAC manifest's `id:` field is computed from the URL query value, NOT the JSON body, so the host MUST extract it from the request URL and pass it here. When omitted, MP adapter implementations fall back to extracting `data.id` from the JSON body — which is best-effort only and will fail HMAC verification whenever the body lacks the field or carries a different value than the URL.
      * @returns Normalized event in QZPay format.
      * @throws When the signature is invalid, the payload is malformed, or (for MercadoPago) when `requestId` is missing while a webhook secret is configured.
      */
-    constructEvent(payload: string | Buffer, signature: string, requestId?: string): QZPayWebhookEvent;
+    constructEvent(payload: string | Buffer, signature: string, requestId?: string, dataId?: string): QZPayWebhookEvent;
 
     /**
      * Verify a provider webhook signature WITHOUT parsing the event.
@@ -327,9 +328,10 @@ export interface QZPayPaymentWebhookAdapter {
      * @param payload - Raw request body bytes.
      * @param signature - Provider signature header value.
      * @param requestId - Provider request-id header value. Required by MercadoPago when a webhook secret is configured. Ignored by Stripe.
+     * @param dataId - Resource id from the request URL query string (`?data.id=<id>` or `?id=<id>`). Required by MercadoPago for correct HMAC computation against real webhooks. See `constructEvent` JSDoc for details.
      * @returns `true` if the signature is valid (or no secret is configured and the adapter is in lenient mode).
      */
-    verifySignature(payload: string | Buffer, signature: string, requestId?: string): boolean;
+    verifySignature(payload: string | Buffer, signature: string, requestId?: string, dataId?: string): boolean;
 }
 
 export interface QZPayWebhookEvent {
