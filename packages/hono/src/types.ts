@@ -1,4 +1,4 @@
-import type { QZPayBilling, QZPayPaymentAdapter, QZPayWebhookEvent } from '@qazuor/qzpay-core';
+import type { QZPayBilling, QZPayLogger, QZPayPaymentAdapter, QZPayWebhookEvent } from '@qazuor/qzpay-core';
 /**
  * Hono middleware types for QZPay
  */
@@ -78,9 +78,25 @@ export interface QZPayWebhookMiddlewareConfig {
     signatureHeader?: string;
 
     /**
+     * Header name for the provider request-id. MercadoPago requires this
+     * header to be part of the HMAC manifest, so the middleware extracts
+     * it and forwards it to `paymentAdapter.webhooks.verifySignature()`.
+     * Defaults to `x-request-id` (the standard MercadoPago header).
+     * Set to `null` to skip request-id extraction (e.g. Stripe).
+     */
+    requestIdHeader?: string | null;
+
+    /**
      * Whether to verify the webhook signature (default: true)
      */
     verifySignature?: boolean;
+
+    /**
+     * Optional structured logger forwarded to the payment adapter and
+     * used by the middleware itself to log verification failures with
+     * structured context (provider, header values, etc.).
+     */
+    logger?: QZPayLogger;
 }
 
 /**
@@ -118,6 +134,12 @@ export interface QZPayWebhookRouterConfig {
     signatureHeader?: string | undefined;
 
     /**
+     * Header name for the provider request-id (default: `x-request-id`).
+     * See `QZPayWebhookMiddlewareConfig.requestIdHeader`.
+     */
+    requestIdHeader?: string | null | undefined;
+
+    /**
      * Custom handlers for specific event types
      */
     handlers?: QZPayWebhookHandlerMap | undefined;
@@ -131,6 +153,11 @@ export interface QZPayWebhookRouterConfig {
      * Handler for errors during webhook processing
      */
     onError?: ((error: Error, c: Context) => Promise<Response | undefined>) | undefined;
+
+    /**
+     * Optional structured logger propagated to the middleware and adapter.
+     */
+    logger?: QZPayLogger | undefined;
 }
 
 /**

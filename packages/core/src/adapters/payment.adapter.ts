@@ -310,8 +310,26 @@ export interface QZPayProviderPrice {
 }
 
 export interface QZPayPaymentWebhookAdapter {
-    constructEvent(payload: string | Buffer, signature: string): QZPayWebhookEvent;
-    verifySignature(payload: string | Buffer, signature: string): boolean;
+    /**
+     * Construct a normalized webhook event from a provider payload.
+     *
+     * @param payload - Raw request body (must be the verbatim bytes received from the provider — JSON re-serialization breaks HMAC verification).
+     * @param signature - Value of the provider's signature header (e.g. MercadoPago `x-signature`, Stripe `stripe-signature`).
+     * @param requestId - Value of the provider's request-id header when applicable. Required by MercadoPago (since v2.0.0) because it is part of the signed manifest (`request-id:{x-request-id};`). Ignored by Stripe.
+     * @returns Normalized event in QZPay format.
+     * @throws When the signature is invalid, the payload is malformed, or (for MercadoPago) when `requestId` is missing while a webhook secret is configured.
+     */
+    constructEvent(payload: string | Buffer, signature: string, requestId?: string): QZPayWebhookEvent;
+
+    /**
+     * Verify a provider webhook signature WITHOUT parsing the event.
+     *
+     * @param payload - Raw request body bytes.
+     * @param signature - Provider signature header value.
+     * @param requestId - Provider request-id header value. Required by MercadoPago when a webhook secret is configured. Ignored by Stripe.
+     * @returns `true` if the signature is valid (or no secret is configured and the adapter is in lenient mode).
+     */
+    verifySignature(payload: string | Buffer, signature: string, requestId?: string): boolean;
 }
 
 export interface QZPayWebhookEvent {

@@ -9,8 +9,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { QZPayMercadoPagoIPNHandler, QZPayMercadoPagoWebhookAdapter } from '../src/adapters/webhook.adapter.js';
 import { createMockMPWebhookPayload } from './helpers/mercadopago-mocks.js';
 
+/**
+ * Build a MercadoPago-style signed manifest matching the production formula:
+ *   id:{lowercased dataId};request-id:{requestId};ts:{timestamp};
+ */
+function buildSignature(secret: string, dataId: string, requestId: string, timestamp: string): string {
+    const signedPayload = `id:${dataId.toLowerCase()};request-id:${requestId};ts:${timestamp};`;
+    const expectedSig = crypto.createHmac('sha256', secret).update(signedPayload).digest('hex');
+    return `ts=${timestamp},v1=${expectedSig}`;
+}
+
 describe('MercadoPago IPN Security', () => {
     const webhookSecret = 'mp_webhook_secret_test_123';
+    const requestId = 'req-uuid-abc-123';
 
     describe('Replay Attack Prevention (Timestamp Validation)', () => {
         let adapter: QZPayMercadoPagoWebhookAdapter;
@@ -21,97 +32,60 @@ describe('MercadoPago IPN Security', () => {
 
         it('should reject timestamp older than tolerance (default 5 minutes)', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
-            // Timestamp from 10 minutes ago (600 seconds, exceeds default 300 second tolerance)
-            const oldTimestamp = Math.floor(Date.now() / 1000) - 600;
+            const oldTimestamp = String(Math.floor(Date.now() / 1000) - 600);
+            const signature = buildSignature(webhookSecret, 'payment_456', requestId, oldTimestamp);
 
-            const signedPayload = `id:payment_456;request-id:${oldTimestamp};ts:${oldTimestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${oldTimestamp},v1=${expectedSig}`;
-
-            const result = adapter.verifySignature(payload, signature);
-
-            expect(result).toBe(false);
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(false);
         });
 
         it('should reject future timestamp beyond tolerance', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
-            // Timestamp 10 minutes in the future
-            const futureTimestamp = Math.floor(Date.now() / 1000) + 600;
+            const futureTimestamp = String(Math.floor(Date.now() / 1000) + 600);
+            const signature = buildSignature(webhookSecret, 'payment_456', requestId, futureTimestamp);
 
-            const signedPayload = `id:payment_456;request-id:${futureTimestamp};ts:${futureTimestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${futureTimestamp},v1=${expectedSig}`;
-
-            const result = adapter.verifySignature(payload, signature);
-
-            expect(result).toBe(false);
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(false);
         });
 
         it('should accept timestamp within tolerance window', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
-            // Timestamp from 2 minutes ago (within 5 minute tolerance)
-            const recentTimestamp = Math.floor(Date.now() / 1000) - 120;
+            const recentTimestamp = String(Math.floor(Date.now() / 1000) - 120);
+            const signature = buildSignature(webhookSecret, 'payment_456', requestId, recentTimestamp);
 
-            const signedPayload = `id:payment_456;request-id:${recentTimestamp};ts:${recentTimestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${recentTimestamp},v1=${expectedSig}`;
-
-            const result = adapter.verifySignature(payload, signature);
-
-            expect(result).toBe(true);
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(true);
         });
 
         it('should accept current timestamp', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
-            const currentTimestamp = Math.floor(Date.now() / 1000);
+            const currentTimestamp = String(Math.floor(Date.now() / 1000));
+            const signature = buildSignature(webhookSecret, 'payment_456', requestId, currentTimestamp);
 
-            const signedPayload = `id:payment_456;request-id:${currentTimestamp};ts:${currentTimestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${currentTimestamp},v1=${expectedSig}`;
-
-            const result = adapter.verifySignature(payload, signature);
-
-            expect(result).toBe(true);
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(true);
         });
 
         it('should use custom timestamp tolerance when configured', () => {
-            // Configure adapter with 1 minute (60 seconds) tolerance
             const customAdapter = new QZPayMercadoPagoWebhookAdapter({
                 webhookSecret,
                 timestampToleranceSeconds: 60
             });
 
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
-            // Timestamp from 2 minutes ago (exceeds custom 1 minute tolerance)
-            const oldTimestamp = Math.floor(Date.now() / 1000) - 120;
+            const oldTimestamp = String(Math.floor(Date.now() / 1000) - 120);
+            const signature = buildSignature(webhookSecret, 'payment_456', requestId, oldTimestamp);
 
-            const signedPayload = `id:payment_456;request-id:${oldTimestamp};ts:${oldTimestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${oldTimestamp},v1=${expectedSig}`;
-
-            const result = customAdapter.verifySignature(payload, signature);
-
-            expect(result).toBe(false);
+            expect(customAdapter.verifySignature(payload, signature, requestId)).toBe(false);
         });
 
         it('should accept timestamp within custom tolerance', () => {
-            // Configure adapter with 10 minutes (600 seconds) tolerance
             const customAdapter = new QZPayMercadoPagoWebhookAdapter({
                 webhookSecret,
                 timestampToleranceSeconds: 600
             });
 
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
-            // Timestamp from 5 minutes ago (within custom 10 minute tolerance)
-            const timestamp = Math.floor(Date.now() / 1000) - 300;
+            const timestamp = String(Math.floor(Date.now() / 1000) - 300);
+            const signature = buildSignature(webhookSecret, 'payment_456', requestId, timestamp);
 
-            const signedPayload = `id:payment_456;request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
-
-            const result = customAdapter.verifySignature(payload, signature);
-
-            expect(result).toBe(true);
+            expect(customAdapter.verifySignature(payload, signature, requestId)).toBe(true);
         });
 
         it('should throw descriptive error for old timestamp in constructEvent', () => {
@@ -119,55 +93,35 @@ describe('MercadoPago IPN Security', () => {
                 data: { id: 'pay_123' }
             });
             const payload = JSON.stringify(mockPayload);
-            // Timestamp from 10 minutes ago
-            const oldTimestamp = Math.floor(Date.now() / 1000) - 600;
+            const oldTimestamp = String(Math.floor(Date.now() / 1000) - 600);
+            const signature = buildSignature(webhookSecret, 'pay_123', requestId, oldTimestamp);
 
-            const signedPayload = `id:pay_123;request-id:${oldTimestamp};ts:${oldTimestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${oldTimestamp},v1=${expectedSig}`;
-
-            expect(() => adapter.constructEvent(payload, signature)).toThrow('Webhook timestamp too old, possible replay attack');
+            expect(() => adapter.constructEvent(payload, signature, requestId)).toThrow(
+                'Webhook timestamp too old, possible replay attack'
+            );
         });
 
         it('should reject invalid timestamp format', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
-            const invalidTimestamp = 'not_a_number';
+            const signature = 'ts=not_a_number,v1=somehash';
 
-            const signature = `ts=${invalidTimestamp},v1=somehash`;
-
-            const result = adapter.verifySignature(payload, signature);
-
-            expect(result).toBe(false);
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(false);
         });
 
         it('should handle edge case at exact tolerance boundary', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
-            // Timestamp exactly at the tolerance boundary (300 seconds ago)
-            const boundaryTimestamp = Math.floor(Date.now() / 1000) - 300;
+            const boundaryTimestamp = String(Math.floor(Date.now() / 1000) - 300);
+            const signature = buildSignature(webhookSecret, 'payment_456', requestId, boundaryTimestamp);
 
-            const signedPayload = `id:payment_456;request-id:${boundaryTimestamp};ts:${boundaryTimestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${boundaryTimestamp},v1=${expectedSig}`;
-
-            const result = adapter.verifySignature(payload, signature);
-
-            // Should accept at boundary (using <= check)
-            expect(result).toBe(true);
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(true);
         });
 
         it('should handle edge case just beyond tolerance boundary', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
-            // Timestamp just beyond the tolerance boundary (301 seconds ago)
-            const beyondBoundaryTimestamp = Math.floor(Date.now() / 1000) - 301;
+            const beyondBoundaryTimestamp = String(Math.floor(Date.now() / 1000) - 301);
+            const signature = buildSignature(webhookSecret, 'payment_456', requestId, beyondBoundaryTimestamp);
 
-            const signedPayload = `id:payment_456;request-id:${beyondBoundaryTimestamp};ts:${beyondBoundaryTimestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${beyondBoundaryTimestamp},v1=${expectedSig}`;
-
-            const result = adapter.verifySignature(payload, signature);
-
-            // Should reject just beyond boundary
-            expect(result).toBe(false);
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(false);
         });
     });
 
@@ -180,51 +134,35 @@ describe('MercadoPago IPN Security', () => {
 
         it('should accept valid HMAC signature', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
-            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const timestamp = String(Math.floor(Date.now() / 1000));
+            const signature = buildSignature(webhookSecret, 'payment_456', requestId, timestamp);
 
-            // Create valid signature using the same algorithm as the adapter
-            const signedPayload = `id:payment_456;request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
-
-            const result = adapter.verifySignature(payload, signature);
-
-            expect(result).toBe(true);
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(true);
         });
 
         it('should reject invalid HMAC signature', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
             const signature = 'ts=1234567890,v1=invalid_signature_hash_that_wont_match';
 
-            const result = adapter.verifySignature(payload, signature);
-
-            expect(result).toBe(false);
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(false);
         });
 
         it('should reject empty signature', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
 
-            const result = adapter.verifySignature(payload, '');
-
-            expect(result).toBe(false);
+            expect(adapter.verifySignature(payload, '', requestId)).toBe(false);
         });
 
         it('should reject signature without timestamp', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
-            const signature = 'v1=some_signature_hash';
 
-            const result = adapter.verifySignature(payload, signature);
-
-            expect(result).toBe(false);
+            expect(adapter.verifySignature(payload, 'v1=some_signature_hash', requestId)).toBe(false);
         });
 
         it('should reject signature without v1 hash', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
-            const signature = 'ts=1234567890';
 
-            const result = adapter.verifySignature(payload, signature);
-
-            expect(result).toBe(false);
+            expect(adapter.verifySignature(payload, 'ts=1234567890', requestId)).toBe(false);
         });
 
         it('should reject malformed signature format', () => {
@@ -232,25 +170,20 @@ describe('MercadoPago IPN Security', () => {
             const signatures = ['not_a_valid_format', '=', 'ts=,v1=', 'ts1234567890v1hash', 'timestamp=123,version=hash'];
 
             for (const sig of signatures) {
-                const result = adapter.verifySignature(payload, sig);
-                expect(result).toBe(false);
+                expect(adapter.verifySignature(payload, sig, requestId)).toBe(false);
             }
         });
 
         it('should use timing-safe comparison to prevent timing attacks', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
             const timestamp = '1234567890';
-
-            // Generate a wrong signature
-            const wrongSig = 'a'.repeat(64); // Wrong hash
+            const wrongSig = 'a'.repeat(64);
             const signature = `ts=${timestamp},v1=${wrongSig}`;
 
-            // The comparison should take constant time regardless of where the mismatch is
             const startTime = process.hrtime.bigint();
-            adapter.verifySignature(payload, signature);
+            adapter.verifySignature(payload, signature, requestId);
             const endTime = process.hrtime.bigint();
 
-            // Just verify it completes without error - actual timing test would need many iterations
             expect(endTime - startTime).toBeGreaterThan(0n);
         });
 
@@ -258,10 +191,18 @@ describe('MercadoPago IPN Security', () => {
             const adapterWithoutSecret = new QZPayMercadoPagoWebhookAdapter();
             const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
 
-            // Should return true regardless of signature
-            expect(adapterWithoutSecret.verifySignature(payload, '')).toBe(true);
-            expect(adapterWithoutSecret.verifySignature(payload, 'invalid')).toBe(true);
-            expect(adapterWithoutSecret.verifySignature(payload, 'ts=1,v1=x')).toBe(true);
+            expect(adapterWithoutSecret.verifySignature(payload, '', requestId)).toBe(true);
+            expect(adapterWithoutSecret.verifySignature(payload, 'invalid', requestId)).toBe(true);
+            expect(adapterWithoutSecret.verifySignature(payload, 'ts=1,v1=x', requestId)).toBe(true);
+        });
+
+        it('should reject signature when requestId is missing and secret is set', () => {
+            const payload = JSON.stringify({ id: 123, data: { id: 'payment_456' } });
+            const timestamp = String(Math.floor(Date.now() / 1000));
+            const signature = buildSignature(webhookSecret, 'payment_456', requestId, timestamp);
+
+            // Note: NO requestId argument here — must fail loudly, not fall back to ts.
+            expect(adapter.verifySignature(payload, signature)).toBe(false);
         });
     });
 
@@ -272,37 +213,19 @@ describe('MercadoPago IPN Security', () => {
             adapter = new QZPayMercadoPagoWebhookAdapter(webhookSecret);
         });
 
-        it('should reject tampered payload', () => {
-            const originalPayload = { id: 123, data: { id: 'payment_456', amount: 1000 } };
-            const timestamp = Math.floor(Date.now() / 1000).toString();
+        it('should reject tampered payload id', () => {
+            const timestamp = String(Math.floor(Date.now() / 1000));
+            const signature = buildSignature(webhookSecret, 'payment_456', requestId, timestamp);
 
-            // Create signature for original payload
-            const signedPayload = `id:payment_456;request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
-
-            // Tamper with the payload (change amount)
-            const tamperedPayload = { ...originalPayload, data: { id: 'payment_456', amount: 999999 } };
-
-            const _result = adapter.verifySignature(JSON.stringify(tamperedPayload), signature);
-
-            // Signature should still be valid because MP uses id-based signature, not full payload
-            // But if someone changes the ID, it should fail
             const tamperedIdPayload = { id: 123, data: { id: 'payment_HACKED' } };
-            const resultTamperedId = adapter.verifySignature(JSON.stringify(tamperedIdPayload), signature);
-            expect(resultTamperedId).toBe(false);
+            expect(adapter.verifySignature(JSON.stringify(tamperedIdPayload), signature, requestId)).toBe(false);
         });
 
-        it('should reject payload with injected fields', () => {
-            const timestamp = Math.floor(Date.now() / 1000).toString();
+        it('should accept payload with non-id injected fields (only id is signed)', () => {
+            const timestamp = String(Math.floor(Date.now() / 1000));
             const originalId = 'payment_456';
+            const signature = buildSignature(webhookSecret, originalId, requestId, timestamp);
 
-            // Create valid signature
-            const signedPayload = `id:${originalId};request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
-
-            // Inject malicious fields while keeping original id
             const payloadWithInjection = {
                 id: 123,
                 data: { id: originalId },
@@ -310,33 +233,24 @@ describe('MercadoPago IPN Security', () => {
                 __proto__: { isAdmin: true }
             };
 
-            // The signature should still validate (id unchanged)
-            const result = adapter.verifySignature(JSON.stringify(payloadWithInjection), signature);
-            expect(result).toBe(true);
+            expect(adapter.verifySignature(JSON.stringify(payloadWithInjection), signature, requestId)).toBe(true);
 
-            // But changing the id should fail
             const payloadWithChangedId = {
                 id: 123,
                 data: { id: 'different_id' }
             };
-            const result2 = adapter.verifySignature(JSON.stringify(payloadWithChangedId), signature);
-            expect(result2).toBe(false);
+            expect(adapter.verifySignature(JSON.stringify(payloadWithChangedId), signature, requestId)).toBe(false);
         });
 
         it('should handle buffer payload correctly', () => {
-            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const timestamp = String(Math.floor(Date.now() / 1000));
             const dataId = 'payment_buffer_test';
-
-            const signedPayload = `id:${dataId};request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
+            const signature = buildSignature(webhookSecret, dataId, requestId, timestamp);
 
             const payloadString = JSON.stringify({ id: 123, data: { id: dataId } });
             const bufferPayload = Buffer.from(payloadString);
 
-            const result = adapter.verifySignature(bufferPayload, signature);
-
-            expect(result).toBe(true);
+            expect(adapter.verifySignature(bufferPayload, signature, requestId)).toBe(true);
         });
     });
 
@@ -349,10 +263,10 @@ describe('MercadoPago IPN Security', () => {
 
         it('should throw on invalid signature during event construction', () => {
             const payload = JSON.stringify(createMockMPWebhookPayload('payment', 'created'));
-            const currentTimestamp = Math.floor(Date.now() / 1000);
+            const currentTimestamp = String(Math.floor(Date.now() / 1000));
             const invalidSignature = `ts=${currentTimestamp},v1=invalid_signature`;
 
-            expect(() => adapter.constructEvent(payload, invalidSignature)).toThrow('Invalid MercadoPago webhook signature');
+            expect(() => adapter.constructEvent(payload, invalidSignature, requestId)).toThrow('Invalid MercadoPago webhook signature');
         });
 
         it('should construct event with valid signature', () => {
@@ -360,13 +274,10 @@ describe('MercadoPago IPN Security', () => {
                 data: { id: 'pay_123' }
             });
             const payload = JSON.stringify(mockPayload);
-            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const timestamp = String(Math.floor(Date.now() / 1000));
+            const signature = buildSignature(webhookSecret, 'pay_123', requestId, timestamp);
 
-            const signedPayload = `id:pay_123;request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
-
-            const result = adapter.constructEvent(payload, signature);
+            const result = adapter.constructEvent(payload, signature, requestId);
 
             expect(result).toEqual({
                 id: String(mockPayload.id),
@@ -389,13 +300,10 @@ describe('MercadoPago IPN Security', () => {
                 data: sensitiveData
             });
             const payload = JSON.stringify(mockPayload);
-            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const timestamp = String(Math.floor(Date.now() / 1000));
+            const signature = buildSignature(webhookSecret, sensitiveData.id, requestId, timestamp);
 
-            const signedPayload = `id:${sensitiveData.id};request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
-
-            const result = adapter.constructEvent(payload, signature);
+            const result = adapter.constructEvent(payload, signature, requestId);
 
             expect(result.data).toEqual(sensitiveData);
         });
@@ -603,11 +511,9 @@ describe('MercadoPago IPN Security', () => {
                     data: { id: 'unique_payment_123' }
                 });
 
-                // First call should succeed
                 const result1 = await ipnHandler.process(notification);
                 expect(result1.processed).toBe(true);
 
-                // Second call should fail (duplicate)
                 const result2 = await ipnHandler.process(notification);
                 expect(result2.processed).toBe(false);
                 expect(result2.error).toBe('Already processed');
@@ -626,29 +532,24 @@ describe('MercadoPago IPN Security', () => {
             const invalidJson = 'not valid json {{{';
             const signature = 'ts=1234567890,v1=some_signature';
 
-            const result = adapter.verifySignature(invalidJson, signature);
-
-            expect(result).toBe(false);
+            expect(adapter.verifySignature(invalidJson, signature, requestId)).toBe(false);
         });
 
         it('should handle empty payload', () => {
-            const result = adapter.verifySignature('', 'ts=1234567890,v1=sig');
-
-            expect(result).toBe(false);
+            expect(adapter.verifySignature('', 'ts=1234567890,v1=sig', requestId)).toBe(false);
         });
 
         it('should handle null-like values in signature', () => {
             const payload = JSON.stringify({ id: 123, data: { id: 'test' } });
 
-            expect(adapter.verifySignature(payload, 'null')).toBe(false);
-            expect(adapter.verifySignature(payload, 'undefined')).toBe(false);
+            expect(adapter.verifySignature(payload, 'null', requestId)).toBe(false);
+            expect(adapter.verifySignature(payload, 'undefined', requestId)).toBe(false);
         });
 
         it('should handle very large payloads', () => {
-            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const timestamp = String(Math.floor(Date.now() / 1000));
             const dataId = 'large_payload_test';
 
-            // Create large payload
             const largeData = {
                 id: 123,
                 data: {
@@ -663,18 +564,13 @@ describe('MercadoPago IPN Security', () => {
                 }
             };
             const largePayload = JSON.stringify(largeData);
+            const signature = buildSignature(webhookSecret, dataId, requestId, timestamp);
 
-            const signedPayload = `id:${dataId};request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
-
-            const result = adapter.verifySignature(largePayload, signature);
-
-            expect(result).toBe(true);
+            expect(adapter.verifySignature(largePayload, signature, requestId)).toBe(true);
         });
 
         it('should handle special characters in payload', () => {
-            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const timestamp = String(Math.floor(Date.now() / 1000));
             const dataId = 'special_chars_test';
 
             const payloadWithSpecialChars = {
@@ -686,18 +582,13 @@ describe('MercadoPago IPN Security', () => {
                 }
             };
             const payload = JSON.stringify(payloadWithSpecialChars);
+            const signature = buildSignature(webhookSecret, dataId, requestId, timestamp);
 
-            const signedPayload = `id:${dataId};request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
-
-            const result = adapter.verifySignature(payload, signature);
-
-            expect(result).toBe(true);
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(true);
         });
 
         it('should handle unicode characters in payload', () => {
-            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const timestamp = String(Math.floor(Date.now() / 1000));
             const dataId = 'unicode_test';
 
             const payloadWithUnicode = {
@@ -708,33 +599,22 @@ describe('MercadoPago IPN Security', () => {
                 }
             };
             const payload = JSON.stringify(payloadWithUnicode);
+            const signature = buildSignature(webhookSecret, dataId, requestId, timestamp);
 
-            const signedPayload = `id:${dataId};request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
-
-            const result = adapter.verifySignature(payload, signature);
-
-            expect(result).toBe(true);
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(true);
         });
 
         it('should handle payload with nested data.id fallback to root id', () => {
-            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const timestamp = String(Math.floor(Date.now() / 1000));
 
-            // Payload without data.id should fallback to root id
             const payloadWithoutDataId = {
                 id: 456,
                 data: { other: 'field' }
             };
             const payload = JSON.stringify(payloadWithoutDataId);
+            const signature = buildSignature(webhookSecret, '456', requestId, timestamp);
 
-            const signedPayload = `id:456;request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
-
-            const result = adapter.verifySignature(payload, signature);
-
-            expect(result).toBe(true);
+            expect(adapter.verifySignature(payload, signature, requestId)).toBe(true);
         });
     });
 
@@ -743,20 +623,15 @@ describe('MercadoPago IPN Security', () => {
             const customSecret = 'custom_mp_secret_789';
             const customAdapter = new QZPayMercadoPagoWebhookAdapter(customSecret);
 
-            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const timestamp = String(Math.floor(Date.now() / 1000));
             const dataId = 'secret_test';
             const payload = JSON.stringify({ id: 123, data: { id: dataId } });
+            const signatureCustom = buildSignature(customSecret, dataId, requestId, timestamp);
 
-            // Signature created with custom secret
-            const signedPayload = `id:${dataId};request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', customSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
+            expect(customAdapter.verifySignature(payload, signatureCustom, requestId)).toBe(true);
 
-            expect(customAdapter.verifySignature(payload, signature)).toBe(true);
-
-            // Same signature should fail with default secret
             const defaultAdapter = new QZPayMercadoPagoWebhookAdapter(webhookSecret);
-            expect(defaultAdapter.verifySignature(payload, signature)).toBe(false);
+            expect(defaultAdapter.verifySignature(payload, signatureCustom, requestId)).toBe(false);
         });
     });
 
@@ -779,13 +654,10 @@ describe('MercadoPago IPN Security', () => {
             });
 
             const payload = JSON.stringify(chargebackPayload);
-            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const timestamp = String(Math.floor(Date.now() / 1000));
+            const signature = buildSignature(webhookSecret, 'chargeback_123', requestId, timestamp);
 
-            const signedPayload = `id:chargeback_123;request-id:${timestamp};ts:${timestamp};`;
-            const expectedSig = crypto.createHmac('sha256', webhookSecret).update(signedPayload).digest('hex');
-            const signature = `ts=${timestamp},v1=${expectedSig}`;
-
-            const result = adapter.constructEvent(payload, signature);
+            const result = adapter.constructEvent(payload, signature, requestId);
 
             expect(result.type).toContain('dispute');
         });

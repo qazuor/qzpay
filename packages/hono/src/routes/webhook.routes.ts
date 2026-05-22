@@ -44,11 +44,20 @@ const DEFAULT_SIGNATURE_HEADERS: Record<string, string> = {
  * ```
  */
 export function createWebhookRouter(config: QZPayWebhookRouterConfig): Hono<QZPayWebhookEnv> {
-    const { billing, paymentAdapter, handlers = {}, onEvent, onError } = config;
+    const { billing, paymentAdapter, handlers = {}, onEvent, onError, logger } = config;
 
     const signatureHeader = config.signatureHeader ?? DEFAULT_SIGNATURE_HEADERS[paymentAdapter.provider] ?? 'x-signature';
 
     const router = new Hono<QZPayWebhookEnv>();
+
+    logger?.debug('Webhook router constructed', {
+        provider: paymentAdapter.provider,
+        operation: 'createWebhookRouter',
+        signatureHeader,
+        handlerCount: Object.keys(handlers).length,
+        hasOnEvent: Boolean(onEvent),
+        hasOnError: Boolean(onError)
+    });
 
     // Apply webhook middleware
     router.use(
@@ -56,7 +65,9 @@ export function createWebhookRouter(config: QZPayWebhookRouterConfig): Hono<QZPa
         createWebhookMiddleware({
             billing,
             paymentAdapter,
-            signatureHeader
+            signatureHeader,
+            ...(config.requestIdHeader !== undefined ? { requestIdHeader: config.requestIdHeader } : {}),
+            ...(logger ? { logger } : {})
         })
     );
 
@@ -64,6 +75,13 @@ export function createWebhookRouter(config: QZPayWebhookRouterConfig): Hono<QZPa
     router.post('/', async (c) => {
         const event = c.get('webhookEvent');
         const response = createWebhookResponse(c);
+
+        logger?.debug('Webhook event dispatch starting', {
+            provider: paymentAdapter.provider,
+            operation: 'webhookDispatch',
+            eventId: event.id,
+            eventType: event.type
+        });
 
         try {
             // Call generic handler FIRST. Consumers typically use `onEvent`
@@ -77,18 +95,47 @@ export function createWebhookRouter(config: QZPayWebhookRouterConfig): Hono<QZPa
             // completed.
             if (onEvent) {
                 const result = await onEvent(c, event);
-                if (result) return result;
+                if (result) {
+                    logger?.debug('Webhook onEvent short-circuited dispatch', {
+                        provider: paymentAdapter.provider,
+                        operation: 'webhookDispatch',
+                        eventId: event.id,
+                        eventType: event.type
+                    });
+                    return result;
+                }
             }
 
             // Call specific handler if exists
             const handler = handlers[event.type];
             if (handler) {
+                logger?.debug('Webhook handler invoking', {
+                    provider: paymentAdapter.provider,
+                    operation: 'webhookDispatch',
+                    eventId: event.id,
+                    eventType: event.type
+                });
                 const result = await handler(c, event);
                 if (result) return result;
+            } else {
+                logger?.info('Webhook event has no registered handler', {
+                    provider: paymentAdapter.provider,
+                    operation: 'webhookDispatch',
+                    eventId: event.id,
+                    eventType: event.type
+                });
             }
 
             return response.success();
         } catch (error) {
+            logger?.error('Webhook handler threw', {
+                provider: paymentAdapter.provider,
+                operation: 'webhookDispatch',
+                eventId: event.id,
+                eventType: event.type,
+                error
+            });
+
             if (onError) {
                 const result = await onError(error instanceof Error ? error : new Error(String(error)), c);
                 if (result) return result;
@@ -109,7 +156,9 @@ export interface QZPaySimpleWebhookConfig {
     billing: QZPayWebhookRouterConfig['billing'];
     paymentAdapter: QZPayWebhookRouterConfig['paymentAdapter'];
     signatureHeader?: string;
+    requestIdHeader?: QZPayWebhookRouterConfig['requestIdHeader'];
     onEvent?: QZPayWebhookRouterConfig['onEvent'];
+    logger?: QZPayWebhookRouterConfig['logger'];
 }
 
 /**
@@ -133,12 +182,14 @@ export interface QZPaySimpleWebhookConfig {
  * ```
  */
 export function createSimpleWebhookHandler(config: QZPaySimpleWebhookConfig): Hono<QZPayWebhookEnv> {
-    const { billing, paymentAdapter, signatureHeader, onEvent } = config;
+    const { billing, paymentAdapter, signatureHeader, onEvent, logger } = config;
 
     return createWebhookRouter({
         billing,
         paymentAdapter,
         signatureHeader,
-        onEvent
+        ...(config.requestIdHeader !== undefined ? { requestIdHeader: config.requestIdHeader } : {}),
+        onEvent,
+        ...(logger ? { logger } : {})
     });
 }

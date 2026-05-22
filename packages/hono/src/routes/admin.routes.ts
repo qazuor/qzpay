@@ -4,7 +4,7 @@
  * Administrative routes for managing billing operations.
  * These routes should be protected with admin-level authentication.
  */
-import type { QZPayBilling, QZPayInvoice, QZPayPayment, QZPaySubscription } from '@qazuor/qzpay-core';
+import type { QZPayBilling, QZPayInvoice, QZPayLogger, QZPayPayment, QZPaySubscription } from '@qazuor/qzpay-core';
 import type { Context, MiddlewareHandler } from 'hono';
 import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
@@ -149,6 +149,14 @@ export interface QZPayAdminRoutesConfig {
      * before/after semantics.
      */
     hooks?: QZPayAdminLifecycleHooks;
+    /**
+     * Optional structured logger. Used by the routes to emit lifecycle
+     * hook failures (errors raised by `onAfter*` hooks are caught and
+     * logged rather than propagated, since the core operation has
+     * already committed). When omitted, hook failures fall back to
+     * `console.error`.
+     */
+    logger?: QZPayLogger;
 }
 
 /**
@@ -189,7 +197,7 @@ interface QZPayDashboardStats {
  * ```
  */
 export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHonoEnv> {
-    const { billing, prefix = '/admin', authMiddleware, hooks } = config;
+    const { billing, prefix = '/admin', authMiddleware, hooks, logger } = config;
 
     const router = new Hono<QZPayHonoEnv>();
 
@@ -210,8 +218,15 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
         try {
             await hookFn(params);
         } catch (hookError) {
-            // biome-ignore lint/suspicious/noConsole: lifecycle hook errors are logged
-            console.error(`[qzpay-hono] ${hookName} hook failed:`, hookError instanceof Error ? hookError.message : hookError);
+            if (logger) {
+                logger.error('Admin lifecycle hook failed', {
+                    operation: 'adminLifecycleHook',
+                    hookName,
+                    error: hookError
+                });
+            } else {
+                console.error(`[qzpay-hono] ${hookName} hook failed:`, hookError instanceof Error ? hookError.message : hookError);
+            }
         }
     };
 

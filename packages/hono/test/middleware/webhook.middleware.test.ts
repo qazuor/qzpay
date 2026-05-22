@@ -117,7 +117,7 @@ describe('Webhook Middleware', () => {
                 body: 'payload'
             });
 
-            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'test_sig');
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'test_sig', undefined);
         });
 
         it('should use default x-signature header for MercadoPago', async () => {
@@ -141,7 +141,7 @@ describe('Webhook Middleware', () => {
                 body: 'payload'
             });
 
-            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'test_sig');
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'test_sig', '');
         });
 
         it('should use custom signature header when provided', async () => {
@@ -166,7 +166,7 @@ describe('Webhook Middleware', () => {
                 body: 'payload'
             });
 
-            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'custom_sig');
+            expect(mockAdapter.webhooks?.verifySignature).toHaveBeenCalledWith('payload', 'custom_sig', undefined);
         });
 
         it('should return 500 when adapter does not support webhooks', async () => {

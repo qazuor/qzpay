@@ -4,6 +4,7 @@
  * Provides consistent error handling across all QZPay Hono routes
  */
 
+import type { QZPayLogger } from '@qazuor/qzpay-core';
 import type { Context, MiddlewareHandler } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { mapErrorToHttpStatus } from '../errors/error-mapper.js';
@@ -26,10 +27,18 @@ export interface QZPayErrorMiddlewareConfig {
     onError?: (error: unknown, c: Context) => Response | Promise<Response>;
 
     /**
-     * Whether to log errors to console
+     * Whether to log errors when they are caught.
      * @default true
      */
     logErrors?: boolean;
+
+    /**
+     * Optional structured logger. When provided, error logs are routed
+     * through it (via `logger.error(...)`) instead of `console.error`.
+     * When omitted, the middleware falls back to `console.error` so
+     * existing consumers continue to see errors without configuration.
+     */
+    logger?: QZPayLogger;
 }
 
 /**
@@ -72,7 +81,7 @@ export function createErrorResponse(error: unknown, includeStackTrace = false): 
  * ```
  */
 export function createErrorMiddleware(config: QZPayErrorMiddlewareConfig = {}): MiddlewareHandler {
-    const { includeStackTrace = false, onError, logErrors = true } = config;
+    const { includeStackTrace = false, onError, logErrors = true, logger } = config;
 
     return async (c: Context, next) => {
         try {
@@ -80,7 +89,16 @@ export function createErrorMiddleware(config: QZPayErrorMiddlewareConfig = {}): 
         } catch (error) {
             // Log error if enabled
             if (logErrors) {
-                console.error('[QZPay Error]', error);
+                if (logger) {
+                    logger.error('QZPay error middleware caught an error', {
+                        operation: 'errorMiddleware',
+                        method: c.req.method,
+                        path: c.req.path,
+                        error
+                    });
+                } else {
+                    console.error('[QZPay Error]', error);
+                }
             }
 
             // Use custom error handler if provided
@@ -165,12 +183,21 @@ export function throwHttpError(statusCode: number, code: string, message: string
  * ```
  */
 export function createErrorHandler(config: QZPayErrorMiddlewareConfig = {}) {
-    const { includeStackTrace = false, onError, logErrors = true } = config;
+    const { includeStackTrace = false, onError, logErrors = true, logger } = config;
 
     return (error: Error, c: Context): Response => {
         // Log error if enabled
         if (logErrors) {
-            console.error(error);
+            if (logger) {
+                logger.error('QZPay error handler caught an error', {
+                    operation: 'errorHandler',
+                    method: c.req.method,
+                    path: c.req.path,
+                    error
+                });
+            } else {
+                console.error(error);
+            }
         }
 
         // Use custom error handler if provided

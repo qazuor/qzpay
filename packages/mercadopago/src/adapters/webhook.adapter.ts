@@ -2,7 +2,7 @@
  * MercadoPago Webhook Adapter
  */
 import * as crypto from 'node:crypto';
-import type { QZPayPaymentWebhookAdapter, QZPayWebhookEvent } from '@qazuor/qzpay-core';
+import type { QZPayLogger, QZPayPaymentWebhookAdapter, QZPayWebhookEvent } from '@qazuor/qzpay-core';
 import {
     MERCADOPAGO_WEBHOOK_EVENTS,
     MERCADOPAGO_WEBHOOK_EVENTS_EXTENDED,
@@ -52,12 +52,24 @@ export interface QZPayMercadoPagoWebhookConfig {
      * @default false
      */
     failClosedWhenSecretMissing?: boolean | undefined;
+
+    /**
+     * Optional structured logger. When provided, the adapter routes its
+     * debug/warn/error output through it instead of `console.*`. Use this
+     * to integrate with your application's logging pipeline (pino, winston,
+     * etc.) so webhook signature failures are captured with the rest of
+     * your structured logs.
+     *
+     * If omitted, the adapter is silent (it does not write to console).
+     */
+    logger?: QZPayLogger | undefined;
 }
 
 export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapter {
     private readonly webhookSecret: string | undefined;
     private readonly timestampToleranceSeconds: number;
     private readonly failClosedWhenSecretMissing: boolean;
+    private readonly logger: QZPayLogger | undefined;
 
     constructor(webhookSecret?: string);
     constructor(config: QZPayMercadoPagoWebhookConfig);
@@ -66,18 +78,32 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
             this.webhookSecret = webhookSecretOrConfig;
             this.timestampToleranceSeconds = DEFAULT_TIMESTAMP_TOLERANCE_SECONDS;
             this.failClosedWhenSecretMissing = false;
+            this.logger = undefined;
         } else if (webhookSecretOrConfig) {
             this.webhookSecret = webhookSecretOrConfig.webhookSecret;
             this.timestampToleranceSeconds = webhookSecretOrConfig.timestampToleranceSeconds ?? DEFAULT_TIMESTAMP_TOLERANCE_SECONDS;
             this.failClosedWhenSecretMissing = webhookSecretOrConfig.failClosedWhenSecretMissing ?? false;
+            this.logger = webhookSecretOrConfig.logger;
         } else {
             this.webhookSecret = undefined;
             this.timestampToleranceSeconds = DEFAULT_TIMESTAMP_TOLERANCE_SECONDS;
             this.failClosedWhenSecretMissing = false;
+            this.logger = undefined;
         }
     }
 
-    constructEvent(payload: string | Buffer, signature: string): QZPayWebhookEvent {
+    /**
+     * Construct a normalized webhook event from a MercadoPago payload.
+     *
+     * Per the MercadoPago Webhooks v2 specification, the HMAC manifest is
+     * `id:{dataId};request-id:{x-request-id};ts:{ts};` — the `request-id`
+     * value MUST come from the `x-request-id` header sent by MercadoPago,
+     * NOT from the `ts` field. Earlier versions of this adapter (<= 1.x)
+     * incorrectly reused `ts` for both fields, which silently passed in
+     * test scenarios but rejected all real-world webhooks. Always pass
+     * `requestId` when the adapter is configured with a secret.
+     */
+    constructEvent(payload: string | Buffer, signature: string, requestId?: string): QZPayWebhookEvent {
         const payloadString = typeof payload === 'string' ? payload : payload.toString('utf-8');
 
         // Fail closed when configured and no secret is set (defense in depth).
@@ -88,7 +114,7 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
         }
 
         // Verify signature if secret is configured
-        if (this.webhookSecret && !this.verifySignature(payload, signature)) {
+        if (this.webhookSecret && !this.verifySignature(payload, signature, requestId)) {
             // Check if the failure is due to timestamp being too old
             const parts = signature.split(',');
             const timestamp = parts.find((p) => p.startsWith('ts='))?.slice(3);
@@ -109,11 +135,34 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
         }
 
         const mpEvent = JSON.parse(payloadString) as MercadoPagoWebhookPayload;
+        const qzpayEvent = this.mapToQZPayEvent(mpEvent);
 
-        return this.mapToQZPayEvent(mpEvent);
+        this.logger?.debug('MercadoPago webhook event constructed', {
+            provider: 'mercadopago',
+            operation: 'constructEvent',
+            mpId: String(mpEvent.id),
+            mpType: mpEvent.type,
+            mpAction: mpEvent.action,
+            qzpayType: qzpayEvent.type
+        });
+
+        return qzpayEvent;
     }
 
-    verifySignature(payload: string | Buffer, signature: string): boolean {
+    /**
+     * Verify a MercadoPago webhook signature against the HMAC-SHA256 manifest
+     * `id:{dataId};request-id:{x-request-id};ts:{ts};`.
+     *
+     * `requestId` must be the verbatim value of the `x-request-id` header
+     * received from MercadoPago. When a secret is configured and `requestId`
+     * is empty/missing, verification fails (returns `false`) and a warning
+     * is logged — this is intentional defense-in-depth, since silently
+     * substituting `ts` would mask integration bugs.
+     *
+     * The `dataId` is lowercased before hashing to match the canonicalization
+     * the MercadoPago server performs when computing the signature.
+     */
+    verifySignature(payload: string | Buffer, signature: string, requestId?: string): boolean {
         if (!this.webhookSecret) {
             if (this.failClosedWhenSecretMissing) {
                 throw new Error(
@@ -132,12 +181,21 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
             const sig = parts.find((p) => p.startsWith('v1='))?.slice(3);
 
             if (!timestamp || !sig) {
+                this.logger?.warn('MercadoPago webhook signature missing ts or v1 component', {
+                    provider: 'mercadopago',
+                    operation: 'verifySignature'
+                });
                 return false;
             }
 
             // Validate timestamp to prevent replay attacks
             const timestampSeconds = Number.parseInt(timestamp, 10);
             if (Number.isNaN(timestampSeconds)) {
+                this.logger?.warn('MercadoPago webhook signature has non-numeric ts component', {
+                    provider: 'mercadopago',
+                    operation: 'verifySignature',
+                    ts: timestamp
+                });
                 return false;
             }
 
@@ -145,15 +203,75 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
             const timeDifference = Math.abs(currentTimeSeconds - timestampSeconds);
 
             if (timeDifference > this.timestampToleranceSeconds) {
+                this.logger?.warn('MercadoPago webhook signature timestamp outside tolerance window', {
+                    provider: 'mercadopago',
+                    operation: 'verifySignature',
+                    timeDifferenceSeconds: timeDifference,
+                    toleranceSeconds: this.timestampToleranceSeconds
+                });
                 return false;
             }
 
-            // Create expected signature
-            const signedPayload = `id:${this.extractId(payloadString)};request-id:${timestamp};ts:${timestamp};`;
+            // When secret is configured, requestId is REQUIRED — MercadoPago
+            // includes the x-request-id header in the HMAC manifest, so
+            // verifying without it cannot succeed against a real webhook.
+            // Fail loudly so integration bugs surface immediately.
+            if (!requestId) {
+                this.logger?.warn(
+                    'MercadoPago webhook signature verification was called without requestId — the x-request-id header must be passed to verifySignature/constructEvent. Verification will fail.',
+                    {
+                        provider: 'mercadopago',
+                        operation: 'verifySignature'
+                    }
+                );
+                return false;
+            }
+
+            // Build the canonical signed payload exactly as the MercadoPago
+            // server does. The `dataId` is lowercased before hashing because
+            // the server canonicalizes it that way; passing it verbatim would
+            // mismatch for any non-numeric ID.
+            const dataId = this.extractId(payloadString).toLowerCase();
+            const signedPayload = `id:${dataId};request-id:${requestId};ts:${timestamp};`;
             const expectedSignature = crypto.createHmac('sha256', this.webhookSecret).update(signedPayload).digest('hex');
 
-            return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSignature));
-        } catch {
+            const sigBuffer = Buffer.from(sig);
+            const expectedBuffer = Buffer.from(expectedSignature);
+            if (sigBuffer.length !== expectedBuffer.length) {
+                this.logger?.warn('MercadoPago webhook signature length mismatch', {
+                    provider: 'mercadopago',
+                    operation: 'verifySignature',
+                    receivedLength: sigBuffer.length,
+                    expectedLength: expectedBuffer.length
+                });
+                return false;
+            }
+
+            const matches = crypto.timingSafeEqual(sigBuffer, expectedBuffer);
+            if (matches) {
+                this.logger?.debug('MercadoPago webhook signature verified', {
+                    provider: 'mercadopago',
+                    operation: 'verifySignature',
+                    dataId,
+                    requestId,
+                    ts: timestamp
+                });
+            } else {
+                this.logger?.warn('MercadoPago webhook signature HMAC mismatch', {
+                    provider: 'mercadopago',
+                    operation: 'verifySignature',
+                    dataId,
+                    requestId,
+                    ts: timestamp
+                });
+            }
+            return matches;
+        } catch (error) {
+            this.logger?.error('MercadoPago webhook signature verification threw', {
+                provider: 'mercadopago',
+                operation: 'verifySignature',
+                error
+            });
             return false;
         }
     }
@@ -252,12 +370,22 @@ export class QZPayMercadoPagoWebhookAdapter implements QZPayPaymentWebhookAdapte
  */
 export class QZPayMercadoPagoIPNHandler {
     private readonly handlers: QZPayMPIPNHandlerMap = {};
+    private readonly logger: QZPayLogger | undefined;
+
+    constructor(options?: { logger?: QZPayLogger }) {
+        this.logger = options?.logger;
+    }
 
     /**
      * Register a handler for a specific IPN type
      */
     on(type: QZPayMPIPNType, handler: QZPayMPIPNHandler): void {
         this.handlers[type] = handler;
+        this.logger?.debug('MercadoPago IPN handler registered', {
+            provider: 'mercadopago',
+            operation: 'ipnHandler.on',
+            type
+        });
     }
 
     /**
@@ -265,6 +393,11 @@ export class QZPayMercadoPagoIPNHandler {
      */
     off(type: QZPayMPIPNType): void {
         delete this.handlers[type];
+        this.logger?.debug('MercadoPago IPN handler removed', {
+            provider: 'mercadopago',
+            operation: 'ipnHandler.off',
+            type
+        });
     }
 
     /**
@@ -274,6 +407,13 @@ export class QZPayMercadoPagoIPNHandler {
         const handler = this.handlers[notification.type];
 
         if (!handler) {
+            this.logger?.warn('MercadoPago IPN received with no registered handler', {
+                provider: 'mercadopago',
+                operation: 'ipnHandler.process',
+                type: notification.type,
+                action: notification.action,
+                resourceId: notification.data.id
+            });
             return {
                 processed: false,
                 eventType: notification.type,
@@ -285,6 +425,13 @@ export class QZPayMercadoPagoIPNHandler {
 
         try {
             await handler(notification);
+            this.logger?.debug('MercadoPago IPN handled', {
+                provider: 'mercadopago',
+                operation: 'ipnHandler.process',
+                type: notification.type,
+                action: notification.action,
+                resourceId: notification.data.id
+            });
             return {
                 processed: true,
                 eventType: notification.type,
@@ -292,6 +439,14 @@ export class QZPayMercadoPagoIPNHandler {
                 resourceId: notification.data.id
             };
         } catch (error) {
+            this.logger?.error('MercadoPago IPN handler threw', {
+                provider: 'mercadopago',
+                operation: 'ipnHandler.process',
+                type: notification.type,
+                action: notification.action,
+                resourceId: notification.data.id,
+                error
+            });
             return {
                 processed: false,
                 eventType: notification.type,
