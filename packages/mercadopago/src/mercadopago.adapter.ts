@@ -73,7 +73,8 @@ export class QZPayMercadoPagoAdapter implements QZPayPaymentAdapter {
         this.prices = new QZPayMercadoPagoPriceAdapter(this.client);
         this.webhooks = new QZPayMercadoPagoWebhookAdapter({
             webhookSecret: config.webhookSecret,
-            failClosedWhenSecretMissing: config.webhookFailClosedWhenSecretMissing ?? false
+            failClosedWhenSecretMissing: config.webhookFailClosedWhenSecretMissing ?? false,
+            ...(config.logger ? { logger: config.logger } : {})
         });
     }
 
