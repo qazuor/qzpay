@@ -759,4 +759,103 @@ describe('QZPayMercadoPagoCheckoutAdapter', () => {
             });
         });
     });
+
+    describe('metadata forwarding', () => {
+        // Regression: prior to this change the adapter hard-coded
+        // body.metadata to { qzpay_mode, qzpay_customer_id } and silently
+        // dropped any caller-supplied metadata, which broke webhook
+        // dispatch keys that downstream consumers relied on (see
+        // hospeda annual flow `metadata.annualSubscriptionId`).
+
+        it('forwards caller-supplied input.metadata to body.metadata', async () => {
+            mockPreferenceApi.create.mockResolvedValue(createMockMPPreference({ id: 'pref_meta' }));
+
+            await adapter.create({
+                input: {
+                    mode: 'payment',
+                    successUrl: 'https://example.com/success',
+                    cancelUrl: 'https://example.com/cancel',
+                    customerId: 'cus_meta_1',
+                    lineItems: [{ quantity: 1, unitAmount: 1000, currency: 'ARS', title: 'Item' }],
+                    metadata: {
+                        annualSubscriptionId: 'sub_local_uuid',
+                        planSlug: 'owner-basic',
+                        billingInterval: 'annual'
+                    }
+                },
+                resolvedLineItems: [{ unitAmount: 1000, currency: 'ARS', title: 'Item' }],
+                externalReference: 'cs_meta_1',
+                idempotencyKey: 'cs_meta_1'
+            });
+
+            expect(mockPreferenceApi.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    body: expect.objectContaining({
+                        metadata: expect.objectContaining({
+                            annualSubscriptionId: 'sub_local_uuid',
+                            planSlug: 'owner-basic',
+                            billingInterval: 'annual',
+                            qzpay_mode: 'payment',
+                            qzpay_customer_id: 'cus_meta_1'
+                        })
+                    })
+                })
+            );
+        });
+
+        it('cannot override reserved qzpay_mode / qzpay_customer_id keys via input.metadata', async () => {
+            mockPreferenceApi.create.mockResolvedValue(createMockMPPreference({ id: 'pref_meta2' }));
+
+            await adapter.create({
+                input: {
+                    mode: 'payment',
+                    successUrl: 'https://example.com/success',
+                    cancelUrl: 'https://example.com/cancel',
+                    customerId: 'cus_meta_2',
+                    lineItems: [{ quantity: 1, unitAmount: 1000, currency: 'ARS', title: 'Item' }],
+                    metadata: {
+                        // attempted overrides should be ignored — the adapter
+                        // merges qzpay_* keys LAST so they win.
+                        qzpay_mode: 'attempted_override',
+                        qzpay_customer_id: 'attempted_override',
+                        legitKey: 'preserved'
+                    }
+                },
+                resolvedLineItems: [{ unitAmount: 1000, currency: 'ARS', title: 'Item' }],
+                externalReference: 'cs_meta_2',
+                idempotencyKey: 'cs_meta_2'
+            });
+
+            const callArgs = mockPreferenceApi.create.mock.calls[0]?.[0];
+            const body = callArgs?.body as { metadata: Record<string, unknown> };
+            expect(body.metadata.qzpay_mode).toBe('payment');
+            expect(body.metadata.qzpay_customer_id).toBe('cus_meta_2');
+            expect(body.metadata.legitKey).toBe('preserved');
+        });
+
+        it('still emits the qzpay_* keys when no input.metadata is supplied (back-compat)', async () => {
+            mockPreferenceApi.create.mockResolvedValue(createMockMPPreference({ id: 'pref_meta3' }));
+
+            await adapter.create({
+                input: {
+                    mode: 'payment',
+                    successUrl: 'https://example.com/success',
+                    cancelUrl: 'https://example.com/cancel',
+                    customerId: 'cus_meta_3',
+                    lineItems: [{ quantity: 1, unitAmount: 1000, currency: 'ARS', title: 'Item' }]
+                },
+                resolvedLineItems: [{ unitAmount: 1000, currency: 'ARS', title: 'Item' }],
+                externalReference: 'cs_meta_3',
+                idempotencyKey: 'cs_meta_3'
+            });
+
+            expect(mockPreferenceApi.create).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    body: expect.objectContaining({
+                        metadata: { qzpay_mode: 'payment', qzpay_customer_id: 'cus_meta_3' }
+                    })
+                })
+            );
+        });
+    });
 });
