@@ -20,16 +20,29 @@ import { firstOrNull } from './base.repository.js';
 const PG_UNIQUE_VIOLATION = '23505';
 
 /**
- * Type guard for the Postgres unique-violation error shape exposed by
- * postgres-js. Different drivers surface the error differently; we
- * check the canonical SQLSTATE and the underlying driver code.
+ * Type guard for the Postgres unique-violation error shape.
+ *
+ * Drizzle wraps the underlying driver error in a "Failed query" Error
+ * whose original PostgresError lands on `.cause`. We check both the
+ * outer shape (in case a future driver surfaces `code` directly) and
+ * the nested `cause` so the guard works regardless of wrapping depth.
  */
 function isUniqueViolation(error: unknown): boolean {
     if (typeof error !== 'object' || error === null) {
         return false;
     }
-    const candidate = error as { code?: string };
-    return candidate.code === PG_UNIQUE_VIOLATION;
+    const direct = error as { code?: string };
+    if (direct.code === PG_UNIQUE_VIOLATION) {
+        return true;
+    }
+    const cause = (error as { cause?: unknown }).cause;
+    if (cause && typeof cause === 'object') {
+        const innerCode = (cause as { code?: string }).code;
+        if (innerCode === PG_UNIQUE_VIOLATION) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /**
