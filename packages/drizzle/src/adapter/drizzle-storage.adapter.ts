@@ -36,15 +36,19 @@ import type {
     QZPayPriceStorage,
     QZPayPromoCode,
     QZPayPromoCodeStorage,
+    QZPaySchedulePollingInput,
     QZPaySetLimitInput,
     QZPaySourceType,
     QZPayStorageAdapter,
     QZPaySubscription,
     QZPaySubscriptionAddOn,
+    QZPaySubscriptionPollingJob,
+    QZPaySubscriptionPollingJobStorage,
     QZPaySubscriptionStorage,
     QZPayUpdateAddOnInput,
     QZPayUpdateCustomerInput,
     QZPayUpdatePaymentMethodInput,
+    QZPayUpdatePollingJobInput,
     QZPayUpdateSubscriptionInput,
     QZPayUpdateVendorInput,
     QZPayUsageRecord,
@@ -97,13 +101,15 @@ import {
     mapDrizzlePaymentMethodToCore,
     mapDrizzlePaymentToCore,
     mapDrizzlePlanToCore,
+    mapDrizzlePollingJobToCore,
     mapDrizzlePriceToCore,
     mapDrizzlePromoCodeToCore,
     mapDrizzleSubscriptionAddonToCore,
     mapDrizzleSubscriptionToCore,
     mapDrizzleUsageRecordToCore,
     mapDrizzleVendorPayoutToCore,
-    mapDrizzleVendorToCore
+    mapDrizzleVendorToCore,
+    mapPollingScheduleInputToDrizzleInsert
 } from '../mappers/index.js';
 import {
     type QZPayPaginatedResult as DrizzlePaginatedResult,
@@ -118,6 +124,7 @@ import {
     QZPayPlansRepository,
     QZPayPricesRepository,
     QZPayPromoCodesRepository,
+    QZPaySubscriptionPollingJobsRepository,
     QZPaySubscriptionsRepository,
     QZPayUsageRecordsRepository,
     QZPayVendorsRepository
@@ -164,6 +171,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
     private readonly checkoutsRepo: QZPayCheckoutsRepository;
     private readonly customersRepo: QZPayCustomersRepository;
     private readonly subscriptionsRepo: QZPaySubscriptionsRepository;
+    private readonly subscriptionPollingJobsRepo: QZPaySubscriptionPollingJobsRepository;
     private readonly paymentsRepo: QZPayPaymentsRepository;
     private readonly paymentMethodsRepo: QZPayPaymentMethodsRepository;
     private readonly invoicesRepo: QZPayInvoicesRepository;
@@ -180,6 +188,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
     public readonly checkouts: QZPayCheckoutStorage;
     public readonly customers: QZPayCustomerStorage;
     public readonly subscriptions: QZPaySubscriptionStorage;
+    public readonly subscriptionPollingJobs: QZPaySubscriptionPollingJobStorage;
     public readonly payments: QZPayPaymentStorage;
     public readonly paymentMethods: QZPayPaymentMethodStorage;
     public readonly invoices: QZPayInvoiceStorage;
@@ -201,6 +210,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
         this.checkoutsRepo = new QZPayCheckoutsRepository(this.db);
         this.customersRepo = new QZPayCustomersRepository(typedDb);
         this.subscriptionsRepo = new QZPaySubscriptionsRepository(typedDb);
+        this.subscriptionPollingJobsRepo = new QZPaySubscriptionPollingJobsRepository(this.db);
         this.paymentsRepo = new QZPayPaymentsRepository(this.db);
         this.paymentMethodsRepo = new QZPayPaymentMethodsRepository(this.db);
         this.invoicesRepo = new QZPayInvoicesRepository(typedDb);
@@ -217,6 +227,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
         this.checkouts = this.createCheckoutStorage();
         this.customers = this.createCustomerStorage();
         this.subscriptions = this.createSubscriptionStorage();
+        this.subscriptionPollingJobs = this.createSubscriptionPollingJobStorage();
         this.payments = this.createPaymentStorage();
         this.paymentMethods = this.createPaymentMethodStorage();
         this.invoices = this.createInvoiceStorage();
@@ -391,6 +402,56 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 const offset = options?.offset ?? 0;
                 const result = await repo.search({ livemode, limit, offset });
                 return toPaginatedResult(result, mapDrizzleSubscriptionToCore, limit, offset);
+            }
+        };
+    }
+
+    // ==================== Subscription Polling Job Storage ====================
+
+    private createSubscriptionPollingJobStorage(): QZPaySubscriptionPollingJobStorage {
+        const repo = this.subscriptionPollingJobsRepo;
+
+        return {
+            async create(input: QZPaySchedulePollingInput): Promise<QZPaySubscriptionPollingJob | null> {
+                if (!input.provider) {
+                    throw new Error(
+                        'QZPaySchedulePollingInput.provider is required when calling subscriptionPollingJobs.create. ' +
+                            'Pass the configured payment adapter provider (e.g., "mercadopago") explicitly.'
+                    );
+                }
+                const drizzleInput = mapPollingScheduleInputToDrizzleInsert({ ...input, provider: input.provider });
+                const row = await repo.create(drizzleInput);
+                return row ? mapDrizzlePollingJobToCore(row) : null;
+            },
+
+            async update(input: QZPayUpdatePollingJobInput): Promise<QZPaySubscriptionPollingJob | null> {
+                const row = await repo.tryLockedUpdate({
+                    id: input.id,
+                    expectedVersion: input.expectedVersion,
+                    ...(input.status !== undefined ? { status: input.status } : {}),
+                    ...(input.incrementAttemptsBy !== undefined ? { incrementAttemptsBy: input.incrementAttemptsBy } : {}),
+                    ...(input.lastPolledAt !== undefined ? { lastPolledAt: input.lastPolledAt } : {}),
+                    ...(input.lastProviderStatus !== undefined ? { lastProviderStatus: input.lastProviderStatus } : {}),
+                    ...(input.lastError !== undefined ? { lastError: input.lastError } : {}),
+                    ...(input.nextPollAt !== undefined ? { nextPollAt: input.nextPollAt } : {}),
+                    ...(input.completedAt !== undefined ? { completedAt: input.completedAt } : {})
+                });
+                return row ? mapDrizzlePollingJobToCore(row) : null;
+            },
+
+            async findById(id: string): Promise<QZPaySubscriptionPollingJob | null> {
+                const row = await repo.findById(id);
+                return row ? mapDrizzlePollingJobToCore(row) : null;
+            },
+
+            async findActiveBySubscriptionId(subscriptionId: string): Promise<QZPaySubscriptionPollingJob | null> {
+                const row = await repo.findActiveBySubscriptionId(subscriptionId);
+                return row ? mapDrizzlePollingJobToCore(row) : null;
+            },
+
+            async findDuePending(now: Date, limit: number): Promise<QZPaySubscriptionPollingJob[]> {
+                const rows = await repo.findDuePending(now, limit);
+                return rows.map(mapDrizzlePollingJobToCore);
             }
         };
     }

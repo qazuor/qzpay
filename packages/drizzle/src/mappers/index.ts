@@ -80,6 +80,12 @@ export {
     mapCorePromoCodeUpdateToDrizzle,
     mapDrizzlePromoCodeToCore
 } from './promo-code.mapper.js';
+// Subscription polling job mappers
+export {
+    POLLING_JOB_DEFAULTS,
+    mapDrizzlePollingJobToCore,
+    mapPollingScheduleInputToDrizzleInsert
+} from './subscription-polling-job.mapper.js';
 // Subscription mappers
 export {
     mapCoreSubscriptionCreateToDrizzle,
