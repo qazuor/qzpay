@@ -73,6 +73,7 @@ export {
 export { type QZPayPlanSearchOptions, QZPayPlansRepository } from './plans.repository.js';
 export { type QZPayPriceSearchOptions, QZPayPricesRepository } from './prices.repository.js';
 export { type QZPayDiscountTypeValue, QZPayPromoCodesRepository } from './promo-codes.repository.js';
+export { QZPaySubscriptionPollingJobsRepository } from './subscription-polling-jobs.repository.js';
 export {
     type QZPaySubscriptionSearchOptions,
     type QZPaySubscriptionStatusValue,

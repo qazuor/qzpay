@@ -169,6 +169,7 @@ export {
     billingPromoCodeUsageRelations,
     billingRefundsRelations,
     billingSubscriptionAddonsRelations,
+    billingSubscriptionPollingJobsRelations,
     billingSubscriptionsRelations,
     billingUsageRecordsRelations,
     billingVendorPayoutsRelations,
@@ -183,6 +184,15 @@ export {
     type QZPayBillingSubscriptionInsert,
     type QZPayBillingSubscriptionInsertInput
 } from './subscriptions.schema.js';
+// Subscription polling jobs schema
+export {
+    billingSubscriptionPollingJobInsertSchema,
+    billingSubscriptionPollingJobSelectSchema,
+    billingSubscriptionPollingJobs,
+    type QZPayBillingSubscriptionPollingJob,
+    type QZPayBillingSubscriptionPollingJobInsert,
+    type QZPayBillingSubscriptionPollingJobInsertInput
+} from './subscription-polling-jobs.schema.js';
 // Usage records schema
 export {
     billingUsageRecordInsertSchema,
@@ -238,6 +248,7 @@ import * as planSchema from './plans.schema.js';
 import * as priceSchema from './prices.schema.js';
 import * as promoCodeSchema from './promo-codes.schema.js';
 import * as relationSchema from './relations.js';
+import * as subscriptionPollingJobSchema from './subscription-polling-jobs.schema.js';
 import * as subscriptionSchema from './subscriptions.schema.js';
 import * as usageRecordSchema from './usage-records.schema.js';
 import * as vendorSchema from './vendors.schema.js';
@@ -266,6 +277,7 @@ export const qzpaySchema = {
     billingPromoCodes: promoCodeSchema.billingPromoCodes,
     billingPromoCodeUsage: promoCodeSchema.billingPromoCodeUsage,
     billingSubscriptions: subscriptionSchema.billingSubscriptions,
+    billingSubscriptionPollingJobs: subscriptionPollingJobSchema.billingSubscriptionPollingJobs,
     billingUsageRecords: usageRecordSchema.billingUsageRecords,
     billingVendors: vendorSchema.billingVendors,
     billingVendorPayouts: vendorSchema.billingVendorPayouts,
@@ -290,6 +302,7 @@ export const qzpaySchema = {
     billingPromoCodesRelations: relationSchema.billingPromoCodesRelations,
     billingPromoCodeUsageRelations: relationSchema.billingPromoCodeUsageRelations,
     billingSubscriptionsRelations: relationSchema.billingSubscriptionsRelations,
+    billingSubscriptionPollingJobsRelations: relationSchema.billingSubscriptionPollingJobsRelations,
     billingUsageRecordsRelations: relationSchema.billingUsageRecordsRelations,
     billingVendorsRelations: relationSchema.billingVendorsRelations,
     billingVendorPayoutsRelations: relationSchema.billingVendorPayoutsRelations

@@ -27,13 +27,16 @@ import type {
     QZPayPlan,
     QZPayPrice,
     QZPayPromoCode,
+    QZPaySchedulePollingInput,
     QZPaySetLimitInput,
     QZPaySourceType,
     QZPaySubscription,
     QZPaySubscriptionAddOn,
+    QZPaySubscriptionPollingJob,
     QZPayUpdateAddOnInput,
     QZPayUpdateCustomerInput,
     QZPayUpdatePaymentMethodInput,
+    QZPayUpdatePollingJobInput,
     QZPayUpdateSubscriptionInput,
     QZPayUpdateVendorInput,
     QZPayUsageRecord,
@@ -47,6 +50,10 @@ export interface QZPayStorageAdapter {
 
     // Subscription operations
     subscriptions: QZPaySubscriptionStorage;
+
+    // Subscription provider polling jobs (optional — only present for
+    // storage adapters that support the polling fallback feature)
+    subscriptionPollingJobs?: QZPaySubscriptionPollingJobStorage;
 
     // Payment operations
     payments: QZPayPaymentStorage;
@@ -102,6 +109,56 @@ export interface QZPaySubscriptionStorage {
     findById(id: string): Promise<QZPaySubscription | null>;
     findByCustomerId(customerId: string): Promise<QZPaySubscription[]>;
     list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPaySubscription>>;
+}
+
+/**
+ * Storage operations for subscription polling jobs.
+ *
+ * Polling jobs back the optional provider-status polling fallback used
+ * when subscription webhooks (e.g., MercadoPago `subscription_preapproval`)
+ * are unreliable. Storage adapters that do not support polling MAY omit
+ * this interface; {@link QZPayStorageAdapter.subscriptionPollingJobs} is
+ * optional and the billing layer treats absence as "polling disabled".
+ *
+ * Concurrency model:
+ *
+ * - {@link create} respects a partial-unique constraint of "at most one
+ *   `pending` job per subscription". Implementations MUST surface a
+ *   duplicate-key error (or return `null`) when a second active job is
+ *   attempted, so callers can decide whether to retry-as-update or treat
+ *   the existing job as the source of truth.
+ * - {@link update} performs an optimistic-locked UPDATE — `expectedVersion`
+ *   must match the row's current `version`, otherwise the implementation
+ *   returns `null` and the caller must re-fetch and retry.
+ * - {@link findDuePending} returns rows whose `nextPollAt <= now` and
+ *   whose `status = 'pending'`, ordered by `nextPollAt` ascending so the
+ *   most overdue jobs are processed first.
+ */
+export interface QZPaySubscriptionPollingJobStorage {
+    /**
+     * Create a new polling job. Returns `null` when an active job
+     * already exists for the same subscription (uniqueness violation).
+     */
+    create(input: QZPaySchedulePollingInput): Promise<QZPaySubscriptionPollingJob | null>;
+    /**
+     * Optimistic-locked update. Returns the updated row, or `null` when
+     * the version did not match (concurrent modification by another worker).
+     */
+    update(input: QZPayUpdatePollingJobInput): Promise<QZPaySubscriptionPollingJob | null>;
+    /** Fetch a job by id. */
+    findById(id: string): Promise<QZPaySubscriptionPollingJob | null>;
+    /**
+     * Fetch the active (`pending`) polling job for a subscription, if any.
+     * Used by webhook handlers to mark the job as `succeeded` when the
+     * provider event arrives before the next poll.
+     */
+    findActiveBySubscriptionId(subscriptionId: string): Promise<QZPaySubscriptionPollingJob | null>;
+    /**
+     * Fetch up to `limit` pending jobs whose `nextPollAt <= now`,
+     * ordered by `nextPollAt` ascending. The cron worker iterates this
+     * list and processes each via {@link update}.
+     */
+    findDuePending(now: Date, limit: number): Promise<QZPaySubscriptionPollingJob[]>;
 }
 
 export interface QZPayPaymentStorage {

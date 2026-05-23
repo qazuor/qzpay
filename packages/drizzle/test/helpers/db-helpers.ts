@@ -165,6 +165,7 @@ async function pushSchema(): Promise<void> {
             next_retry_at TIMESTAMPTZ,
             stripe_subscription_id VARCHAR(255),
             mp_subscription_id VARCHAR(255),
+            scheduled_plan_change JSONB,
             livemode BOOLEAN NOT NULL DEFAULT true,
             metadata JSONB DEFAULT '{}',
             version UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -172,6 +173,42 @@ async function pushSchema(): Promise<void> {
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             deleted_at TIMESTAMPTZ
         )
+    `;
+
+    // 4a-bis. Subscription polling jobs table (provider-status polling fallback)
+    await rawSql`
+        CREATE TABLE IF NOT EXISTS billing_subscription_polling_jobs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            subscription_id UUID NOT NULL REFERENCES billing_subscriptions(id) ON DELETE CASCADE,
+            provider VARCHAR(50) NOT NULL,
+            provider_resource_id VARCHAR(255) NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            attempts INTEGER NOT NULL DEFAULT 0,
+            max_attempts INTEGER NOT NULL DEFAULT 60,
+            next_poll_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            last_polled_at TIMESTAMPTZ,
+            last_provider_status VARCHAR(50),
+            last_error TEXT,
+            metadata JSONB NOT NULL DEFAULT '{}',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            completed_at TIMESTAMPTZ,
+            version UUID NOT NULL DEFAULT gen_random_uuid()
+        )
+    `;
+    await rawSql`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_polling_jobs_one_active_per_sub
+            ON billing_subscription_polling_jobs (subscription_id)
+            WHERE status = 'pending'
+    `;
+    await rawSql`
+        CREATE INDEX IF NOT EXISTS idx_polling_jobs_due
+            ON billing_subscription_polling_jobs (next_poll_at)
+            WHERE status = 'pending'
+    `;
+    await rawSql`
+        CREATE INDEX IF NOT EXISTS idx_polling_jobs_subscription
+            ON billing_subscription_polling_jobs (subscription_id)
     `;
 
     // 4b. Subscription add-ons table
@@ -610,6 +647,7 @@ export async function clearTestData(): Promise<void> {
     await sql`TRUNCATE TABLE billing_entitlements CASCADE`;
     await sql`TRUNCATE TABLE billing_refunds CASCADE`;
     await sql`TRUNCATE TABLE billing_payments CASCADE`;
+    await sql`TRUNCATE TABLE billing_subscription_polling_jobs CASCADE`;
     await sql`TRUNCATE TABLE billing_subscription_addons CASCADE`;
     await sql`TRUNCATE TABLE billing_subscriptions CASCADE`;
     await sql`TRUNCATE TABLE billing_addons CASCADE`;

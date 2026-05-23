@@ -14,6 +14,7 @@ import { billingPayments, billingRefunds } from './payments.schema.js';
 import { billingPlans } from './plans.schema.js';
 import { billingPrices } from './prices.schema.js';
 import { billingPromoCodeUsage, billingPromoCodes } from './promo-codes.schema.js';
+import { billingSubscriptionPollingJobs } from './subscription-polling-jobs.schema.js';
 import { billingSubscriptions } from './subscriptions.schema.js';
 import { billingUsageRecords } from './usage-records.schema.js';
 import { billingVendorPayouts, billingVendors } from './vendors.schema.js';
@@ -46,7 +47,19 @@ export const billingSubscriptionsRelations = relations(billingSubscriptions, ({ 
     payments: many(billingPayments),
     invoices: many(billingInvoices),
     usageRecords: many(billingUsageRecords),
-    addons: many(billingSubscriptionAddons)
+    addons: many(billingSubscriptionAddons),
+    pollingJobs: many(billingSubscriptionPollingJobs)
+}));
+
+/**
+ * Subscription polling job relations.
+ * One job belongs to exactly one subscription.
+ */
+export const billingSubscriptionPollingJobsRelations = relations(billingSubscriptionPollingJobs, ({ one }) => ({
+    subscription: one(billingSubscriptions, {
+        fields: [billingSubscriptionPollingJobs.subscriptionId],
+        references: [billingSubscriptions.id]
+    })
 }));
 
 /**
