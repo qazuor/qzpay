@@ -333,4 +333,128 @@ describe('QZPayMercadoPagoPaymentAdapter', () => {
             expect(result.metadata).toEqual({ valid: 'value' });
         });
     });
+
+    describe('search', () => {
+        // Polling fallback for one-time payment flows: at start-paid time
+        // the local record has the checkout/preference id, not the payment
+        // id (that one materializes only when the user completes checkout).
+        // The cron polls via search; idempotency comes from the downstream
+        // handler check.
+
+        it('searches by externalReference (typed) and maps results', async () => {
+            mockPaymentApi.search.mockResolvedValue({
+                paging: { total: 1, limit: 30, offset: 0 },
+                results: [
+                    {
+                        id: 999000111,
+                        status: 'approved',
+                        transaction_amount: 250,
+                        currency_id: 'ARS',
+                        date_created: '2026-05-23T16:00:00Z',
+                        metadata: { annualSubscriptionId: 'sub_local_uuid' }
+                    }
+                ]
+            });
+
+            const results = await adapter.search({ externalReference: 'cs_annual_xyz' });
+
+            expect(mockPaymentApi.search).toHaveBeenCalledWith({
+                options: expect.objectContaining({
+                    external_reference: 'cs_annual_xyz',
+                    sort: 'date_created',
+                    criteria: 'desc'
+                })
+            });
+            expect(results).toHaveLength(1);
+            expect(results[0]).toMatchObject({
+                id: '999000111',
+                // MP `approved` → qzpay `succeeded` via mapStatus.
+                status: 'succeeded',
+                amount: 25000, // 250 * 100 cents
+                currency: 'ARS',
+                metadata: { annualSubscriptionId: 'sub_local_uuid' }
+            });
+        });
+
+        it('searches by checkoutSessionId via untyped preference_id passthrough', async () => {
+            mockPaymentApi.search.mockResolvedValue({ results: [] });
+
+            await adapter.search({ checkoutSessionId: 'pref_abc' });
+
+            expect(mockPaymentApi.search).toHaveBeenCalledWith({
+                options: expect.objectContaining({
+                    preference_id: 'pref_abc'
+                })
+            });
+        });
+
+        it('returns empty array when no payments match', async () => {
+            mockPaymentApi.search.mockResolvedValue({ results: [] });
+
+            const results = await adapter.search({ externalReference: 'cs_no_match' });
+
+            expect(results).toEqual([]);
+        });
+
+        it('handles empty response without `results` field gracefully', async () => {
+            mockPaymentApi.search.mockResolvedValue({});
+
+            const results = await adapter.search({ externalReference: 'cs_empty' });
+
+            expect(results).toEqual([]);
+        });
+
+        it('returns multiple payments ordered as MP returns them (most recent first)', async () => {
+            // Simulates the user retrying with a different card on the same
+            // checkout session — MP returns both attempts ordered by
+            // date_created DESC because we pass sort=date_created criteria=desc.
+            mockPaymentApi.search.mockResolvedValue({
+                results: [
+                    {
+                        id: 200,
+                        status: 'approved',
+                        transaction_amount: 100,
+                        currency_id: 'ARS',
+                        date_created: '2026-05-23T16:05:00Z'
+                    },
+                    {
+                        id: 100,
+                        status: 'rejected',
+                        transaction_amount: 100,
+                        currency_id: 'ARS',
+                        date_created: '2026-05-23T16:00:00Z'
+                    }
+                ]
+            });
+
+            const results = await adapter.search({ externalReference: 'cs_retry' });
+
+            expect(results).toHaveLength(2);
+            expect(results[0].id).toBe('200');
+            // MP `approved` → qzpay `succeeded`, MP `rejected` → qzpay `failed`.
+            expect(results[0].status).toBe('succeeded');
+            expect(results[1].id).toBe('100');
+            expect(results[1].status).toBe('failed');
+        });
+
+        it('drops results that lack an id', async () => {
+            mockPaymentApi.search.mockResolvedValue({
+                results: [
+                    { id: 500, status: 'approved', transaction_amount: 10, currency_id: 'ARS' },
+                    { status: 'approved', transaction_amount: 10, currency_id: 'ARS' }
+                ]
+            });
+
+            const results = await adapter.search({ externalReference: 'cs_partial' });
+
+            expect(results).toHaveLength(1);
+            expect(results[0].id).toBe('500');
+        });
+
+        it('wraps provider errors in mapMercadoPagoError', async () => {
+            mockPaymentApi.search.mockRejectedValue(new Error('MP REST 401: invalid token'));
+
+            await expect(adapter.search({ externalReference: 'cs_err' })).rejects.toThrow();
+        });
+    });
 });

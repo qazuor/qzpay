@@ -5,6 +5,7 @@
  */
 import type {
     QZPayMetadata,
+    QZPayPollingResourceType,
     QZPaySchedulePollingInput,
     QZPaySubscriptionPollingJob,
     QZPaySubscriptionPollingJobStatus
@@ -35,6 +36,7 @@ export function mapDrizzlePollingJobToCore(row: QZPayBillingSubscriptionPollingJ
         subscriptionId: row.subscriptionId,
         provider: row.provider,
         providerResourceId: row.providerResourceId,
+        resourceType: row.resourceType as QZPayPollingResourceType,
         status: row.status as QZPaySubscriptionPollingJobStatus,
         attempts: row.attempts,
         maxAttempts: row.maxAttempts,
@@ -67,6 +69,7 @@ export function mapPollingScheduleInputToDrizzleInsert(
         subscriptionId: input.subscriptionId,
         provider: input.provider,
         providerResourceId: input.providerResourceId,
+        resourceType: input.resourceType ?? 'subscription',
         status: 'pending',
         attempts: 0,
         maxAttempts: input.maxAttempts ?? POLLING_JOB_DEFAULTS.maxAttempts,

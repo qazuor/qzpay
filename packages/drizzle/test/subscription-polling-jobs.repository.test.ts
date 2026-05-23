@@ -408,4 +408,44 @@ describe('QZPaySubscriptionPollingJobsRepository', () => {
             expect(stillThere).not.toBeNull();
         });
     });
+
+    describe('resourceType', () => {
+        // Polling supports two flavours: recurring subscriptions (default
+        // `subscription`) and one-time payment checkouts (`one_time_payment`).
+        // The schema default keeps existing rows happy.
+
+        it('defaults resource_type to "subscription" when omitted on insert', async () => {
+            const job = await repo.create({
+                subscriptionId,
+                provider: 'mercadopago',
+                providerResourceId: 'preapproval_default',
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: 60,
+                nextPollAt: new Date(),
+                metadata: {}
+            });
+
+            expect(job?.resourceType).toBe('subscription');
+        });
+
+        it('persists resource_type="one_time_payment" when supplied explicitly', async () => {
+            const job = await repo.create({
+                subscriptionId,
+                provider: 'mercadopago',
+                providerResourceId: 'pref_annual_xyz',
+                resourceType: 'one_time_payment',
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: 60,
+                nextPollAt: new Date(),
+                metadata: {}
+            });
+
+            expect(job?.resourceType).toBe('one_time_payment');
+
+            const found = await repo.findById(job?.id ?? '');
+            expect(found?.resourceType).toBe('one_time_payment');
+        });
+    });
 });

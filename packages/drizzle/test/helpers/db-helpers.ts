@@ -182,6 +182,7 @@ async function pushSchema(): Promise<void> {
             subscription_id UUID NOT NULL REFERENCES billing_subscriptions(id) ON DELETE CASCADE,
             provider VARCHAR(50) NOT NULL,
             provider_resource_id VARCHAR(255) NOT NULL,
+            resource_type VARCHAR(20) NOT NULL DEFAULT 'subscription',
             status VARCHAR(20) NOT NULL DEFAULT 'pending',
             attempts INTEGER NOT NULL DEFAULT 0,
             max_attempts INTEGER NOT NULL DEFAULT 60,

@@ -43,10 +43,23 @@ export const billingSubscriptionPollingJobs = pgTable(
          */
         provider: varchar('provider', { length: 50 }).notNull(),
         /**
-         * Provider-side resource id (e.g. MP preapproval id) that the
-         * poller uses to query the provider's REST endpoint.
+         * Provider-side resource id (e.g. MP preapproval id, MP preference
+         * id) that the poller uses to query the provider's REST endpoint.
+         * Interpretation depends on {@link resourceType}.
          */
         providerResourceId: varchar('provider_resource_id', { length: 255 }).notNull(),
+        /**
+         * Provider-agnostic classification of the polled resource.
+         * - `subscription`: recurring authorization (MP preapproval, Stripe subscription).
+         * - `one_time_payment`: deferred-payment checkout session whose
+         *   payment id isn't known yet (MP preference one-time, Stripe
+         *   checkout.session in payment mode). The poller's adapter search
+         *   call resolves the actual payment when the user completes the flow.
+         *
+         * Default `'subscription'` keeps backward compatibility for pre-existing
+         * rows enqueued before the column was introduced.
+         */
+        resourceType: varchar('resource_type', { length: 20 }).notNull().default('subscription'),
         /**
          * Job lifecycle status.
          * - `pending`: cron will pick up when due

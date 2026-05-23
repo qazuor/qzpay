@@ -32,6 +32,22 @@ import type { QZPayMetadata } from './common.types.js';
 export type QZPaySubscriptionPollingJobStatus = 'pending' | 'succeeded' | 'failed' | 'timeout' | 'cancelled';
 
 /**
+ * Provider-agnostic classification of the resource the polling job is
+ * tracking. Drives which REST endpoint the cron's adapter call hits.
+ *
+ * - `subscription`: recurring authorization resource (MP `preapproval`,
+ *   Stripe `subscription`). The adapter calls its subscription-retrieve
+ *   endpoint with `providerResourceId` directly.
+ * - `one_time_payment`: a one-time payment session / preference whose
+ *   payment id is not known until the user completes checkout (MP
+ *   `preference` with deferred payment, Stripe `checkout.session` in
+ *   payment mode). The adapter searches the payments collection by the
+ *   session/preference id stored in `providerResourceId` and applies the
+ *   first approved match.
+ */
+export type QZPayPollingResourceType = 'subscription' | 'one_time_payment';
+
+/**
  * Persisted polling job record.
  *
  * Stored as one row in `billing_subscription_polling_jobs`. The
@@ -46,8 +62,21 @@ export interface QZPaySubscriptionPollingJob {
     subscriptionId: string;
     /** Provider identifier (e.g. `mercadopago`). */
     provider: string;
-    /** Provider-side resource id (e.g. MP preapproval id). */
+    /**
+     * Provider-side resource id the cron uses to query status.
+     *
+     * Interpretation depends on {@link resourceType}: for `subscription`
+     * this is the recurring-authorization id (e.g. MP preapproval id);
+     * for `one_time_payment` this is the checkout/preference session id
+     * the cron searches payments by.
+     */
     providerResourceId: string;
+    /**
+     * Classification driving which REST endpoint the cron's adapter
+     * call hits. See {@link QZPayPollingResourceType}. Existing rows
+     * default to `subscription` for backward compatibility.
+     */
+    resourceType: QZPayPollingResourceType;
     /** Current lifecycle status. */
     status: QZPaySubscriptionPollingJobStatus;
     /** Number of poll attempts executed so far. */
@@ -83,8 +112,17 @@ export interface QZPaySubscriptionPollingJob {
 export interface QZPaySchedulePollingInput {
     /** Local subscription id the job will poll for. */
     subscriptionId: string;
-    /** Provider-side resource id (preapproval id, etc.). */
+    /**
+     * Provider-side resource id (preapproval id, preference id, etc.).
+     * Interpreted by the consuming adapter per {@link resourceType}.
+     */
     providerResourceId: string;
+    /**
+     * Classification of the polled resource. See {@link QZPayPollingResourceType}.
+     * Defaults to `subscription` so existing callers retain their preapproval
+     * polling behavior without code changes.
+     */
+    resourceType?: QZPayPollingResourceType;
     /** Override provider name. Defaults to the configured payment adapter's provider. */
     provider?: string;
     /** Delay before the first poll attempt, in ms. Default: 30000 (30s). */

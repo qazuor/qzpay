@@ -24,7 +24,8 @@ export function createMockPaymentApi() {
         create: vi.fn(),
         capture: vi.fn(),
         cancel: vi.fn(),
-        get: vi.fn()
+        get: vi.fn(),
+        search: vi.fn()
     };
 }
 

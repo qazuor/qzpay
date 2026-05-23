@@ -193,12 +193,48 @@ export interface QZPayProviderSubscription {
     sandboxInitPoint?: string;
 }
 
+/**
+ * Search criteria for {@link QZPayPaymentPaymentAdapter.search}.
+ *
+ * Adapters interpret the criteria they understand and ignore the rest.
+ * In practice callers set exactly one criterion — the one they have on
+ * hand from the local record (e.g. the checkout/preference id captured
+ * at start-paid time for a deferred one-time-payment polling job).
+ */
+export interface QZPayPaymentSearchCriteria {
+    /** Provider-side checkout session / preference id (e.g. MP `preference.id`). */
+    readonly checkoutSessionId?: string;
+    /** External reference value previously assigned to the payment by the orchestrator. */
+    readonly externalReference?: string;
+}
+
 export interface QZPayPaymentPaymentAdapter {
     create(providerCustomerId: string, input: QZPayCreatePaymentInput): Promise<QZPayProviderPayment>;
     capture(providerPaymentId: string): Promise<QZPayProviderPayment>;
     cancel(providerPaymentId: string): Promise<void>;
     refund(input: QZPayRefundInput, providerPaymentId: string): Promise<QZPayProviderRefund>;
     retrieve(providerPaymentId: string): Promise<QZPayProviderPayment>;
+    /**
+     * Search payments by checkout/preference id or external reference.
+     *
+     * Optional because legacy adapters predate the search capability;
+     * callers MUST guard with `if (adapter.search)` before invoking it
+     * or surface a clear runtime error when the polling flow relies on
+     * search but the configured adapter does not implement it.
+     *
+     * Result ordering: implementations SHOULD return matches sorted by
+     * provider-side created-at DESC so the most recent attempt is first
+     * (relevant when a user retries with a different card and the same
+     * checkout session has multiple linked payments). Callers typically
+     * iterate the result to find the first `succeeded` entry.
+     *
+     * @param criteria - One of the supported lookup keys. Adapters
+     *   ignore unsupported keys silently.
+     * @returns Zero or more matching payments. Empty array when no
+     *   payment has been created yet against the criterion (common
+     *   while the user is still on the hosted checkout page).
+     */
+    search?(criteria: QZPayPaymentSearchCriteria): Promise<QZPayProviderPayment[]>;
 }
 
 export interface QZPayProviderPayment {
