@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type {
     QZPayCreatePaymentInput,
     QZPayPaymentPaymentAdapter,
+    QZPayPaymentSearchCriteria,
     QZPayProviderPayment,
     QZPayProviderRefund,
     QZPayRefundInput
@@ -213,6 +214,98 @@ export class QZPayMercadoPagoPaymentAdapter implements QZPayPaymentPaymentAdapte
             this.retryConfig,
             'Retrieve payment'
         );
+    }
+
+    /**
+     * Search payments by external reference (typed) or preference id (passthrough).
+     *
+     * Used by polling fallback flows where the polling job has the local
+     * checkout/preference id at start-paid time but no payment id (the
+     * payment is created later when the user completes checkout).
+     *
+     * `external_reference` is the recommended typed field — MP propagates
+     * the orchestrator-supplied external reference from the preference to
+     * every payment. The `checkoutSessionId` criterion is forwarded as
+     * `preference_id` via the SDK's untyped passthrough (the SDK's
+     * `search()` issues `?<key>=<value>` for any key in the options object,
+     * including ones the TS types don't expose); MP's REST endpoint accepts
+     * it but the field is not part of the SDK's typed surface.
+     *
+     * Results are sorted by `date_created DESC` so the most recent attempt
+     * appears first — relevant when a user retries with a different card
+     * and the same checkout session produced multiple payments.
+     */
+    async search(criteria: QZPayPaymentSearchCriteria): Promise<QZPayProviderPayment[]> {
+        return withRetry(
+            async () => {
+                try {
+                    // Typed concretely so dot-notation access satisfies both
+                    // tsc (noPropertyAccessFromIndexSignature) and biome's
+                    // useLiteralKeys lint — Record<string, unknown> trips
+                    // tsc; bracket access trips biome. The explicit shape
+                    // also documents which MP options we set.
+                    const options: {
+                        sort: 'date_created';
+                        criteria: 'desc';
+                        external_reference?: string;
+                        preference_id?: string;
+                    } = {
+                        sort: 'date_created',
+                        criteria: 'desc'
+                    };
+                    if (criteria.externalReference) {
+                        options.external_reference = criteria.externalReference;
+                    }
+                    if (criteria.checkoutSessionId) {
+                        options.preference_id = criteria.checkoutSessionId;
+                    }
+
+                    // Cast: PaymentSearchOptions in the SDK does not expose
+                    // every field MP REST accepts (notably preference_id), so
+                    // we pass the looser options shape and rely on the SDK's
+                    // queryParams: Object.assign forwarding.
+                    const response = await this.paymentApi.search({
+                        options: options as Parameters<Payment['search']>[0] extends { options?: infer O } ? O : never
+                    });
+
+                    const results = response.results ?? [];
+                    return results
+                        .filter((r): r is typeof r & { id: string | number } => r.id !== undefined)
+                        .map((r) => this.mapSearchResultToProviderPayment(r));
+                } catch (error) {
+                    throw mapMercadoPagoError(error, 'Search payments');
+                }
+            },
+            this.retryConfig,
+            'Search payments'
+        );
+    }
+
+    /**
+     * Map a payment-search result row to the QZPay provider payment shape.
+     *
+     * The search endpoint returns a slimmer object than `paymentApi.get()`
+     * (different `PaymentSearchResult` type), so this mapper is kept
+     * separate from {@link mapToProviderPayment} which expects the full
+     * `Payment` shape. Both produce the same canonical
+     * {@link QZPayProviderPayment} for downstream consumers.
+     */
+    private mapSearchResultToProviderPayment(result: {
+        id: string | number;
+        status?: string;
+        transaction_amount?: number;
+        currency_id?: string;
+        metadata?: Record<string, unknown> | undefined;
+    }): QZPayProviderPayment {
+        const status = this.mapStatus(result.status ?? 'pending');
+        const transactionAmount = result.transaction_amount ?? 0;
+        return {
+            id: String(result.id),
+            status,
+            amount: Math.round(transactionAmount * 100),
+            currency: (result.currency_id ?? 'USD').toUpperCase(),
+            metadata: this.extractMetadata(result.metadata)
+        };
     }
 
     private mapToProviderPayment(payment: Awaited<ReturnType<Payment['get']>>): QZPayProviderPayment {

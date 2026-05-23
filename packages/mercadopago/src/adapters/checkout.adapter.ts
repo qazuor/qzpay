@@ -155,6 +155,25 @@ export class QZPayMercadoPagoCheckoutAdapter implements QZPayPaymentCheckoutAdap
                 })
             );
 
+            // Merge caller-supplied metadata with the qzpay diagnostics keys
+            // BEFORE building the body. Putting the qzpay keys LAST guarantees
+            // they cannot be overridden by a (mis-)named input.metadata field
+            // — `qzpay_mode` and `qzpay_customer_id` are reserved diagnostics
+            // the orchestrator and adapter rely on for cross-event correlation.
+            //
+            // Forwarding input.metadata to MP is what lets webhook handlers
+            // dispatch on caller-supplied keys (e.g. Hospeda's
+            // `annualSubscriptionId` flag on the annual-checkout path). MP
+            // propagates the preference metadata to every resulting payment,
+            // so the same key is available on `payment.metadata` in the
+            // webhook payload as in the local checkout record.
+            const callerMetadata = input.metadata && typeof input.metadata === 'object' ? (input.metadata as Record<string, unknown>) : {};
+            const mergedMetadata: Record<string, unknown> = {
+                ...callerMetadata,
+                qzpay_mode: input.mode,
+                qzpay_customer_id: input.customerId ?? null
+            };
+
             // Build body without undefined values
             const body: Parameters<Preference['create']>[0]['body'] = {
                 items,
@@ -164,10 +183,7 @@ export class QZPayMercadoPagoCheckoutAdapter implements QZPayPaymentCheckoutAdap
                     pending: input.successUrl
                 },
                 auto_return: 'approved',
-                metadata: {
-                    qzpay_mode: input.mode,
-                    qzpay_customer_id: input.customerId ?? null
-                }
+                metadata: mergedMetadata
             };
 
             // Add optional notification URL — prefer the orchestrator-derived
