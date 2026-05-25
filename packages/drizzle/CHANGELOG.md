@@ -1,5 +1,12 @@
 # @qazuor/qzpay-drizzle
 
+## 1.9.1
+
+### Patch Changes
+
+- Updated dependencies [400b829]
+  - @qazuor/qzpay-core@1.11.0
+
 ## 1.9.0
 
 ### Minor Changes
