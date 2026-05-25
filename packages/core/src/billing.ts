@@ -1389,11 +1389,69 @@ class QZPayBillingImpl implements QZPayBilling {
                 return wrapWithHelpers(subscription);
             },
             pause: async (id) => {
+                const existing = await storage.subscriptions.findById(id);
+                if (!existing) {
+                    throw new QZPayNotFoundError('Subscription', id);
+                }
+
+                // Propagate to the provider so the preapproval actually stops
+                // charging. Mirrors how create wires the provider, guarded by
+                // the same providerSyncErrorStrategy so a provider hiccup does
+                // not strand the local record.
+                if (paymentAdapter?.subscriptions) {
+                    const providerSubscriptionId = existing.providerSubscriptionIds?.[paymentAdapter.provider];
+                    if (providerSubscriptionId) {
+                        try {
+                            await paymentAdapter.subscriptions.pause(providerSubscriptionId);
+                        } catch (error) {
+                            if (providerSyncErrorStrategy === 'throw') {
+                                throw error;
+                            }
+                            logger.warn(
+                                'Failed to pause provider subscription, updating local record only (providerSyncErrorStrategy=log)',
+                                {
+                                    error: error instanceof Error ? error.message : String(error),
+                                    subscriptionId: id,
+                                    provider: paymentAdapter.provider
+                                }
+                            );
+                        }
+                    }
+                }
+
                 const subscription = await storage.subscriptions.update(id, { status: 'paused' });
                 await emitter.emit('subscription.paused', subscription);
                 return wrapWithHelpers(subscription);
             },
             resume: async (id) => {
+                const existing = await storage.subscriptions.findById(id);
+                if (!existing) {
+                    throw new QZPayNotFoundError('Subscription', id);
+                }
+
+                // Propagate to the provider so billing resumes at MP, not just
+                // locally. Same provider-sync guard as pause/create.
+                if (paymentAdapter?.subscriptions) {
+                    const providerSubscriptionId = existing.providerSubscriptionIds?.[paymentAdapter.provider];
+                    if (providerSubscriptionId) {
+                        try {
+                            await paymentAdapter.subscriptions.resume(providerSubscriptionId);
+                        } catch (error) {
+                            if (providerSyncErrorStrategy === 'throw') {
+                                throw error;
+                            }
+                            logger.warn(
+                                'Failed to resume provider subscription, updating local record only (providerSyncErrorStrategy=log)',
+                                {
+                                    error: error instanceof Error ? error.message : String(error),
+                                    subscriptionId: id,
+                                    provider: paymentAdapter.provider
+                                }
+                            );
+                        }
+                    }
+                }
+
                 const subscription = await storage.subscriptions.update(id, { status: 'active' });
                 await emitter.emit('subscription.resumed', subscription);
                 return wrapWithHelpers(subscription);

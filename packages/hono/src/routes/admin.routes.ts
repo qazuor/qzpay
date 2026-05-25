@@ -88,6 +88,48 @@ export interface QZPayAdminLifecycleHooks {
     }) => Promise<void>;
 
     /**
+     * Fires before a subscription pause is committed in QZPay. Return
+     * `{ ok: false, reason }` to abort with HTTP 422. The host can read
+     * request-specific options (e.g. a `suspendService` flag) from `ctx`,
+     * since pause scope beyond the billing hold is host-defined.
+     */
+    onBeforeSubscriptionPause?: (params: {
+        readonly subscriptionId: string;
+        readonly reason?: string;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<QZPayAdminLifecycleAbortable>;
+
+    /**
+     * Fires after a subscription pause has been committed in QZPay (local +
+     * provider). Hook errors are logged but do not fail the response. The
+     * host implements any service-level side effects here (e.g. hiding the
+     * owner's listings), reading options from `ctx`.
+     */
+    onAfterSubscriptionPause?: (params: {
+        readonly subscription: QZPaySubscription;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+
+    /**
+     * Fires before a subscription resume is committed in QZPay. Return
+     * `{ ok: false, reason }` to abort with HTTP 422.
+     */
+    onBeforeSubscriptionResume?: (params: {
+        readonly subscriptionId: string;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<QZPayAdminLifecycleAbortable>;
+
+    /**
+     * Fires after a subscription resume has been committed in QZPay (local +
+     * provider). Hook errors are logged but do not fail the response. The
+     * host reverses any pause side effects here (e.g. restoring listings).
+     */
+    onAfterSubscriptionResume?: (params: {
+        readonly subscription: QZPaySubscription;
+        readonly ctx: Context<QZPayHonoEnv>;
+    }) => Promise<void>;
+
+    /**
      * Fires after a successful plan-change committed in QZPay.
      */
     onAfterSubscriptionChangePlan?: (params: {
@@ -465,6 +507,85 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
             await safeAfterHook('onAfterSubscriptionCancel', hooks?.onAfterSubscriptionCancel, {
                 subscription,
                 immediate,
+                ctx: c
+            });
+
+            const response: QZPayApiResponse<typeof subscription> = {
+                success: true,
+                data: subscription
+            };
+            return c.json(response);
+        } catch (error) {
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
+        }
+    });
+
+    // Pause subscription (admin only) — honors lifecycle hooks. Pauses the
+    // provider preapproval (stops charging) and flips the local status to
+    // paused. Any service-level scope (e.g. hiding listings) is the host's
+    // responsibility via the onAfterSubscriptionPause hook reading ctx.
+    router.post(`${prefix}/subscriptions/:id/pause`, async (c) => {
+        try {
+            const body = await c.req.json().catch(() => ({}));
+            const reason = typeof body.reason === 'string' ? body.reason : undefined;
+            const subscriptionId = c.req.param('id');
+
+            // BEFORE hook — can abort the pause
+            if (hooks?.onBeforeSubscriptionPause) {
+                const result = await hooks.onBeforeSubscriptionPause({
+                    subscriptionId,
+                    reason,
+                    ctx: c
+                });
+                if (!result.ok) {
+                    return c.json({ success: false, error: { message: result.reason } }, 422);
+                }
+            }
+
+            const subscription = await billing.subscriptions.pause(subscriptionId);
+
+            // AFTER hook — log on failure but never fail the response
+            await safeAfterHook('onAfterSubscriptionPause', hooks?.onAfterSubscriptionPause, {
+                subscription,
+                ctx: c
+            });
+
+            const response: QZPayApiResponse<typeof subscription> = {
+                success: true,
+                data: subscription
+            };
+            return c.json(response);
+        } catch (error) {
+            const [errorResponse, statusCode] = createErrorResponse(error);
+            return c.json(errorResponse, statusCode as ContentfulStatusCode);
+        }
+    });
+
+    // Resume subscription (admin only) — honors lifecycle hooks. Resumes the
+    // provider preapproval (charging restarts) and flips the local status
+    // back to active. The host reverses any pause side effects via the
+    // onAfterSubscriptionResume hook.
+    router.post(`${prefix}/subscriptions/:id/resume`, async (c) => {
+        try {
+            const subscriptionId = c.req.param('id');
+
+            // BEFORE hook — can abort the resume
+            if (hooks?.onBeforeSubscriptionResume) {
+                const result = await hooks.onBeforeSubscriptionResume({
+                    subscriptionId,
+                    ctx: c
+                });
+                if (!result.ok) {
+                    return c.json({ success: false, error: { message: result.reason } }, 422);
+                }
+            }
+
+            const subscription = await billing.subscriptions.resume(subscriptionId);
+
+            // AFTER hook — log on failure but never fail the response
+            await safeAfterHook('onAfterSubscriptionResume', hooks?.onAfterSubscriptionResume, {
+                subscription,
                 ctx: c
             });
 

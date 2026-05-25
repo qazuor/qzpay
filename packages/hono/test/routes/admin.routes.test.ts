@@ -1303,6 +1303,201 @@ describe('Admin Routes', () => {
     });
 
     // -----------------------------------------------------------------
+    // Pause
+    // -----------------------------------------------------------------
+
+    describe('POST /admin/subscriptions/:id/pause (hookable)', () => {
+        it('pauses via billing.subscriptions.pause', async () => {
+            const billing = createMockBilling();
+            billing.subscriptions.pause = vi.fn().mockResolvedValue({ id: 'sub_1', status: 'paused' });
+            const adminRoutes = createAdminRoutes({ billing, authMiddleware: mockAuthMiddleware });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/pause', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ reason: 'seasonal' })
+            });
+
+            expect(res.status).toBe(200);
+            expect(billing.subscriptions.pause).toHaveBeenCalledWith('sub_1');
+        });
+
+        it('invokes onBeforeSubscriptionPause before pausing', async () => {
+            const billing = createMockBilling();
+            billing.subscriptions.pause = vi.fn().mockResolvedValue({ id: 'sub_1', status: 'paused' });
+            const onBefore = vi.fn(async () => ({ ok: true as const }));
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onBeforeSubscriptionPause: onBefore }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/pause', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ reason: 'seasonal' })
+            });
+
+            expect(res.status).toBe(200);
+            expect(onBefore).toHaveBeenCalledWith(expect.objectContaining({ subscriptionId: 'sub_1', reason: 'seasonal' }));
+            expect(billing.subscriptions.pause).toHaveBeenCalled();
+        });
+
+        it('aborts with 422 when onBeforePause returns ok: false', async () => {
+            const billing = createMockBilling();
+            billing.subscriptions.pause = vi.fn();
+            const onBefore = vi.fn(async () => ({
+                ok: false as const,
+                reason: 'subscription not active'
+            }));
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onBeforeSubscriptionPause: onBefore }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/pause', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            expect(res.status).toBe(422);
+            const body = await res.json();
+            expect(body.success).toBe(false);
+            expect(body.error.message).toBe('subscription not active');
+            expect(billing.subscriptions.pause).not.toHaveBeenCalled();
+        });
+
+        it('invokes onAfterSubscriptionPause after a successful pause', async () => {
+            const billing = createMockBilling();
+            billing.subscriptions.pause = vi.fn().mockResolvedValue({ id: 'sub_1', status: 'paused' });
+            const onAfter = vi.fn(async () => undefined);
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onAfterSubscriptionPause: onAfter }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/pause', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            expect(res.status).toBe(200);
+            expect(onAfter).toHaveBeenCalledWith(expect.objectContaining({ subscription: expect.objectContaining({ id: 'sub_1' }) }));
+        });
+
+        it('does not fail the response when onAfterPause throws', async () => {
+            const billing = createMockBilling();
+            billing.subscriptions.pause = vi.fn().mockResolvedValue({ id: 'sub_1', status: 'paused' });
+            const onAfter = vi.fn(async () => {
+                throw new Error('listing hide failed');
+            });
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onAfterSubscriptionPause: onAfter }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+            const res = await app.request('/admin/subscriptions/sub_1/pause', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            expect(res.status).toBe(200);
+            expect(consoleSpy).toHaveBeenCalled();
+            consoleSpy.mockRestore();
+        });
+    });
+
+    // -----------------------------------------------------------------
+    // Resume
+    // -----------------------------------------------------------------
+
+    describe('POST /admin/subscriptions/:id/resume (hookable)', () => {
+        it('resumes via billing.subscriptions.resume', async () => {
+            const billing = createMockBilling();
+            billing.subscriptions.resume = vi.fn().mockResolvedValue({ id: 'sub_1', status: 'active' });
+            const adminRoutes = createAdminRoutes({ billing, authMiddleware: mockAuthMiddleware });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/resume', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            expect(res.status).toBe(200);
+            expect(billing.subscriptions.resume).toHaveBeenCalledWith('sub_1');
+        });
+
+        it('aborts with 422 when onBeforeResume returns ok: false', async () => {
+            const billing = createMockBilling();
+            billing.subscriptions.resume = vi.fn();
+            const onBefore = vi.fn(async () => ({
+                ok: false as const,
+                reason: 'subscription not paused'
+            }));
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onBeforeSubscriptionResume: onBefore }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/resume', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            expect(res.status).toBe(422);
+            const body = await res.json();
+            expect(body.error.message).toBe('subscription not paused');
+            expect(billing.subscriptions.resume).not.toHaveBeenCalled();
+        });
+
+        it('invokes onAfterSubscriptionResume after a successful resume', async () => {
+            const billing = createMockBilling();
+            billing.subscriptions.resume = vi.fn().mockResolvedValue({ id: 'sub_1', status: 'active' });
+            const onAfter = vi.fn(async () => undefined);
+            const adminRoutes = createAdminRoutes({
+                billing,
+                authMiddleware: mockAuthMiddleware,
+                hooks: { onAfterSubscriptionResume: onAfter }
+            });
+            const app = new Hono();
+            app.route('/', adminRoutes);
+
+            const res = await app.request('/admin/subscriptions/sub_1/resume', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            expect(res.status).toBe(200);
+            expect(onAfter).toHaveBeenCalledWith(expect.objectContaining({ subscription: expect.objectContaining({ id: 'sub_1' }) }));
+        });
+    });
+
+    // -----------------------------------------------------------------
     // Extend trial
     // -----------------------------------------------------------------
 
