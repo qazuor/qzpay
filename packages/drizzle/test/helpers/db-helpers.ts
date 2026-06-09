@@ -434,6 +434,7 @@ async function pushSchema(): Promise<void> {
             max_uses INTEGER,
             used_count INTEGER DEFAULT 0,
             max_per_customer INTEGER DEFAULT 1,
+            max_uses_per_user INTEGER NOT NULL DEFAULT 1,
             valid_plans TEXT[],
             new_customers_only BOOLEAN DEFAULT false,
             existing_customers_only BOOLEAN DEFAULT false,
