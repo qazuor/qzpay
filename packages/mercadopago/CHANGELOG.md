@@ -1,5 +1,20 @@
 # @qazuor/qzpay-mercadopago
 
+## 2.2.0
+
+### Minor Changes
+
+- 486099d: cancel() now propagates to the payment provider; MercadoPago adapter pauses the preapproval on cancelAtPeriodEnd (resumable) vs cancels it on immediate cancel.
+
+  Previously `billing.subscriptions.cancel()` only wrote the cancellation to local storage, so a soft-cancel (`cancelAtPeriodEnd: true`) or hard-cancel never stopped MercadoPago from charging. The method now mirrors `pause()` exactly: it resolves the provider subscription ID, calls `paymentAdapter.subscriptions.cancel(id, cancelAtPeriodEnd)`, and honours `providerSyncErrorStrategy` on failure.
+
+  The MercadoPago adapter `cancel()` now branches on `cancelAtPeriodEnd`: `true` issues a `PUT { status: 'paused' }` (preapproval stays alive and is resumable), `false` issues a `PUT { status: 'cancelled' }` (permanent, today's default behaviour). The Stripe adapter already handles `cancelAtPeriodEnd` natively and was not changed.
+
+### Patch Changes
+
+- Updated dependencies [486099d]
+  - @qazuor/qzpay-core@1.12.0
+
 ## 2.1.1
 
 ### Patch Changes
