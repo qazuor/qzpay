@@ -264,7 +264,7 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
     });
 
     describe('cancel', () => {
-        it('cancels a subscription', async () => {
+        it('cancel(id, false) hard-cancels: PUT status cancelled', async () => {
             mockPreApprovalApi.update.mockResolvedValue({});
 
             await adapter.cancel('preapproval_123', false);
@@ -275,14 +275,14 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
             });
         });
 
-        it('cancel at period end uses the same status transition (MP does not distinguish)', async () => {
+        it('cancel(id, true) soft-cancels: PUT status paused (preapproval stays alive, resumable)', async () => {
             mockPreApprovalApi.update.mockResolvedValue({});
 
             await adapter.cancel('preapproval_123', true);
 
             expect(mockPreApprovalApi.update).toHaveBeenCalledWith({
                 id: 'preapproval_123',
-                body: { status: 'cancelled' }
+                body: { status: 'paused' }
             });
         });
     });
