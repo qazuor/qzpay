@@ -1373,6 +1373,35 @@ class QZPayBillingImpl implements QZPayBilling {
                 return wrapWithHelpers(subscription);
             },
             cancel: async (id, options) => {
+                const existing = await storage.subscriptions.findById(id);
+                if (!existing) {
+                    throw new QZPayNotFoundError('Subscription', id);
+                }
+
+                // Propagate to the provider so billing actually stops at MP.
+                // Mirrors pause() exactly: resolve the provider ID, call the
+                // adapter, honour providerSyncErrorStrategy on failure.
+                if (paymentAdapter?.subscriptions) {
+                    const providerSubscriptionId = existing.providerSubscriptionIds?.[paymentAdapter.provider];
+                    if (providerSubscriptionId) {
+                        try {
+                            await paymentAdapter.subscriptions.cancel(providerSubscriptionId, options?.cancelAtPeriodEnd ?? false);
+                        } catch (error) {
+                            if (providerSyncErrorStrategy === 'throw') {
+                                throw error;
+                            }
+                            logger.warn(
+                                'Failed to cancel provider subscription, updating local record only (providerSyncErrorStrategy=log)',
+                                {
+                                    error: error instanceof Error ? error.message : String(error),
+                                    subscriptionId: id,
+                                    provider: paymentAdapter.provider
+                                }
+                            );
+                        }
+                    }
+                }
+
                 const now = new Date();
                 // Build update input for cancellation
                 const updateInput: Parameters<typeof storage.subscriptions.update>[1] = {

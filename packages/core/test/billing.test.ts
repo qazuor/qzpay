@@ -1852,6 +1852,193 @@ describe('billing.subscriptions', () => {
             expect(subscriptionAdapter.pause).toHaveBeenCalled();
             expect(paused.status).toBe('paused');
         });
+
+        it('cancel(false) propagates to the provider adapter and flips status to canceled', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => ({
+                    id: 'preapproval_cancel_1',
+                    status: 'authorized',
+                    currentPeriodStart: new Date(),
+                    currentPeriodEnd: new Date(),
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                    trialStart: null,
+                    trialEnd: null,
+                    metadata: {}
+                })),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+            const created = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                mode: 'paid'
+            });
+
+            const canceled = await billing.subscriptions.cancel(created.id, { cancelAtPeriodEnd: false });
+
+            expect(subscriptionAdapter.cancel).toHaveBeenCalledWith('preapproval_cancel_1', false);
+            expect(canceled.status).toBe('canceled');
+            expect(canceled.canceledAt).toBeDefined();
+        });
+
+        it('cancel({cancelAtPeriodEnd:true}) propagates to provider with true and keeps status active', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => ({
+                    id: 'preapproval_cancel_soft_1',
+                    status: 'authorized',
+                    currentPeriodStart: new Date(),
+                    currentPeriodEnd: new Date(),
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                    trialStart: null,
+                    trialEnd: null,
+                    metadata: {}
+                })),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+            const created = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                mode: 'paid'
+            });
+
+            const canceled = await billing.subscriptions.cancel(created.id, { cancelAtPeriodEnd: true });
+
+            expect(subscriptionAdapter.cancel).toHaveBeenCalledWith('preapproval_cancel_soft_1', true);
+            // Status stays active until the period actually ends
+            expect(canceled.status).toBe('active');
+            expect(canceled.canceledAt).toBeDefined();
+        });
+
+        it('cancel without a provider subscription id skips the adapter (local-only)', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+            // Default (non-paid) create does not wire a provider subscription id.
+            const created = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid'
+            });
+
+            const canceled = await billing.subscriptions.cancel(created.id);
+
+            expect(subscriptionAdapter.cancel).not.toHaveBeenCalled();
+            expect(canceled.status).toBe('canceled');
+        });
+
+        it('cancel keeps the local update when the adapter throws (providerSyncErrorStrategy=log)', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => ({
+                    id: 'preapproval_cancel_err_1',
+                    status: 'authorized',
+                    currentPeriodStart: new Date(),
+                    currentPeriodEnd: new Date(),
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                    trialStart: null,
+                    trialEnd: null,
+                    metadata: {}
+                })),
+                update: vi.fn(),
+                cancel: vi.fn(async () => {
+                    throw new Error('mp unavailable');
+                }),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+            const created = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                mode: 'paid'
+            });
+
+            // Default providerSyncErrorStrategy is 'log': the provider failure is
+            // swallowed and the local record is still flipped to canceled.
+            const canceled = await billing.subscriptions.cancel(created.id);
+
+            expect(subscriptionAdapter.cancel).toHaveBeenCalled();
+            expect(canceled.status).toBe('canceled');
+        });
+
+        it('cancel with providerSyncErrorStrategy=throw rethrows the adapter error', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => ({
+                    id: 'preapproval_cancel_throw_1',
+                    status: 'authorized',
+                    currentPeriodStart: new Date(),
+                    currentPeriodEnd: new Date(),
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                    trialStart: null,
+                    trialEnd: null,
+                    metadata: {}
+                })),
+                update: vi.fn(),
+                cancel: vi.fn(async () => {
+                    throw new Error('mp refused');
+                }),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter),
+                providerSyncErrorStrategy: 'throw'
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+            const created = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                mode: 'paid'
+            });
+
+            await expect(billing.subscriptions.cancel(created.id)).rejects.toThrow('mp refused');
+        });
     });
 
     describe('linkProviderId (SPEC-124)', () => {

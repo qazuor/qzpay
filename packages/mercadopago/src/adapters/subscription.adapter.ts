@@ -119,11 +119,23 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
         });
     }
 
-    async cancel(providerSubscriptionId: string, _cancelAtPeriodEnd: boolean): Promise<void> {
+    /**
+     * Cancel a MercadoPago preapproval.
+     *
+     * Branches on `cancelAtPeriodEnd`:
+     * - `true`  → PUT `{ status: 'paused' }`: stops charging immediately while
+     *             keeping the preapproval alive so it can be reactivated if the
+     *             user changes their mind before the period expires (reversible
+     *             soft-cancel, analogous to Stripe `cancel_at_period_end`).
+     * - `false` → PUT `{ status: 'cancelled' }`: permanently terminates the
+     *             preapproval (irreversible hard-cancel, today's default).
+     */
+    async cancel(providerSubscriptionId: string, cancelAtPeriodEnd: boolean): Promise<void> {
         return wrapAdapterMethod('Cancel subscription', async () => {
+            const status = cancelAtPeriodEnd ? 'paused' : 'cancelled';
             await this.preapprovalApi.update({
                 id: providerSubscriptionId,
-                body: { status: 'cancelled' }
+                body: { status }
             });
         });
     }

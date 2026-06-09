@@ -250,13 +250,16 @@ describe('Stripe Payment Adapter Resilience', () => {
         });
 
         it('should handle mixed success and failure in concurrent requests', async () => {
-            let callCount = 0;
-            mockStripeClient.paymentIntents.create.mockImplementation(async () => {
-                callCount++;
-                if (callCount % 2 === 0) {
-                    throw new StripeAPIError('Temporary error');
+            // Drive success/failure off the `amount` argument so the outcome is
+            // stable regardless of call order or adapter-level retry behaviour.
+            // StripeCardError (statusCode 402) is non-retriable per isRetriableError(),
+            // so retries cannot flip a failing call to a success.
+            mockStripeClient.paymentIntents.create.mockImplementation(async (params: { amount: number }) => {
+                const failingAmounts = new Set([2000, 4000]);
+                if (failingAmounts.has(params.amount)) {
+                    throw new StripeCardError('Card declined for test amount');
                 }
-                return { ...mockPaymentIntent, id: `pi_${callCount}` };
+                return { ...mockPaymentIntent, id: `pi_${params.amount}` };
             });
 
             const results = await Promise.allSettled([
