@@ -67,10 +67,8 @@ describe('useCustomer', () => {
             });
 
             await waitFor(() => {
-                expect(result.current.error).toBeDefined();
+                expect(result.current.error?.message).toBe('Failed to fetch customer');
             });
-
-            expect(result.current.error?.message).toBe('Failed to fetch customer');
         });
     });
 
