@@ -178,9 +178,8 @@ describe('useSubscription', () => {
 
             await waitFor(() => {
                 expect(result.current.error).toBeDefined();
+                expect(result.current.error?.message).toBe('Fetch failed');
             });
-
-            expect(result.current.error?.message).toBe('Fetch failed');
         });
 
         it('should handle create error', async () => {
