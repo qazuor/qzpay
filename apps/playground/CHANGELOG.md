@@ -1,5 +1,12 @@
 # @qazuor/qzpay-playground
 
+## 1.1.17
+
+### Patch Changes
+
+- Updated dependencies [4898109]
+  - @qazuor/qzpay-mercadopago@2.2.1
+
 ## 1.1.16
 
 ### Patch Changes
