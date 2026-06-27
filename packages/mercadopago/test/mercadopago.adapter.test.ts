@@ -41,13 +41,13 @@ describe('QZPayMercadoPagoAdapter', () => {
             expect(adapter.webhooks).toBeInstanceOf(QZPayMercadoPagoWebhookAdapter);
         });
 
-        it('should throw error when access token does not start with APP_USR-', () => {
+        it('should throw error when access token has an unrecognized prefix', () => {
             expect(() => {
                 new QZPayMercadoPagoAdapter({
                     accessToken: 'invalid_token',
                     webhookSecret: 'secret_123'
                 });
-            }).toThrow(/APP_USR-/);
+            }).toThrow(/Invalid MercadoPago access token format/);
         });
 
         it('should accept valid APP_USR- access token', () => {
@@ -59,17 +59,15 @@ describe('QZPayMercadoPagoAdapter', () => {
             expect(adapter.provider).toBe('mercadopago');
         });
 
-        // SPEC-123 A3: current MercadoPago no longer emits the legacy
-        // `TEST-` prefix — both sandbox and production tokens use
-        // `APP_USR-`. The adapter now rejects `TEST-` to surface
-        // mis-configurations early.
-        it('should reject legacy TEST- access token (stale prefix)', () => {
-            expect(() => {
-                new QZPayMercadoPagoAdapter({
-                    accessToken: 'TEST-sandbox-token-123',
-                    webhookSecret: 'secret_123'
-                });
-            }).toThrow(/APP_USR-/);
+        // Some MercadoPago applications issue their Test credentials with a
+        // `TEST-` prefix; the adapter accepts it alongside `APP_USR-`.
+        it('should accept TEST- access token', () => {
+            const adapter = new QZPayMercadoPagoAdapter({
+                accessToken: 'TEST-sandbox-token-123',
+                webhookSecret: 'secret_123'
+            });
+
+            expect(adapter.provider).toBe('mercadopago');
         });
 
         it('should use default timeout when not specified', async () => {

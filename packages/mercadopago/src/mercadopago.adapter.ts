@@ -28,16 +28,14 @@ export class QZPayMercadoPagoAdapter implements QZPayPaymentAdapter {
     private readonly client: MercadoPagoConfig;
 
     constructor(config: QZPayMercadoPagoConfig) {
-        // Validate access token format. Current MercadoPago issues tokens
-        // with the `APP_USR-` prefix for BOTH sandbox and production —
-        // sandbox vs prod is determined by which credentials section the
-        // token was copied from in the MP dashboard, not by the prefix.
-        // The legacy `TEST-` prefix is no longer used by MP and is rejected
-        // here to surface mis-configurations early.
-        if (!config.accessToken.startsWith('APP_USR-')) {
-            throw new Error(
-                "Invalid MercadoPago access token format. Expected token starting with 'APP_USR-' (current MercadoPago format for both sandbox and production)."
-            );
+        // Validate access token format. MercadoPago issues access tokens with
+        // the `APP_USR-` prefix for most applications, while some apps issue
+        // their Test credentials with a `TEST-` prefix. Sandbox vs production
+        // is determined by which credentials section the token was copied from
+        // in the MP dashboard, not by the prefix. Both prefixes are accepted;
+        // any other format is rejected to surface mis-configurations early.
+        if (!config.accessToken.startsWith('APP_USR-') && !config.accessToken.startsWith('TEST-')) {
+            throw new Error("Invalid MercadoPago access token format. Expected token starting with 'APP_USR-' or 'TEST-'.");
         }
 
         // Initialize MercadoPago client
