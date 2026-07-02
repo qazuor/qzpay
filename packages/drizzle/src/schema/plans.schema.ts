@@ -3,7 +3,7 @@
  *
  * Stores subscription plan definitions with features, entitlements, and limits.
  */
-import { boolean, index, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import type { z } from 'zod';
 
@@ -24,6 +24,9 @@ export const billingPlans = pgTable(
         entitlements: text('entitlements').array().notNull().default([]),
         limits: jsonb('limits').notNull().default({}),
         metadata: jsonb('metadata').notNull().default({}),
+        displayName: varchar('display_name', { length: 255 }).notNull(),
+        monthlyPriceArs: integer('monthly_price_ars').notNull(),
+        annualPriceArs: integer('annual_price_ars'),
         livemode: boolean('livemode').notNull().default(true),
         version: uuid('version').notNull().defaultRandom(),
         createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

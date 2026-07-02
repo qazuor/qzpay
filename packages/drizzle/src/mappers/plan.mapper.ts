@@ -31,6 +31,14 @@ export function mapDrizzlePlanToCore(drizzle: QZPayBillingPlan, prices: QZPayBil
  * Map Core create input to Drizzle insert
  */
 export function mapCorePlanCreateToDrizzle(input: QZPayCreatePlanInput & { id: string }, livemode: boolean): QZPayBillingPlanInsert {
+    const metadata = input.metadata ?? {};
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+    const metadataDisplayName = metadata['displayName'];
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+    const metadataMonthlyPriceArs = metadata['monthlyPriceArs'];
+    // biome-ignore lint/complexity/useLiteralKeys: TypeScript requires bracket notation for index signatures
+    const metadataAnnualPriceArs = metadata['annualPriceArs'];
+
     return {
         id: input.id,
         name: input.name,
@@ -39,7 +47,10 @@ export function mapCorePlanCreateToDrizzle(input: QZPayCreatePlanInput & { id: s
         features: input.features ?? [],
         entitlements: input.entitlements ?? [],
         limits: input.limits ?? {},
-        metadata: input.metadata ?? {},
+        metadata,
+        displayName: typeof metadataDisplayName === 'string' ? metadataDisplayName : input.name,
+        monthlyPriceArs: typeof metadataMonthlyPriceArs === 'number' ? metadataMonthlyPriceArs : 0,
+        annualPriceArs: typeof metadataAnnualPriceArs === 'number' ? metadataAnnualPriceArs : null,
         livemode
     };
 }

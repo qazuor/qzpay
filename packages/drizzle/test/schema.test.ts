@@ -81,6 +81,18 @@ describe('Schema Definitions', () => {
             expect(columns).toContain('livemode');
         });
 
+        it('should have typed plan-attribute columns (displayName, monthlyPriceArs, annualPriceArs)', () => {
+            expect(billingPlans).toBeDefined();
+            const columns = Object.keys(billingPlans);
+            expect(columns).toContain('displayName');
+            expect(columns).toContain('monthlyPriceArs');
+            expect(columns).toContain('annualPriceArs');
+
+            expect(billingPlans.displayName.notNull).toBe(true);
+            expect(billingPlans.monthlyPriceArs.notNull).toBe(true);
+            expect(billingPlans.annualPriceArs.notNull).toBe(false);
+        });
+
         it('should have billingPrices table with correct columns', () => {
             expect(billingPrices).toBeDefined();
             const columns = Object.keys(billingPrices);
