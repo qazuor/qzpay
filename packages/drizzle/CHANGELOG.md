@@ -1,5 +1,11 @@
 # @qazuor/qzpay-drizzle
 
+## 1.10.0
+
+### Minor Changes
+
+- Add typed `displayName`, `monthlyPriceArs`, and `annualPriceArs` columns to the `billingPlans` schema, promoting them from `metadata` jsonb keys to top-level typed columns. Includes migration `0003_add_plan_typed_attribute_columns.sql` (additive, existing rows get placeholder defaults). `mapCorePlanCreateToDrizzle` now derives these fields from `input.metadata` when present, falling back to `input.name` / `0` / `null`.
+
 ## 1.9.2
 
 ### Patch Changes
