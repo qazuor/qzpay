@@ -32,11 +32,43 @@ export const billingPromoCodes = pgTable(
         combinable: boolean('combinable').default(false),
         active: boolean('active').default(true),
         livemode: boolean('livemode').notNull().default(true),
+        /**
+         * Discriminator for the promo code's effect kind: 'discount' |
+         * 'trial_extension' | 'comp' (permanently complimentary, no
+         * discount value at all). NOTE: this is deliberately separate
+         * from the existing `type` column (QZPayDiscountType —
+         * percentage/fixed_amount/free_trial), which predates this field
+         * and is left untouched pending a broader reconciliation of the
+         * two (tracked as a follow-up — they currently overlap for the
+         * discount/free_trial cases). Defaults to 'discount' so existing
+         * rows keep their current one-shot discount behavior.
+         */
+        effectKind: varchar('effect_kind', { length: 30 }).notNull().default('discount'),
+        /**
+         * Discount sub-type for 'discount' effects: 'percentage' |
+         * 'fixed'. Null for non-discount effect kinds. The existing
+         * `value` column carries the discount amount; this discriminates
+         * how to interpret it.
+         */
+        valueKind: varchar('value_kind', { length: 20 }),
+        /**
+         * Number of billing cycles a 'discount' effect applies for.
+         * Null = forever (re-applies on every renewal indefinitely);
+         * positive integer = applies only for the first N paid cycles.
+         * Null for non-discount effect kinds.
+         */
+        durationCycles: integer('duration_cycles'),
+        /**
+         * Number of extra trial days granted by a 'trial_extension'
+         * effect. Null for 'discount' and 'comp' effect kinds.
+         */
+        extraDays: integer('extra_days'),
         createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
     },
     (table) => ({
         codeIdx: index('idx_promo_codes_code').on(table.code),
-        activeIdx: index('idx_promo_codes_active').on(table.active)
+        activeIdx: index('idx_promo_codes_active').on(table.active),
+        effectKindIdx: index('idx_promo_codes_effect_kind').on(table.effectKind)
     })
 );
 

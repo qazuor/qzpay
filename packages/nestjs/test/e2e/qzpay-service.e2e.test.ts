@@ -588,6 +588,7 @@ async function pushSchema(rawSql: ReturnType<typeof postgres>): Promise<void> {
             display_name VARCHAR(255) NOT NULL DEFAULT '',
             monthly_price_ars INTEGER NOT NULL DEFAULT 0,
             annual_price_ars INTEGER,
+            product_domain VARCHAR(32) NOT NULL DEFAULT 'accommodation',
             livemode BOOLEAN NOT NULL DEFAULT true,
             version UUID NOT NULL DEFAULT gen_random_uuid(),
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -642,6 +643,8 @@ async function pushSchema(rawSql: ReturnType<typeof postgres>): Promise<void> {
             next_retry_at TIMESTAMPTZ,
             stripe_subscription_id VARCHAR(255),
             mp_subscription_id VARCHAR(255),
+            product_domain VARCHAR(32) NOT NULL DEFAULT 'accommodation',
+            promo_effect_remaining_cycles INTEGER,
             livemode BOOLEAN NOT NULL DEFAULT true,
             metadata JSONB DEFAULT '{}',
             version UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -836,6 +839,10 @@ async function pushSchema(rawSql: ReturnType<typeof postgres>): Promise<void> {
             combinable BOOLEAN DEFAULT false,
             active BOOLEAN DEFAULT true,
             livemode BOOLEAN NOT NULL DEFAULT true,
+            effect_kind VARCHAR(30) NOT NULL DEFAULT 'discount',
+            value_kind VARCHAR(20),
+            duration_cycles INTEGER,
+            extra_days INTEGER,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     `;

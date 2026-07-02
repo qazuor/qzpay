@@ -27,6 +27,15 @@ export const billingPlans = pgTable(
         displayName: varchar('display_name', { length: 255 }).notNull(),
         monthlyPriceArs: integer('monthly_price_ars').notNull(),
         annualPriceArs: integer('annual_price_ars'),
+        /**
+         * Free-form discriminator for the product/business line this plan
+         * belongs to (see `billingSubscriptions.productDomain` for the
+         * matching field on subscriptions). QZPay has no opinion on the
+         * value set; the consuming application defines and interprets its
+         * own domain values, e.g. to exclude plans in one domain from a
+         * public listing scoped to another.
+         */
+        productDomain: varchar('product_domain', { length: 32 }).notNull().default('accommodation'),
         livemode: boolean('livemode').notNull().default(true),
         version: uuid('version').notNull().defaultRandom(),
         createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -35,7 +44,8 @@ export const billingPlans = pgTable(
     },
     (table) => ({
         activeIdx: index('idx_plans_active').on(table.active),
-        livemodeIdx: index('idx_plans_livemode').on(table.livemode)
+        livemodeIdx: index('idx_plans_livemode').on(table.livemode),
+        productDomainIdx: index('idx_plans_product_domain').on(table.productDomain)
     })
 );
 
