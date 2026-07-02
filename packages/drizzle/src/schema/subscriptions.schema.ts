@@ -45,6 +45,18 @@ export const billingSubscriptions = pgTable(
         stripeSubscriptionId: varchar('stripe_subscription_id', { length: 255 }),
         mpSubscriptionId: varchar('mp_subscription_id', { length: 255 }),
         /**
+         * Free-form discriminator for the product/business line this
+         * subscription belongs to (e.g. a consuming app with multiple
+         * distinct offerings — accommodation vs. commerce vs. partner
+         * tiers). QZPay itself has no opinion on the value set; the
+         * consuming application defines and interprets its own domain
+         * values. Default 'accommodation' matches the first adopter's
+         * (Hospeda) primary product line — consumers that don't need
+         * multi-domain scoping can ignore it and always get the same
+         * value back.
+         */
+        productDomain: varchar('product_domain', { length: 32 }).notNull().default('accommodation'),
+        /**
          * Plan change scheduled to apply at a future point in time
          * (typically `current_period_end`). Stored as JSONB so the
          * shape can evolve without a migration; conforms to
@@ -53,6 +65,15 @@ export const billingSubscriptions = pgTable(
          * owns the lifecycle — qzpay-drizzle provides storage only.
          */
         scheduledPlanChange: jsonb('scheduled_plan_change'),
+        /**
+         * Countdown of remaining billing cycles for a multi-cycle promo
+         * effect (see `billingPromoCodes.durationCycles`). Null when no
+         * limited-duration effect is active (either no effect, an
+         * effect that applies forever, or a non-discount effect kind).
+         * Decremented by the consuming application's renewal logic
+         * after each confirmed charge; QZPay provides storage only.
+         */
+        promoEffectRemainingCycles: integer('promo_effect_remaining_cycles'),
         livemode: boolean('livemode').notNull().default(true),
         metadata: jsonb('metadata').default({}),
         version: uuid('version').notNull().defaultRandom(),
@@ -68,6 +89,7 @@ export const billingSubscriptions = pgTable(
         stripeIdIdx: index('idx_subscriptions_stripe_id').on(table.stripeSubscriptionId),
         mpIdIdx: index('idx_subscriptions_mp_id').on(table.mpSubscriptionId),
         renewalIdx: index('idx_subscriptions_renewal').on(table.currentPeriodEnd),
+        productDomainIdx: index('idx_subscriptions_product_domain').on(table.productDomain),
 
         // Lifecycle optimization indexes
         // Supports findNeedingRenewal() query

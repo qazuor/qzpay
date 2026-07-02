@@ -29,6 +29,13 @@
       "when": 1737000000002,
       "tag": "0003_add_plan_typed_attribute_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1737000000003,
+      "tag": "0004_add_billing_generic_extension_columns",
+      "breakpoints": true
     }
   ]
 }

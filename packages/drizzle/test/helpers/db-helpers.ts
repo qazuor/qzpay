@@ -88,6 +88,7 @@ async function pushSchema(): Promise<void> {
             display_name VARCHAR(255) NOT NULL DEFAULT '',
             monthly_price_ars INTEGER NOT NULL DEFAULT 0,
             annual_price_ars INTEGER,
+            product_domain VARCHAR(32) NOT NULL DEFAULT 'accommodation',
             livemode BOOLEAN NOT NULL DEFAULT true,
             version UUID NOT NULL DEFAULT gen_random_uuid(),
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -168,7 +169,9 @@ async function pushSchema(): Promise<void> {
             next_retry_at TIMESTAMPTZ,
             stripe_subscription_id VARCHAR(255),
             mp_subscription_id VARCHAR(255),
+            product_domain VARCHAR(32) NOT NULL DEFAULT 'accommodation',
             scheduled_plan_change JSONB,
+            promo_effect_remaining_cycles INTEGER,
             livemode BOOLEAN NOT NULL DEFAULT true,
             metadata JSONB DEFAULT '{}',
             version UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -446,6 +449,10 @@ async function pushSchema(): Promise<void> {
             combinable BOOLEAN DEFAULT false,
             active BOOLEAN DEFAULT true,
             livemode BOOLEAN NOT NULL DEFAULT true,
+            effect_kind VARCHAR(30) NOT NULL DEFAULT 'discount',
+            value_kind VARCHAR(20),
+            duration_cycles INTEGER,
+            extra_days INTEGER,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     `;
@@ -583,11 +590,13 @@ async function pushSchema(): Promise<void> {
     await rawSql`CREATE INDEX IF NOT EXISTS idx_customers_mp_id ON billing_customers(mp_customer_id)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_plans_active ON billing_plans(active)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_plans_livemode ON billing_plans(livemode)`;
+    await rawSql`CREATE INDEX IF NOT EXISTS idx_plans_product_domain ON billing_plans(product_domain)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_prices_plan_id ON billing_prices(plan_id)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_addons_active ON billing_addons(active)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_addons_livemode ON billing_addons(livemode)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_addons_billing_interval ON billing_addons(billing_interval)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_subscriptions_customer_id ON billing_subscriptions(customer_id)`;
+    await rawSql`CREATE INDEX IF NOT EXISTS idx_subscriptions_product_domain ON billing_subscriptions(product_domain)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_subscription_addons_subscription ON billing_subscription_addons(subscription_id)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_subscription_addons_addon ON billing_subscription_addons(addon_id)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_subscription_addons_status ON billing_subscription_addons(status)`;
@@ -597,6 +606,7 @@ async function pushSchema(): Promise<void> {
     await rawSql`CREATE INDEX IF NOT EXISTS idx_invoices_number ON billing_invoices(number)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_payment_methods_customer_id ON billing_payment_methods(customer_id)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_promo_codes_code ON billing_promo_codes(code)`;
+    await rawSql`CREATE INDEX IF NOT EXISTS idx_promo_codes_effect_kind ON billing_promo_codes(effect_kind)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_vendors_external_id ON billing_vendors(external_id)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_usage_records_subscription_id ON billing_usage_records(subscription_id)`;
     await rawSql`CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON billing_audit_logs(entity_type, entity_id)`;
