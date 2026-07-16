@@ -8,11 +8,21 @@ import type {
  * MercadoPago Subscription Adapter
  * Uses the Preapproval API for recurring (subscription) charges.
  *
- * Each `create()` invocation creates an "ad-hoc" preapproval (no
- * preapproval_plan_id): MP saves the user's card on the hosted page, then
- * charges them automatically per the cadence we set inline. This is the
- * pattern recommended for SaaS subscriptions where the amount and cadence
- * can vary per customer (promo extensions, plan changes, etc.).
+ * `create()` supports two flows, selected by whether the orchestrator resolved
+ * a `providerPriceId` (an MP `preapproval_plan` id):
+ *
+ * 1. **Plan-based (preferred).** When `providerPriceId` is present the body
+ *    carries `preapproval_plan_id` and NO inline `auto_recurring` — amount,
+ *    cadence and `free_trial` are inherited from the plan. MP's hosted checkout
+ *    can only authorize a card-first trial through this flow; a direct
+ *    preapproval that carries an inline `free_trial` fails card authorization
+ *    (HOS-191).
+ * 2. **Ad-hoc fallback.** With no plan id, it builds a direct preapproval with
+ *    inline `auto_recurring` (the legacy path, kept for non-plan providers and
+ *    for callers that intentionally opt out of plans).
+ *
+ * In both flows the preapproval is "pending" until the user authorizes on
+ * `initPoint`; the caller persists `id` (as `mp_subscription_id`) and redirects.
  */
 import { type MercadoPagoConfig, PreApproval } from 'mercadopago';
 import { MERCADOPAGO_SUBSCRIPTION_STATUS, fromMercadoPagoInterval } from '../types.js';
@@ -35,7 +45,13 @@ type PreApprovalCreateBody = {
     notification_url?: string;
     status?: string;
     card_token_id?: string;
-    auto_recurring: {
+    /**
+     * When set, subscribes to an existing MP `preapproval_plan`; `auto_recurring`
+     * is then omitted and its values (amount, cadence, `free_trial`) are inherited
+     * from the plan. Mutually exclusive with an inline `auto_recurring`.
+     */
+    preapproval_plan_id?: string;
+    auto_recurring?: {
         frequency: number;
         frequency_type: 'days' | 'months';
         transaction_amount: number;
@@ -171,30 +187,13 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
      */
     private buildCreateBody(providerInput: QZPayProviderCreateSubscriptionInput): PreApprovalCreateBody {
         const payerEmail = sanitizeEmail(providerInput.customer.email);
-        const payerFirstName = this.resolveFirstName(providerInput);
-        const payerLastName = providerInput.customer.lastName?.trim() || DEFAULT_LAST_NAME;
         const billingInterval = providerInput.input.billingInterval ?? 'monthly';
         const reason = `${providerInput.plan.name} - ${billingInterval === 'annual' ? 'Anual' : 'Mensual'}`;
-        const { intervalFrequency, intervalType } = this.toMercadoPagoInterval(providerInput.price);
-        const freeTrial = this.buildFreeTrial(providerInput.input.freeTrialDays);
 
         const body: PreApprovalCreateBody = {
             payer_email: payerEmail,
-            payer: { email: payerEmail, first_name: payerFirstName, last_name: payerLastName },
             external_reference: providerInput.externalReference,
-            reason,
-            auto_recurring: {
-                frequency: intervalFrequency,
-                frequency_type: intervalType,
-                // MercadoPago expects decimal currency units (e.g. 100.00 ARS),
-                // not the smallest currency unit. Internally qzpay carries
-                // `unitAmount` in cents (per `price.types.ts:27` and the
-                // sibling adapters at `payment.adapter.ts:76` and
-                // `price.adapter.ts:24`); divide by 100 to convert.
-                transaction_amount: providerInput.price.amount / 100,
-                currency_id: providerInput.price.currency,
-                ...(freeTrial !== undefined ? { free_trial: freeTrial } : {})
-            }
+            reason
         };
 
         if (providerInput.backUrl !== undefined) {
@@ -204,6 +203,38 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
         if (providerInput.notificationUrl !== undefined) {
             body.notification_url = providerInput.notificationUrl;
         }
+
+        // Plan-based flow (preferred): reference the MP preapproval_plan and let
+        // amount, cadence and free_trial be inherited from it. Omitting
+        // `auto_recurring` is required — sending both is rejected by MP, and the
+        // plan-based flow is the only one that authorizes a card-first trial
+        // (HOS-191). MP returns an `init_point` for the redirect authorization.
+        const planId = providerInput.providerPriceId?.trim();
+        if (planId) {
+            body.preapproval_plan_id = planId;
+            return body;
+        }
+
+        // Ad-hoc fallback: no plan id resolved → build a direct preapproval with
+        // inline auto_recurring (legacy path).
+        const payerFirstName = this.resolveFirstName(providerInput);
+        const payerLastName = providerInput.customer.lastName?.trim() || DEFAULT_LAST_NAME;
+        const { intervalFrequency, intervalType } = this.toMercadoPagoInterval(providerInput.price);
+        const freeTrial = this.buildFreeTrial(providerInput.input.freeTrialDays);
+
+        body.payer = { email: payerEmail, first_name: payerFirstName, last_name: payerLastName };
+        body.auto_recurring = {
+            frequency: intervalFrequency,
+            frequency_type: intervalType,
+            // MercadoPago expects decimal currency units (e.g. 100.00 ARS),
+            // not the smallest currency unit. Internally qzpay carries
+            // `unitAmount` in cents (per `price.types.ts:27` and the
+            // sibling adapters at `payment.adapter.ts:76` and
+            // `price.adapter.ts:24`); divide by 100 to convert.
+            transaction_amount: providerInput.price.amount / 100,
+            currency_id: providerInput.price.currency,
+            ...(freeTrial !== undefined ? { free_trial: freeTrial } : {})
+        };
 
         return body;
     }

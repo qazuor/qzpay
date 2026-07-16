@@ -21,7 +21,10 @@ vi.mock('mercadopago', () => ({
 function buildCreateInput(overrides: Partial<QZPayProviderCreateSubscriptionInput> = {}): QZPayProviderCreateSubscriptionInput {
     return {
         providerCustomerId: 'cus_mp_123',
-        providerPriceId: 'price_mp_123',
+        // Default exercises the ad-hoc FALLBACK flow (inline auto_recurring). The
+        // plan-based flow (preapproval_plan_id) is covered by its own describe
+        // block below, which sets `providerPriceId` explicitly.
+        providerPriceId: undefined,
         input: { customerId: 'cus_local_1', planId: 'plan_local_1' },
         customer: { email: 'test@example.com', firstName: 'Ada', lastName: 'Lovelace' },
         // `price.amount` is in **cents** (smallest currency unit) — see
@@ -212,6 +215,66 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
             const result = await adapter.create(buildCreateInput());
 
             expect(result.status).toBe('active');
+        });
+    });
+
+    describe('create (plan-based, preapproval_plan_id)', () => {
+        it('sends preapproval_plan_id and omits auto_recurring/payer when providerPriceId is set', async () => {
+            mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval({ id: 'preapproval_plan_new' }));
+
+            const result = await adapter.create(buildCreateInput({ providerPriceId: 'plan_mp_abc' }));
+
+            expect(result.id).toBe('preapproval_plan_new');
+            const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+            // Plan-based body: amount, cadence and free_trial are inherited from
+            // the plan, so we send neither auto_recurring nor the nested payer.
+            expect(body).toEqual({
+                payer_email: 'test@example.com',
+                external_reference: 'sub_local_uuid_1',
+                reason: 'Pro Plan - Mensual',
+                back_url: 'https://app.example.com/billing/return',
+                notification_url: 'https://app.example.com/webhooks/mp',
+                preapproval_plan_id: 'plan_mp_abc'
+            });
+            expect(body?.auto_recurring).toBeUndefined();
+            expect(body?.payer).toBeUndefined();
+        });
+
+        it('ignores inline freeTrialDays in the plan-based flow (trial lives in the plan)', async () => {
+            mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+
+            await adapter.create(
+                buildCreateInput({
+                    providerPriceId: 'plan_mp_abc',
+                    input: { customerId: 'c', planId: 'p', freeTrialDays: 14 }
+                })
+            );
+
+            const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+            expect(body?.auto_recurring).toBeUndefined();
+            expect(body?.preapproval_plan_id).toBe('plan_mp_abc');
+        });
+
+        it('treats a blank/whitespace providerPriceId as absent → falls back to inline auto_recurring', async () => {
+            mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+
+            await adapter.create(buildCreateInput({ providerPriceId: '   ' }));
+
+            const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+            expect(body?.preapproval_plan_id).toBeUndefined();
+            expect(body?.auto_recurring).toBeDefined();
+        });
+
+        it('forwards init_point from the plan-based subscription', async () => {
+            mockPreApprovalApi.create.mockResolvedValue(
+                createMockMPPreapproval({
+                    init_point: 'https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_id=xyz'
+                })
+            );
+
+            const result = await adapter.create(buildCreateInput({ providerPriceId: 'plan_mp_abc' }));
+
+            expect(result.initPoint).toBe('https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_id=xyz');
         });
     });
 
