@@ -40,6 +40,8 @@ describe('QZPayMercadoPagoPriceAdapter', () => {
             );
 
             expect(result).toBe('plan_new123');
+            // No billing_day: the plan bills on the subscription's rolling
+            // anniversary (start/trial-end date), not a fixed calendar day.
             expect(mockPlanApi.create).toHaveBeenCalledWith({
                 body: {
                     reason: 'Premium Plan',
@@ -47,11 +49,19 @@ describe('QZPayMercadoPagoPriceAdapter', () => {
                         frequency: 1,
                         frequency_type: 'months',
                         transaction_amount: 29.99, // Converted from cents
-                        currency_id: 'USD',
-                        billing_day: 1
+                        currency_id: 'USD'
                     }
                 }
             });
+        });
+
+        it('should not set billing_day (rolling anniversary billing)', async () => {
+            mockPlanApi.create.mockResolvedValue(createMockMPPreapprovalPlan({ id: 'plan_nobd' }));
+
+            await adapter.create({ unitAmount: 1500, currency: 'ARS', billingInterval: 'month' }, 'No Billing Day Plan');
+
+            const body = mockPlanApi.create.mock.calls[0]?.[0]?.body;
+            expect(body.auto_recurring).not.toHaveProperty('billing_day');
         });
 
         it('should create a yearly price', async () => {
