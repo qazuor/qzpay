@@ -18,12 +18,18 @@ export class QZPayMercadoPagoPriceAdapter implements QZPayPaymentPriceAdapter {
         return wrapAdapterMethod('Create price', async () => {
             const { frequency, frequencyType } = toMercadoPagoInterval(input.billingInterval, input.intervalCount ?? 1);
 
+            // No `billing_day` is set: without it, MercadoPago anchors the charge
+            // cycle to the subscription's own start date (the trial end when a
+            // free_trial is present), billing on that rolling monthly anniversary
+            // for the full amount. Setting `billing_day` instead forces a fixed
+            // calendar day and prorates the first period — undesirable as a default.
+            // (A future caller-configurable billing day would add an optional field
+            // here rather than reintroducing a hardcode.)
             const autoRecurring: Parameters<PreApprovalPlan['create']>[0]['body']['auto_recurring'] = {
                 frequency,
                 frequency_type: frequencyType,
                 transaction_amount: input.unitAmount / 100, // Convert cents to decimal
-                currency_id: input.currency.toUpperCase(),
-                billing_day: 1 // Bill on first day of period
+                currency_id: input.currency.toUpperCase()
             };
 
             // Add free trial only if specified

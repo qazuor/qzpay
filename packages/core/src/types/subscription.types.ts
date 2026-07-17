@@ -149,6 +149,25 @@ export interface QZPayCreateSubscriptionInput {
      */
     freeTrialDays?: number;
     /**
+     * Explicit provider-side price/plan identifier to subscribe against,
+     * overriding the value otherwise resolved from the selected price's
+     * `providerPriceIds[provider]` map.
+     *
+     * This exists because provider plan selection can depend on runtime,
+     * per-customer state that a static price row cannot encode. The
+     * motivating case (MercadoPago `preapproval_plan`): a single commercial
+     * plan+interval needs TWO provider plan variants — one carrying a
+     * `free_trial` (for trial-eligible customers) and one without (for
+     * customers who already used their lifetime trial). Trial-eligibility is
+     * per-customer, so the caller resolves the correct variant at checkout
+     * and passes its id here; the price row cannot hold both.
+     *
+     * When present, it takes precedence over
+     * `price.providerPriceIds?.[provider]`. When omitted, resolution falls
+     * back to the price map exactly as before (backwards compatible).
+     */
+    providerPriceId?: string;
+    /**
      * Provider-side identifiers to persist alongside the new local
      * subscription. Keys are provider names (`'mercadopago'`, `'stripe'`,
      * etc.), values are the provider's subscription ID. Usually undefined

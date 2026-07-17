@@ -76,6 +76,16 @@ export interface QZPayCreateSubscriptionServiceInput {
     notificationUrl?: string;
     /** SPEC-124: extra free-trial days applied at the provider level (e.g. MP `auto_recurring.free_trial`). */
     freeTrialDays?: number;
+    /**
+     * Explicit provider-side price/plan identifier, overriding the value
+     * resolved from the selected price's `providerPriceIds[provider]` map.
+     * Set when provider plan selection depends on per-customer runtime state a
+     * static price row cannot encode — e.g. an MP `preapproval_plan` trial vs
+     * no-trial variant chosen by trial-eligibility at checkout. Omit to fall
+     * back to the price map (backwards compatible). See
+     * {@link QZPayCreateSubscriptionInput.providerPriceId}.
+     */
+    providerPriceId?: string;
 }
 
 export interface QZPayUpdateSubscriptionServiceInput {
@@ -1292,7 +1302,13 @@ class QZPayBillingImpl implements QZPayBilling {
                     const providerCustomerId = customer.providerCustomerIds?.[paymentAdapter.provider];
 
                     const [firstName, ...rest] = (customer.name ?? '').trim().split(/\s+/);
-                    const providerPriceId = price.providerPriceIds?.[paymentAdapter.provider];
+                    // An explicit `input.providerPriceId` wins over the price row's
+                    // static `providerPriceIds` map: provider plan selection can
+                    // depend on per-customer runtime state the price cannot encode
+                    // (e.g. MP `preapproval_plan` trial vs no-trial variant, chosen
+                    // by trial-eligibility at checkout). Falls back to the price map
+                    // when the caller passes nothing — backwards compatible.
+                    const providerPriceId = input.providerPriceId ?? price.providerPriceIds?.[paymentAdapter.provider];
                     const providerInput: QZPayProviderCreateSubscriptionInput = {
                         ...(providerCustomerId ? { providerCustomerId } : {}),
                         input,
