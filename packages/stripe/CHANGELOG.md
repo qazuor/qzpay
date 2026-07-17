@@ -1,5 +1,12 @@
 # @qazuor/qzpay-stripe
 
+## 1.2.13
+
+### Patch Changes
+
+- Updated dependencies [f239212]
+  - @qazuor/qzpay-core@1.13.0
+
 ## 1.2.12
 
 ### Patch Changes
