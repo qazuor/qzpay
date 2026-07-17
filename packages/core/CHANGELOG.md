@@ -1,5 +1,11 @@
 # @qazuor/qzpay-core
 
+## 1.13.0
+
+### Minor Changes
+
+- f239212: Add an optional `providerPriceId` to `QZPayCreateSubscriptionInput`. When present it overrides the value otherwise resolved from the selected price's `providerPriceIds[provider]` map, letting callers choose a provider plan by per-customer runtime state a static price row cannot encode (e.g. MercadoPago `preapproval_plan` trial vs no-trial variant, picked by trial-eligibility at checkout). Omitting it falls back to the price map exactly as before — additive and backwards compatible.
+
 ## 1.12.0
 
 ### Minor Changes
