@@ -1320,6 +1320,48 @@ describe('billing.subscriptions', () => {
             expect(result.providerSandboxInitPoint).toBe('https://sandbox.mp.example.com/preapproval?id=abc');
         });
 
+        it('explicit input.providerPriceId overrides the price row providerPriceIds map', async () => {
+            const storage = createMockStorage();
+            const subscriptionAdapter: MockSubscriptionAdapter = {
+                create: vi.fn(async () => ({
+                    id: 'preapproval_mp_new',
+                    status: 'pending',
+                    currentPeriodStart: new Date(),
+                    currentPeriodEnd: new Date(),
+                    cancelAtPeriodEnd: false,
+                    canceledAt: null,
+                    trialStart: null,
+                    trialEnd: null,
+                    metadata: {},
+                    initPoint: 'https://mp.example.com/preapproval?id=abc',
+                    sandboxInitPoint: 'https://sandbox.mp.example.com/preapproval?id=abc'
+                })),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume: vi.fn(),
+                retrieve: vi.fn()
+            };
+            const billing = createQZPayBilling({
+                storage,
+                plans: [proPlanWithPrice],
+                paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+            });
+            const customer = await seedCustomerWithProviderId(storage);
+
+            await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                mode: 'paid',
+                // The runtime-resolved variant (e.g. MP no-trial preapproval_plan)
+                // must win over the price row's static 'mp_price_xyz'.
+                providerPriceId: 'mp_plan_notrial_explicit'
+            });
+
+            const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+            expect(adapterCall.providerPriceId).toBe('mp_plan_notrial_explicit');
+        });
+
         it('strategy=throw: rolls back the local subscription when adapter throws', async () => {
             const storage = createMockStorage();
             const subscriptionAdapter: MockSubscriptionAdapter = {
