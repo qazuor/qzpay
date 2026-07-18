@@ -6,20 +6,7 @@ import type { QZPayCreatePriceInput, QZPayPaymentPriceAdapter, QZPayProviderPric
 import { type MercadoPagoConfig, PreApprovalPlan } from 'mercadopago';
 import { fromMercadoPagoInterval, toMercadoPagoInterval } from '../types.js';
 import { wrapAdapterMethod } from '../utils/error-mapper.js';
-
-/**
- * Whether `value` is a well-formed absolute `http:`/`https:` URL. Used to validate
- * a `preapproval_plan` `back_url` before handing it to MercadoPago.
- */
-function isAbsoluteHttpUrl(value: string): boolean {
-    let parsed: URL;
-    try {
-        parsed = new URL(value);
-    } catch {
-        return false;
-    }
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-}
+import { isAbsoluteHttpUrl } from '../utils/url.utils.js';
 
 export class QZPayMercadoPagoPriceAdapter implements QZPayPaymentPriceAdapter {
     private readonly planApi: PreApprovalPlan;

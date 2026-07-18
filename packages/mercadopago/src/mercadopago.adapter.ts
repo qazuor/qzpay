@@ -14,6 +14,7 @@ import {
     QZPayMercadoPagoWebhookAdapter
 } from './adapters/index.js';
 import type { QZPayMercadoPagoConfig } from './types.js';
+import { isAbsoluteHttpUrl } from './utils/url.utils.js';
 
 export class QZPayMercadoPagoAdapter implements QZPayPaymentAdapter {
     readonly provider = 'mercadopago' as const;
@@ -36,6 +37,15 @@ export class QZPayMercadoPagoAdapter implements QZPayPaymentAdapter {
         // any other format is rejected to surface mis-configurations early.
         if (!config.accessToken.startsWith('APP_USR-') && !config.accessToken.startsWith('TEST-')) {
             throw new Error("Invalid MercadoPago access token format. Expected token starting with 'APP_USR-' or 'TEST-'.");
+        }
+
+        // Validate the optional preapproval_plan back_url eagerly (like the access
+        // token) so a malformed value fails at construction/boot rather than only
+        // when the first plan is provisioned in production.
+        if (config.defaultPlanBackUrl !== undefined && !isAbsoluteHttpUrl(config.defaultPlanBackUrl)) {
+            throw new Error(
+                `Invalid MercadoPago defaultPlanBackUrl: must be an absolute http(s) URL. Received: "${config.defaultPlanBackUrl}".`
+            );
         }
 
         // Initialize MercadoPago client
