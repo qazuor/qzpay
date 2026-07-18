@@ -33,7 +33,10 @@ describeWithMP('MercadoPago Sandbox Integration Tests', () => {
         adapter = createQZPayMercadoPagoAdapter({
             accessToken: MERCADOPAGO_ACCESS_TOKEN ?? '',
             webhookSecret: MERCADOPAGO_WEBHOOK_SECRET,
-            timeout: 10000 // Longer timeout for sandbox
+            timeout: 10000, // Longer timeout for sandbox
+            // MercadoPago rejects a preapproval_plan creation without a back_url;
+            // supply a default so the Price/Plan sandbox cases can provision plans.
+            defaultPlanBackUrl: 'https://example.test/checkout/return'
         });
     });
 

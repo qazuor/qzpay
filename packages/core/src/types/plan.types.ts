@@ -59,6 +59,20 @@ export interface QZPayCreatePriceInput {
     intervalCount?: number;
     trialDays?: number;
     metadata?: QZPayMetadata;
+    /**
+     * Absolute `http(s)` URL the provider redirects the payer back to after the
+     * plan-authorization flow.
+     *
+     * Provider-specific: MercadoPago **requires** a `back_url` when creating a
+     * `preapproval_plan` (`POST /preapproval_plan`) and rejects the request with
+     * "Back url is required" when it is absent. The MercadoPago adapter reads this
+     * field first, falling back to the adapter-level `defaultPlanBackUrl` config;
+     * if neither resolves to a valid absolute URL it throws early instead of
+     * surfacing MercadoPago's opaque 400. Providers that do not need a redirect
+     * URL for price creation (e.g. Stripe) ignore it, which is why the field is
+     * optional on this cross-provider input.
+     */
+    backUrl?: string;
 }
 
 export interface QZPayProduct {

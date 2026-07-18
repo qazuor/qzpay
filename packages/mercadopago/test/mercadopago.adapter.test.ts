@@ -124,6 +124,23 @@ describe('QZPayMercadoPagoAdapter', () => {
             });
         });
 
+        it('should accept a valid absolute defaultPlanBackUrl', () => {
+            const adapter = new QZPayMercadoPagoAdapter({
+                ...config,
+                defaultPlanBackUrl: 'https://hospeda.com.ar/es/suscriptores/checkout/success/'
+            });
+
+            expect(adapter.prices).toBeInstanceOf(QZPayMercadoPagoPriceAdapter);
+        });
+
+        // Fail fast at construction (like the access-token check) so a malformed
+        // back_url is caught at boot, not only when the first plan is provisioned.
+        it('should throw when defaultPlanBackUrl is not an absolute http(s) URL', () => {
+            expect(() => {
+                new QZPayMercadoPagoAdapter({ ...config, defaultPlanBackUrl: 'not-a-url' });
+            }).toThrow(/defaultPlanBackUrl.*absolute http/i);
+        });
+
         // SPEC-123 A5: sandbox mode is now an explicit config flag, not
         // inferred from the access token shape (current MP uses APP_USR-
         // for both sandbox and production tokens, so the old `includes('TEST')`
@@ -175,5 +192,30 @@ describe('createQZPayMercadoPagoAdapter', () => {
         });
 
         expect(adapter).toBeInstanceOf(QZPayMercadoPagoAdapter);
+    });
+
+    // End-to-end wiring: the config `defaultPlanBackUrl` must actually reach the
+    // `preapproval_plan` create body through the factory → adapter → price-adapter
+    // chain. Constructing the price adapter directly (as price.adapter.test.ts does)
+    // would not catch a dropped/reordered constructor argument at mercadopago.adapter.ts.
+    it('should thread defaultPlanBackUrl through to the preapproval_plan create body', async () => {
+        const { PreApprovalPlan } = await import('mercadopago');
+        const planCreate = vi.fn().mockResolvedValue({ id: 'plan_wired' });
+        vi.mocked(PreApprovalPlan).mockImplementation(() => ({ create: planCreate }) as never);
+
+        const adapter = createQZPayMercadoPagoAdapter({
+            accessToken: 'APP_USR-test-token',
+            defaultPlanBackUrl: 'https://hospeda.com.ar/return/'
+        });
+
+        const planId = await adapter.prices.create(
+            { planId: 'plan-uuid', unitAmount: 2999, currency: 'ARS', billingInterval: 'month' },
+            'Premium Plan'
+        );
+
+        expect(planId).toBe('plan_wired');
+        expect(planCreate).toHaveBeenCalledWith({
+            body: expect.objectContaining({ back_url: 'https://hospeda.com.ar/return/' })
+        });
     });
 });
