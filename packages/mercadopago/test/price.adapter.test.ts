@@ -16,6 +16,11 @@ describe('QZPayMercadoPagoPriceAdapter', () => {
     let adapter: QZPayMercadoPagoPriceAdapter;
     let mockPlanApi: ReturnType<typeof createMockPreApprovalPlanApi>;
 
+    // MercadoPago requires a `back_url` on every preapproval_plan creation, so the
+    // adapter is constructed with an adapter-level default in most tests. The
+    // "resolves back_url" describe below covers the no-default and per-request cases.
+    const DEFAULT_BACK_URL = 'https://example.test/checkout/return';
+
     beforeEach(async () => {
         vi.clearAllMocks();
         mockPlanApi = createMockPreApprovalPlanApi();
@@ -23,7 +28,7 @@ describe('QZPayMercadoPagoPriceAdapter', () => {
         const { PreApprovalPlan } = await import('mercadopago');
         vi.mocked(PreApprovalPlan).mockImplementation(() => mockPlanApi as never);
 
-        adapter = new QZPayMercadoPagoPriceAdapter({} as never);
+        adapter = new QZPayMercadoPagoPriceAdapter({} as never, DEFAULT_BACK_URL);
     });
 
     describe('create', () => {
@@ -45,6 +50,7 @@ describe('QZPayMercadoPagoPriceAdapter', () => {
             expect(mockPlanApi.create).toHaveBeenCalledWith({
                 body: {
                     reason: 'Premium Plan',
+                    back_url: DEFAULT_BACK_URL,
                     auto_recurring: {
                         frequency: 1,
                         frequency_type: 'months',
@@ -191,6 +197,81 @@ describe('QZPayMercadoPagoPriceAdapter', () => {
                     'Failed Plan'
                 )
             ).rejects.toThrow('Failed to create MercadoPago plan');
+        });
+    });
+
+    describe('create — back_url resolution (regression: MercadoPago "Back url is required")', () => {
+        it('sends the per-request input.backUrl in the preapproval_plan body', async () => {
+            mockPlanApi.create.mockResolvedValue(createMockMPPreapprovalPlan({ id: 'plan_burl' }));
+
+            await adapter.create(
+                {
+                    unitAmount: 2999,
+                    currency: 'ARS',
+                    billingInterval: 'month',
+                    backUrl: 'https://hospeda.com.ar/es/suscriptores/checkout/success/'
+                },
+                'Premium Plan'
+            );
+
+            const body = mockPlanApi.create.mock.calls[0]?.[0]?.body;
+            expect(body.back_url).toBe('https://hospeda.com.ar/es/suscriptores/checkout/success/');
+        });
+
+        it('prefers the per-request input.backUrl over the adapter default', async () => {
+            mockPlanApi.create.mockResolvedValue(createMockMPPreapprovalPlan({ id: 'plan_override' }));
+
+            await adapter.create(
+                {
+                    unitAmount: 1000,
+                    currency: 'ARS',
+                    billingInterval: 'month',
+                    backUrl: 'https://hospeda.com.ar/return/'
+                },
+                'Override Plan'
+            );
+
+            const body = mockPlanApi.create.mock.calls[0]?.[0]?.body;
+            expect(body.back_url).toBe('https://hospeda.com.ar/return/');
+        });
+
+        it('falls back to the adapter defaultPlanBackUrl when input.backUrl is absent', async () => {
+            mockPlanApi.create.mockResolvedValue(createMockMPPreapprovalPlan({ id: 'plan_default' }));
+
+            await adapter.create({ unitAmount: 1000, currency: 'ARS', billingInterval: 'month' }, 'Default Plan');
+
+            const body = mockPlanApi.create.mock.calls[0]?.[0]?.body;
+            expect(body.back_url).toBe(DEFAULT_BACK_URL);
+        });
+
+        it('throws a clear error (never calls MercadoPago) when no back_url resolves — reproduces the empty-mapping prod failure', async () => {
+            // Adapter WITHOUT a default back_url and an input WITHOUT backUrl: this is
+            // exactly the first-provision-on-empty-mapping path that returned
+            // MercadoPago's opaque "Create price - Back url is required" 400 in prod.
+            const adapterNoDefault = new QZPayMercadoPagoPriceAdapter({} as never);
+
+            await expect(
+                adapterNoDefault.create({ unitAmount: 1000, currency: 'ARS', billingInterval: 'month' }, 'No Back Url Plan')
+            ).rejects.toThrow(/back_url/i);
+
+            expect(mockPlanApi.create).not.toHaveBeenCalled();
+        });
+
+        it('throws when the resolved back_url is not an absolute http(s) URL', async () => {
+            await expect(
+                adapter.create({ unitAmount: 1000, currency: 'ARS', billingInterval: 'month', backUrl: 'not-a-url' }, 'Bad Url Plan')
+            ).rejects.toThrow(/absolute http/i);
+
+            expect(mockPlanApi.create).not.toHaveBeenCalled();
+        });
+
+        it('treats a whitespace-only input.backUrl as absent and uses the default', async () => {
+            mockPlanApi.create.mockResolvedValue(createMockMPPreapprovalPlan({ id: 'plan_ws' }));
+
+            await adapter.create({ unitAmount: 1000, currency: 'ARS', billingInterval: 'month', backUrl: '   ' }, 'Whitespace Plan');
+
+            const body = mockPlanApi.create.mock.calls[0]?.[0]?.body;
+            expect(body.back_url).toBe(DEFAULT_BACK_URL);
         });
     });
 

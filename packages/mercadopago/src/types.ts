@@ -78,6 +78,25 @@ export interface QZPayMercadoPagoConfig {
     timeout?: number | undefined;
 
     /**
+     * Default `back_url` used when provisioning a MercadoPago `preapproval_plan`
+     * (`POST /preapproval_plan`) and the per-request `QZPayCreatePriceInput.backUrl`
+     * is not supplied.
+     *
+     * @remarks
+     * MercadoPago **requires** a `back_url` on every `preapproval_plan` creation and
+     * rejects the request with "Back url is required" otherwise. The price adapter
+     * resolves the URL in this order: `QZPayCreatePriceInput.backUrl` (preferred —
+     * carries the checkout's own return URL) → this `defaultPlanBackUrl` (a safety
+     * net so plan provisioning still succeeds when the caller does not thread a
+     * per-request URL). If neither resolves to a valid absolute `http(s)` URL the
+     * adapter throws a clear error before calling MercadoPago.
+     *
+     * Must be an absolute `http(s)` URL. Callers should set this from their own
+     * environment configuration (e.g. a checkout "success"/"return" URL).
+     */
+    defaultPlanBackUrl?: string | undefined;
+
+    /**
      * Platform ID for marketplace operations
      */
     platformId?: string | undefined;
