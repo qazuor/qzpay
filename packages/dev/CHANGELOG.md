@@ -1,5 +1,12 @@
 # @qazuor/qzpay-dev
 
+## 1.2.14
+
+### Patch Changes
+
+- Updated dependencies [f618b33]
+  - @qazuor/qzpay-core@1.14.0
+
 ## 1.2.13
 
 ### Patch Changes
