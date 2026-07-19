@@ -1,5 +1,13 @@
 # e2e-test-app
 
+## 1.1.18
+
+### Patch Changes
+
+- Updated dependencies [aed70dd]
+  - @qazuor/qzpay-core@1.15.0
+  - @qazuor/qzpay-react@1.1.19
+
 ## 1.1.17
 
 ### Patch Changes
