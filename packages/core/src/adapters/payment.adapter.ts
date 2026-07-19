@@ -191,6 +191,22 @@ export interface QZPayProviderSubscription {
     initPoint?: string;
     /** Sandbox equivalent of `initPoint`, used during local development. */
     sandboxInitPoint?: string;
+    /**
+     * Provider-side `external_reference` currently set on the subscription
+     * (MP preapproval `external_reference`). `null`/`undefined` when the
+     * provider has none set. Lets a caller read back a reference it (or a
+     * webhook) previously wrote via {@link QZPayUpdateSubscriptionInput.externalReference},
+     * useful for reconciliation/linking flows (HOS-191).
+     */
+    externalReference?: string | null;
+    /**
+     * Payer email on file with the provider for this subscription (MP
+     * preapproval `payer_email`). Reflects the email the end user
+     * authorized the recurring charge with, which can differ from the
+     * local customer record's email (e.g. a different card/account used
+     * on the hosted checkout).
+     */
+    payerEmail?: string | null;
 }
 
 /**

@@ -216,6 +216,15 @@ export interface QZPayUpdateSubscriptionInput {
      * untouched (standard partial-update semantics).
      */
     scheduledPlanChange?: QZPayScheduledPlanChange | null;
+    /**
+     * Sets the provider-side `external_reference` on an existing subscription
+     * (MP `PUT /preapproval/{id}`). Used to retroactively link a
+     * provider-hosted subscription created without a local record yet — or
+     * without the final one — to the local entity that ends up owning it
+     * (e.g. Hospeda's consumer-linking flow, HOS-191). Adapters that do not
+     * support mutating this field after creation MAY ignore it.
+     */
+    externalReference?: string;
 }
 
 export interface QZPayCancelSubscriptionInput {

@@ -63,6 +63,7 @@ type PreApprovalCreateBody = {
 type PreApprovalUpdateBody = {
     status?: string;
     reason?: string;
+    external_reference?: string;
     auto_recurring?: {
         transaction_amount?: number;
         frequency?: number;
@@ -110,6 +111,15 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
         });
     }
 
+    /**
+     * Update a MercadoPago preapproval.
+     *
+     * Only the fields present in `input` are sent to MP (partial-update
+     * semantics); omitted fields are left untouched on the provider side.
+     * `input.externalReference` maps to preapproval `external_reference` —
+     * used to retroactively link a hosted subscription to a local entity
+     * resolved after the preapproval was created (HOS-191).
+     */
     async update(providerSubscriptionId: string, input: QZPayUpdateSubscriptionInput): Promise<QZPayProviderSubscription> {
         return wrapAdapterMethod('Update subscription', async () => {
             const body: PreApprovalUpdateBody = {};
@@ -124,6 +134,10 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
 
             if (input.transactionAmount !== undefined) {
                 body.auto_recurring = { transaction_amount: input.transactionAmount };
+            }
+
+            if (input.externalReference !== undefined) {
+                body.external_reference = input.externalReference;
             }
 
             await this.preapprovalApi.update({
@@ -307,6 +321,12 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
         }
         if (preapproval.sandbox_init_point) {
             result.sandboxInitPoint = preapproval.sandbox_init_point;
+        }
+        if (preapproval.external_reference) {
+            result.externalReference = preapproval.external_reference;
+        }
+        if (preapproval.payer_email) {
+            result.payerEmail = preapproval.payer_email;
         }
 
         return result;
