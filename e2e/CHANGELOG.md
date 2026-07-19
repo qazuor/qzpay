@@ -1,5 +1,13 @@
 # @qazuor/qzpay-e2e
 
+## 1.1.21
+
+### Patch Changes
+
+- Updated dependencies [aed70dd]
+  - @qazuor/qzpay-core@1.15.0
+  - @qazuor/qzpay-drizzle@1.11.3
+
 ## 1.1.20
 
 ### Patch Changes
