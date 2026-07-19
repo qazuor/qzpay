@@ -324,6 +324,28 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
             expect(mockPreApprovalApi.get).toHaveBeenCalledWith({ id: 'preapproval_123' });
             expect(result.id).toBe('preapproval_123');
         });
+
+        it('sends external_reference when externalReference is provided', async () => {
+            mockPreApprovalApi.update.mockResolvedValue({});
+            mockPreApprovalApi.get.mockResolvedValue(createMockMPPreapproval());
+
+            await adapter.update('preapproval_123', { externalReference: 'local_entity_uuid_1' });
+
+            expect(mockPreApprovalApi.update).toHaveBeenCalledWith({
+                id: 'preapproval_123',
+                body: { external_reference: 'local_entity_uuid_1' }
+            });
+        });
+
+        it('omits external_reference when not provided', async () => {
+            mockPreApprovalApi.update.mockResolvedValue({});
+            mockPreApprovalApi.get.mockResolvedValue(createMockMPPreapproval());
+
+            await adapter.update('preapproval_123', { transactionAmount: 100 });
+
+            const body = mockPreApprovalApi.update.mock.calls[0]?.[0]?.body;
+            expect(body?.external_reference).toBeUndefined();
+        });
     });
 
     describe('cancel', () => {
@@ -499,6 +521,29 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
 
             expect(result.initPoint).toBe('https://www.mercadopago.com/preapproval?id=xyz');
             expect(result.sandboxInitPoint).toBe('https://sandbox.mercadopago.com/preapproval?id=xyz');
+        });
+
+        it('maps external_reference and payer_email when MP returns them', async () => {
+            mockPreApprovalApi.get.mockResolvedValue(
+                createMockMPPreapproval({
+                    external_reference: 'local_entity_uuid_1',
+                    payer_email: 'payer@example.com'
+                })
+            );
+
+            const result = await adapter.retrieve('preapproval_123');
+
+            expect(result.externalReference).toBe('local_entity_uuid_1');
+            expect(result.payerEmail).toBe('payer@example.com');
+        });
+
+        it('omits external_reference and payer_email when MP does not return them', async () => {
+            mockPreApprovalApi.get.mockResolvedValue(createMockMPPreapproval({ external_reference: undefined, payer_email: undefined }));
+
+            const result = await adapter.retrieve('preapproval_123');
+
+            expect(result.externalReference).toBeUndefined();
+            expect(result.payerEmail).toBeUndefined();
         });
     });
 });
