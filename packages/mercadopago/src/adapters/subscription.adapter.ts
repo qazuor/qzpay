@@ -119,12 +119,20 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
      * `input.externalReference` maps to preapproval `external_reference` —
      * used to retroactively link a hosted subscription to a local entity
      * resolved after the preapproval was created (HOS-191).
+     *
+     * The preapproval `reason` (buyer-visible description) is set from
+     * `input.reason` when present; otherwise, on a plan change (`input.planId`
+     * present) it falls back to the synthetic `"Plan updated to: ${planId}"`.
+     * Callers that hold a human plan name SHOULD pass `input.reason` so buyers
+     * do not see an opaque plan id.
      */
     async update(providerSubscriptionId: string, input: QZPayUpdateSubscriptionInput): Promise<QZPayProviderSubscription> {
         return wrapAdapterMethod('Update subscription', async () => {
             const body: PreApprovalUpdateBody = {};
 
-            if (input.planId !== undefined) {
+            if (input.reason !== undefined) {
+                body.reason = input.reason;
+            } else if (input.planId !== undefined) {
                 body.reason = `Plan updated to: ${input.planId}`;
             }
 

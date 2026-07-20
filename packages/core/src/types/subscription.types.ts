@@ -225,6 +225,15 @@ export interface QZPayUpdateSubscriptionInput {
      * support mutating this field after creation MAY ignore it.
      */
     externalReference?: string;
+    /**
+     * Human-readable label to set as the provider-side subscription
+     * description (MP `PUT /preapproval` `reason`). When provided, adapters
+     * prefer it over any synthetic fallback derived from `planId` (e.g. MP's
+     * `"Plan updated to: ${planId}"`), so buyers see the plan's display name
+     * instead of an opaque id on a plan change. Adapters that do not expose a
+     * mutable description MAY ignore it.
+     */
+    reason?: string;
 }
 
 export interface QZPayCancelSubscriptionInput {
