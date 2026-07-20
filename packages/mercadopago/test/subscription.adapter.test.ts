@@ -303,6 +303,33 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
             });
         });
 
+        it('prefers an explicit reason over the synthetic plan-id label on plan change', async () => {
+            mockPreApprovalApi.update.mockResolvedValue({});
+            mockPreApprovalApi.get.mockResolvedValue(createMockMPPreapproval());
+
+            await adapter.update('preapproval_123', {
+                planId: 'new_plan_123',
+                reason: 'VIP — mensual'
+            });
+
+            expect(mockPreApprovalApi.update).toHaveBeenCalledWith({
+                id: 'preapproval_123',
+                body: { reason: 'VIP — mensual' }
+            });
+        });
+
+        it('sets reason from an explicit label even without a planId', async () => {
+            mockPreApprovalApi.update.mockResolvedValue({});
+            mockPreApprovalApi.get.mockResolvedValue(createMockMPPreapproval());
+
+            await adapter.update('preapproval_123', { reason: 'VIP — anual' });
+
+            expect(mockPreApprovalApi.update).toHaveBeenCalledWith({
+                id: 'preapproval_123',
+                body: { reason: 'VIP — anual' }
+            });
+        });
+
         it('updates with cancelAt → sets status cancelled', async () => {
             mockPreApprovalApi.update.mockResolvedValue({});
             mockPreApprovalApi.get.mockResolvedValue(createMockMPPreapproval());
