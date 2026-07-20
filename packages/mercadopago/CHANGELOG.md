@@ -1,5 +1,22 @@
 # @qazuor/qzpay-mercadopago
 
+## 2.7.0
+
+### Minor Changes
+
+- 57edd01: feat(mercadopago): support an explicit `reason` label on subscription update
+
+  Adds an optional `reason` field to `QZPayUpdateSubscriptionInput`. The
+  MercadoPago subscription adapter now prefers it as the preapproval `reason`
+  (buyer-visible description) — falling back to the synthetic
+  `"Plan updated to: ${planId}"` only when `reason` is absent. This lets callers
+  show a human plan name on a plan change instead of an opaque plan id.
+
+### Patch Changes
+
+- Updated dependencies [57edd01]
+  - @qazuor/qzpay-core@1.16.0
+
 ## 2.6.0
 
 ### Minor Changes
