@@ -1,5 +1,11 @@
 # @qazuor/qzpay-drizzle
 
+## 1.11.5
+
+### Patch Changes
+
+- bfa7484: fix(drizzle): forward payment.providerPaymentIds and derive provider from it instead of hardcoding 'stripe' in the payments storage adapter create()
+
 ## 1.11.4
 
 ### Patch Changes
