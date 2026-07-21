@@ -307,7 +307,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
                 amount: 9999,
                 currency: 'USD',
                 status: 'pending',
-                provider: 'stripe'
+                providerPaymentIds: { stripe: 'pi_create_retrieve' }
             });
 
             expect(created.id).toBeDefined();
@@ -325,7 +325,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
                 amount: 5000,
                 currency: 'USD',
                 status: 'succeeded',
-                provider: 'stripe'
+                providerPaymentIds: { stripe: 'pi_find_by_customer' }
             });
 
             const found = await adapter.payments.findByCustomerId(customerId);
@@ -338,7 +338,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
                 amount: 7500,
                 currency: 'USD',
                 status: 'pending',
-                provider: 'stripe'
+                providerPaymentIds: { stripe: 'pi_update_status' }
             });
 
             const updated = await adapter.payments.update(created.id, {

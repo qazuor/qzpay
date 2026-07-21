@@ -36,8 +36,11 @@ export function mapDrizzlePaymentToCore(drizzle: QZPayBillingPayment): QZPayPaym
  * Map Core payment to Drizzle insert
  */
 export function mapCorePaymentToDrizzle(payment: QZPayPayment): QZPayBillingPaymentInsert {
-    // Get first provider for the provider field
-    const providers = Object.keys(payment.providerPaymentIds);
+    // Get first provider for the provider field. Defensive against a
+    // malformed input missing providerPaymentIds (the type requires it, but
+    // this is a published library mapper — never crash on Object.keys(undefined)).
+    const providerPaymentIds = payment.providerPaymentIds ?? {};
+    const providers = Object.keys(providerPaymentIds);
     const provider = providers[0] ?? 'unknown';
 
     return {
@@ -49,7 +52,7 @@ export function mapCorePaymentToDrizzle(payment: QZPayPayment): QZPayBillingPaym
         currency: payment.currency,
         status: payment.status,
         provider,
-        providerPaymentIds: payment.providerPaymentIds,
+        providerPaymentIds,
         paymentMethodId: payment.paymentMethodId ?? null,
         failureCode: payment.failureCode ?? null,
         failureMessage: payment.failureMessage ?? null,
