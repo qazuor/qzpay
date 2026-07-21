@@ -3,8 +3,10 @@
  *
  * Tests the QZPayDrizzleStorageAdapter that bridges repositories to Core's storage interface.
  */
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { type QZPayDrizzleStorageAdapter, createQZPayDrizzleAdapter } from '../src/adapter/index.js';
+import { billingPayments } from '../src/schema/index.js';
 import { clearTestData, getTestDatabase, startTestDatabase, stopTestDatabase } from './helpers/db-helpers.js';
 
 describe('QZPayDrizzleStorageAdapter', () => {
@@ -305,7 +307,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
                 amount: 9999,
                 currency: 'USD',
                 status: 'pending',
-                provider: 'stripe'
+                providerPaymentIds: { stripe: 'pi_create_retrieve' }
             });
 
             expect(created.id).toBeDefined();
@@ -323,7 +325,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
                 amount: 5000,
                 currency: 'USD',
                 status: 'succeeded',
-                provider: 'stripe'
+                providerPaymentIds: { stripe: 'pi_find_by_customer' }
             });
 
             const found = await adapter.payments.findByCustomerId(customerId);
@@ -336,7 +338,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
                 amount: 7500,
                 currency: 'USD',
                 status: 'pending',
-                provider: 'stripe'
+                providerPaymentIds: { stripe: 'pi_update_status' }
             });
 
             const updated = await adapter.payments.update(created.id, {
@@ -344,6 +346,27 @@ describe('QZPayDrizzleStorageAdapter', () => {
             });
 
             expect(updated.status).toBe('succeeded');
+        });
+
+        it('should derive provider from providerPaymentIds instead of hardcoding stripe', async () => {
+            const created = await adapter.payments.create({
+                customerId,
+                amount: 12345,
+                currency: 'USD',
+                status: 'succeeded',
+                providerPaymentIds: { mercadopago: 'mp_txn_123' }
+            });
+
+            expect(created.providerPaymentIds).toEqual({ mercadopago: 'mp_txn_123' });
+
+            const found = await adapter.payments.findById(created.id);
+            expect(found?.providerPaymentIds).toEqual({ mercadopago: 'mp_txn_123' });
+
+            // The core QZPayPayment type has no `provider` field, so read the
+            // persisted column directly to confirm it was derived (not hardcoded).
+            const db = getTestDatabase();
+            const [row] = await db.select().from(billingPayments).where(eq(billingPayments.id, created.id));
+            expect(row?.provider).toBe('mercadopago');
         });
     });
 

@@ -76,6 +76,7 @@ import {
     mapCoreLimitToDrizzle,
     mapCorePaymentMethodCreateToDrizzle,
     mapCorePaymentMethodUpdateToDrizzle,
+    mapCorePaymentToDrizzle,
     mapCorePlanCreateToDrizzle,
     mapCorePlanUpdateToDrizzle,
     mapCorePriceCreateToDrizzle,
@@ -464,18 +465,7 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
 
         return {
             async create(payment: QZPayPayment): Promise<QZPayPayment> {
-                const result = await repo.create({
-                    id: payment.id,
-                    customerId: payment.customerId,
-                    subscriptionId: payment.subscriptionId ?? null,
-                    invoiceId: payment.invoiceId ?? null,
-                    amount: payment.amount,
-                    currency: payment.currency,
-                    status: payment.status,
-                    provider: 'stripe',
-                    metadata: payment.metadata ?? {},
-                    livemode
-                });
+                const result = await repo.create(mapCorePaymentToDrizzle(payment));
                 return mapDrizzlePaymentToCore(result);
             },
 
