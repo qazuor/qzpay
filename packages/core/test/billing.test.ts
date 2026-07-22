@@ -879,6 +879,95 @@ describe('billing.subscriptions', () => {
         expect(handler).toHaveBeenCalled();
     });
 
+    it('should un-cancel a soft-cancelled subscription: clears canceledAt, preserves status', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage, plans: mockPlans });
+        const handler = vi.fn();
+
+        const created = await billing.subscriptions.create({
+            customerId: 'cus_123',
+            planId: 'pro'
+        });
+        // Soft-cancel: status stays active, canceledAt is stamped.
+        const canceled = await billing.subscriptions.cancel(created.id, {
+            cancelAtPeriodEnd: true
+        });
+        expect(canceled.status).toBe('active');
+        expect(canceled.canceledAt).toBeDefined();
+
+        billing.on('subscription.updated', handler);
+        const uncanceled = await billing.subscriptions.uncancel(created.id);
+
+        // canceledAt cleared, status untouched (NOT forced to active like resume).
+        expect(uncanceled.canceledAt).toBeNull();
+        expect(uncanceled.status).toBe('active');
+        expect(handler).toHaveBeenCalled();
+    });
+
+    it('un-cancel preserves a trialing status (does not force active like resume)', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage, plans: mockPlans });
+
+        const created = await billing.subscriptions.create({
+            customerId: 'cus_123',
+            planId: 'pro'
+        });
+        // Force a trialing status, then soft-cancel it.
+        await billing.subscriptions.update(created.id, { status: 'trialing' });
+        await billing.subscriptions.cancel(created.id, { cancelAtPeriodEnd: true });
+
+        const uncanceled = await billing.subscriptions.uncancel(created.id);
+
+        expect(uncanceled.status).toBe('trialing');
+        expect(uncanceled.canceledAt).toBeNull();
+    });
+
+    it('should throw when un-cancelling a non-existent subscription', async () => {
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage, plans: mockPlans });
+
+        await expect(billing.subscriptions.uncancel('sub_missing')).rejects.toThrow();
+    });
+
+    it('uncancel re-authorizes the provider preapproval (calls adapter.resume with the provider id)', async () => {
+        const storage = createMockStorage();
+        const resume = vi.fn(async () => undefined);
+        const paymentAdapter = {
+            provider: 'mercadopago' as const,
+            subscriptions: {
+                create: vi.fn(),
+                update: vi.fn(),
+                cancel: vi.fn(),
+                pause: vi.fn(),
+                resume,
+                retrieve: vi.fn()
+            },
+            customers: { create: vi.fn(), update: vi.fn(), delete: vi.fn(), retrieve: vi.fn() },
+            payments: {
+                create: vi.fn(),
+                capture: vi.fn(),
+                cancel: vi.fn(),
+                refund: vi.fn(),
+                retrieve: vi.fn()
+            },
+            checkout: { create: vi.fn(), retrieve: vi.fn(), expire: vi.fn() }
+            // biome-ignore lint/suspicious/noExplicitAny: structural QZPayPaymentAdapter shape in test
+        } as any;
+        const billing = createQZPayBilling({ storage, plans: mockPlans, paymentAdapter });
+
+        const created = await billing.subscriptions.create({ customerId: 'cus_123', planId: 'pro' });
+        // Inject a provider preapproval id, then soft-cancel it.
+        await storage.subscriptions.update(created.id, {
+            providerSubscriptionIds: { mercadopago: 'mp_pre_1' }
+            // biome-ignore lint/suspicious/noExplicitAny: mock storage update accepts the extra field
+        } as any);
+        await billing.subscriptions.cancel(created.id, { cancelAtPeriodEnd: true });
+
+        await billing.subscriptions.uncancel(created.id);
+
+        expect(resume).toHaveBeenCalledWith('mp_pre_1');
+    });
+
     it('should list subscriptions', async () => {
         const storage = createMockStorage();
         const billing = createQZPayBilling({ storage, plans: mockPlans });

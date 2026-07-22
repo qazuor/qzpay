@@ -347,6 +347,25 @@ export interface QZPaySubscriptionService {
     resume: (id: string) => Promise<QZPaySubscriptionWithHelpers>;
 
     /**
+     * Un-cancel a subscription that was soft-cancelled via
+     * `cancel(id, { cancelAtPeriodEnd: true })`, before it is finalized.
+     *
+     * The exact reverse of a soft-cancel: it re-authorizes the provider
+     * preapproval that the soft-cancel paused (so it charges again) and clears
+     * the local `canceledAt` stamp. Unlike {@link resume}, it does NOT change
+     * `status` — a soft-cancel leaves the subscription `active`/`trialing`, so
+     * un-cancelling preserves that status (a `trialing` subscription stays
+     * `trialing` and its deferred first charge is restored).
+     *
+     * Idempotent-friendly: safe to call on a subscription with no live provider
+     * preapproval (it just clears the local stamp). Honours
+     * `providerSyncErrorStrategy` on a provider failure, mirroring cancel/resume.
+     *
+     * Returns subscription with helper methods attached.
+     */
+    uncancel: (id: string) => Promise<QZPaySubscriptionWithHelpers>;
+
+    /**
      * Change subscription to a different plan
      * Handles proration calculation and applies credit/charge as needed
      */
@@ -1499,6 +1518,45 @@ class QZPayBillingImpl implements QZPayBilling {
 
                 const subscription = await storage.subscriptions.update(id, { status: 'active' });
                 await emitter.emit('subscription.resumed', subscription);
+                return wrapWithHelpers(subscription);
+            },
+            uncancel: async (id) => {
+                const existing = await storage.subscriptions.findById(id);
+                if (!existing) {
+                    throw new QZPayNotFoundError('Subscription', id);
+                }
+
+                // Reverse a soft-cancel: re-authorize the provider preapproval
+                // that cancel(id, { cancelAtPeriodEnd: true }) paused, so it
+                // charges again. Mirrors cancel/pause/resume provider propagation
+                // and the same providerSyncErrorStrategy guard so a provider
+                // hiccup does not strand the local record.
+                if (paymentAdapter?.subscriptions) {
+                    const providerSubscriptionId = existing.providerSubscriptionIds?.[paymentAdapter.provider];
+                    if (providerSubscriptionId) {
+                        try {
+                            await paymentAdapter.subscriptions.resume(providerSubscriptionId);
+                        } catch (error) {
+                            if (providerSyncErrorStrategy === 'throw') {
+                                throw error;
+                            }
+                            logger.warn(
+                                'Failed to resume provider subscription on uncancel, updating local record only (providerSyncErrorStrategy=log)',
+                                {
+                                    error: error instanceof Error ? error.message : String(error),
+                                    subscriptionId: id,
+                                    provider: paymentAdapter.provider
+                                }
+                            );
+                        }
+                    }
+                }
+
+                // Clear the cancellation stamp. `status` is deliberately NOT
+                // changed: a soft-cancel left it `active`/`trialing`, so un-cancel
+                // preserves it (unlike resume, which forces `active`).
+                const subscription = await storage.subscriptions.update(id, { canceledAt: null });
+                await emitter.emit('subscription.updated', subscription);
                 return wrapWithHelpers(subscription);
             },
             changePlan: async (id, options) => {
