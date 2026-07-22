@@ -237,6 +237,21 @@ describe('QZPayStripeSubscriptionAdapter', () => {
         });
     });
 
+    describe('uncancel', () => {
+        // The exact reverse of cancel(id, true) — clears cancel_at_period_end.
+        // Must NOT touch pause_collection (that's the pause/resume axis).
+        it('should clear cancel_at_period_end (reverse of a period-end soft-cancel)', async () => {
+            const mockSub = createMockStripeSubscription();
+            vi.mocked(mockStripe.subscriptions.update).mockResolvedValue(mockSub);
+
+            await adapter.uncancel('sub_123');
+
+            expect(mockStripe.subscriptions.update).toHaveBeenCalledWith('sub_123', {
+                cancel_at_period_end: false
+            });
+        });
+    });
+
     describe('retrieve', () => {
         it('should retrieve a subscription', async () => {
             const mockSub = createMockStripeSubscription({ id: 'sub_123', status: 'active' });

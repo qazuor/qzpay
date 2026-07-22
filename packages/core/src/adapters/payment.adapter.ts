@@ -169,6 +169,15 @@ export interface QZPayPaymentSubscriptionAdapter {
     cancel(providerSubscriptionId: string, cancelAtPeriodEnd: boolean): Promise<void>;
     pause(providerSubscriptionId: string): Promise<void>;
     resume(providerSubscriptionId: string): Promise<void>;
+    /**
+     * Reverse a period-end soft-cancel — the exact inverse of
+     * `cancel(providerSubscriptionId, true)`, so the provider stops terminating
+     * the subscription at period end and resumes charging. Each provider MUST
+     * reverse ITS OWN soft-cancel mechanism (MercadoPago re-authorizes the paused
+     * preapproval; Stripe clears `cancel_at_period_end`) — it is NOT the same as
+     * `resume`, which reverses `pause`. Called by `billing.subscriptions.uncancel`.
+     */
+    uncancel(providerSubscriptionId: string): Promise<void>;
     retrieve(providerSubscriptionId: string): Promise<QZPayProviderSubscription>;
 }
 

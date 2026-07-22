@@ -184,7 +184,9 @@ export interface QZPayUpdateSubscriptionInput {
     prorationBehavior?: QZPayProrationBehavior;
     metadata?: QZPayMetadata;
     status?: QZPaySubscriptionStatus;
-    canceledAt?: Date;
+    /** Cancellation timestamp. Pass `null` to CLEAR it (e.g. un-cancelling a
+     * soft-cancelled subscription); omit to leave it untouched. */
+    canceledAt?: Date | null;
     cancelAt?: Date;
     /** Current period start date (for renewals) */
     currentPeriodStart?: Date;

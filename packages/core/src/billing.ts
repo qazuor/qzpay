@@ -56,6 +56,14 @@ import { createDefaultLogger } from './utils/default-logger.js';
 import { qzpayCreateValidator } from './utils/validation.utils.js';
 
 /**
+ * Statuses in which a soft-cancelled subscription can be un-cancelled — the
+ * pre-finalization, still-chargeable states a live soft-cancel can hold. Any
+ * other status (`canceled`, `expired`, `paused`) is NOT reversible via
+ * `uncancel` (see `subscriptions.uncancel`).
+ */
+const UNCANCELLABLE_STATUSES: ReadonlySet<QZPaySubscriptionStatus> = new Set(['active', 'trialing', 'past_due']);
+
+/**
  * Subscription service input types
  */
 export interface QZPayCreateSubscriptionServiceInput {
@@ -94,7 +102,8 @@ export interface QZPayUpdateSubscriptionServiceInput {
     quantity?: number;
     metadata?: QZPayMetadata;
     status?: QZPaySubscriptionStatus;
-    canceledAt?: Date;
+    /** Cancellation timestamp. Pass `null` to CLEAR it; omit to leave untouched. */
+    canceledAt?: Date | null;
     cancelAt?: Date;
     /** Current period start date (for renewals) */
     currentPeriodStart?: Date;
@@ -345,6 +354,25 @@ export interface QZPaySubscriptionService {
      * Returns subscription with helper methods attached
      */
     resume: (id: string) => Promise<QZPaySubscriptionWithHelpers>;
+
+    /**
+     * Un-cancel a subscription that was soft-cancelled via
+     * `cancel(id, { cancelAtPeriodEnd: true })`, before it is finalized.
+     *
+     * The exact reverse of a soft-cancel: it re-authorizes the provider
+     * preapproval that the soft-cancel paused (so it charges again) and clears
+     * the local `canceledAt` stamp. Unlike {@link resume}, it does NOT change
+     * `status` — a soft-cancel leaves the subscription `active`/`trialing`, so
+     * un-cancelling preserves that status (a `trialing` subscription stays
+     * `trialing` and its deferred first charge is restored).
+     *
+     * Idempotent-friendly: safe to call on a subscription with no live provider
+     * preapproval (it just clears the local stamp). Honours
+     * `providerSyncErrorStrategy` on a provider failure, mirroring cancel/resume.
+     *
+     * Returns subscription with helper methods attached.
+     */
+    uncancel: (id: string) => Promise<QZPaySubscriptionWithHelpers>;
 
     /**
      * Change subscription to a different plan
@@ -1499,6 +1527,72 @@ class QZPayBillingImpl implements QZPayBilling {
 
                 const subscription = await storage.subscriptions.update(id, { status: 'active' });
                 await emitter.emit('subscription.resumed', subscription);
+                return wrapWithHelpers(subscription);
+            },
+            uncancel: async (id) => {
+                const existing = await storage.subscriptions.findById(id);
+                if (!existing) {
+                    throw new QZPayNotFoundError('Subscription', id);
+                }
+
+                // Guard 1: nothing to reverse. A subscription that was never
+                // soft-cancelled has no `canceledAt` stamp — no-op (idempotent).
+                if (existing.canceledAt == null) {
+                    return wrapWithHelpers(existing);
+                }
+
+                // Guard 2: only a LIVE soft-cancel is reversible — one whose
+                // status is still a pre-finalization, chargeable state
+                // (`active`/`trialing`/`past_due`). Everything else is rejected:
+                // - `canceled`: finalized hard-cancel, terminal at the provider.
+                // - `expired`: the period already ended.
+                // - `paused`: a DIFFERENT axis (reverse with `resume`). This case
+                //   is the important one for MercadoPago, where `pause()` and
+                //   `cancel(id,{cancelAtPeriodEnd:true})` both PUT the preapproval
+                //   to `paused`. Un-cancelling a subscription that is BOTH
+                //   soft-cancelled (canceledAt set) AND paused would re-authorize
+                //   provider billing while the local status stayed `paused` — a
+                //   money/entitlement desync. Reject it so the caller resolves the
+                //   compound state explicitly (resume, then re-evaluate).
+                if (!UNCANCELLABLE_STATUSES.has(existing.status)) {
+                    throw new QZPayConflictError(
+                        `Subscription '${id}' (status '${existing.status}') is not in a reversible soft-cancelled state.`,
+                        'not_soft_cancelled'
+                    );
+                }
+
+                // Reverse the soft-cancel AT THE PROVIDER. Each adapter reverses
+                // ITS OWN soft-cancel mechanism (MP re-authorizes the paused
+                // preapproval; Stripe clears `cancel_at_period_end`) — this is
+                // NOT `resume`, which reverses `pause`. Same
+                // providerSyncErrorStrategy guard as cancel/pause/resume so a
+                // provider hiccup does not strand the local record.
+                if (paymentAdapter?.subscriptions) {
+                    const providerSubscriptionId = existing.providerSubscriptionIds?.[paymentAdapter.provider];
+                    if (providerSubscriptionId) {
+                        try {
+                            await paymentAdapter.subscriptions.uncancel(providerSubscriptionId);
+                        } catch (error) {
+                            if (providerSyncErrorStrategy === 'throw') {
+                                throw error;
+                            }
+                            logger.warn(
+                                'Failed to uncancel provider subscription, updating local record only (providerSyncErrorStrategy=log)',
+                                {
+                                    error: error instanceof Error ? error.message : String(error),
+                                    subscriptionId: id,
+                                    provider: paymentAdapter.provider
+                                }
+                            );
+                        }
+                    }
+                }
+
+                // Clear the cancellation stamp. `status` is deliberately NOT
+                // changed: a soft-cancel left it `active`/`trialing`, so un-cancel
+                // preserves it (unlike resume, which forces `active`).
+                const subscription = await storage.subscriptions.update(id, { canceledAt: null });
+                await emitter.emit('subscription.uncanceled', subscription);
                 return wrapWithHelpers(subscription);
             },
             changePlan: async (id, options) => {

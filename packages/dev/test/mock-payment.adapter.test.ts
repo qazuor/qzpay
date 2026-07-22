@@ -319,6 +319,22 @@ describe('createMockPaymentAdapter', () => {
             });
         });
 
+        describe('uncancel', () => {
+            it('should clear cancelAtPeriodEnd + canceledAt without changing status', async () => {
+                const subscription = await adapter.subscriptions.create(buildInput(customerId));
+
+                // Soft-cancel: sets the flag, leaves status unchanged (active).
+                await adapter.subscriptions.cancel(subscription.id, true);
+
+                await adapter.subscriptions.uncancel(subscription.id);
+
+                const updated = await adapter.subscriptions.retrieve(subscription.id);
+                expect(updated.cancelAtPeriodEnd).toBe(false);
+                expect(updated.canceledAt).toBeNull();
+                expect(updated.status).toBe('active');
+            });
+        });
+
         describe('retrieve', () => {
             it('should retrieve an existing subscription', async () => {
                 const subscription = await adapter.subscriptions.create(buildInput(customerId));
