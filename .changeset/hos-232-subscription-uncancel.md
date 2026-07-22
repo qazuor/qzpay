@@ -35,3 +35,9 @@ Custom `QZPayPaymentSubscriptionAdapter` implementations must add an `uncancel`
 method. Also widens `QZPayUpdateSubscriptionInput.canceledAt` /
 `QZPayUpdateSubscriptionServiceInput.canceledAt` to `Date | null` so the stamp
 can be cleared (matching the existing `trialEnd?: Date | null` clear-with-null).
+
+Scope note: this ships the core primitive + provider adapters only. The
+`@qazuor/qzpay-hono` routes, `@qazuor/qzpay-nestjs` service, and
+`@qazuor/qzpay-react` hooks are intentionally NOT wired for `uncancel` in this
+release — hosts call `billing.subscriptions.uncancel()` directly (as they
+already do for `cancel`). Consumer-package wiring can follow separately.

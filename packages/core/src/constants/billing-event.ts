@@ -13,6 +13,7 @@ export const QZPAY_BILLING_EVENT = {
     SUBSCRIPTION_CANCELED: 'subscription.canceled',
     SUBSCRIPTION_PAUSED: 'subscription.paused',
     SUBSCRIPTION_RESUMED: 'subscription.resumed',
+    SUBSCRIPTION_UNCANCELED: 'subscription.uncanceled',
     SUBSCRIPTION_TRIAL_ENDING: 'subscription.trial_ending',
     SUBSCRIPTION_TRIAL_ENDED: 'subscription.trial_ended',
     SUBSCRIPTION_LINKED: 'subscription.linked',

@@ -56,6 +56,14 @@ import { createDefaultLogger } from './utils/default-logger.js';
 import { qzpayCreateValidator } from './utils/validation.utils.js';
 
 /**
+ * Statuses in which a soft-cancelled subscription can be un-cancelled — the
+ * pre-finalization, still-chargeable states a live soft-cancel can hold. Any
+ * other status (`canceled`, `expired`, `paused`) is NOT reversible via
+ * `uncancel` (see `subscriptions.uncancel`).
+ */
+const UNCANCELLABLE_STATUSES: ReadonlySet<QZPaySubscriptionStatus> = new Set(['active', 'trialing', 'past_due']);
+
+/**
  * Subscription service input types
  */
 export interface QZPayCreateSubscriptionServiceInput {
@@ -1527,24 +1535,30 @@ class QZPayBillingImpl implements QZPayBilling {
                     throw new QZPayNotFoundError('Subscription', id);
                 }
 
-                // Guard 1: a finalized hard-cancel (`status: 'canceled'`) is
-                // terminal at the provider (irreversible) — reject rather than
-                // clear the local stamp and desync from a dead preapproval.
-                if (existing.status === 'canceled') {
-                    throw new QZPayConflictError(
-                        `Subscription '${id}' is already cancelled and cannot be un-cancelled.`,
-                        'already_cancelled'
-                    );
-                }
-
-                // Guard 2: nothing to reverse. A subscription that was never
+                // Guard 1: nothing to reverse. A subscription that was never
                 // soft-cancelled has no `canceledAt` stamp — no-op (idempotent).
-                // This is ALSO what stops uncancel from touching a `pause()`d
-                // subscription: pause() never sets `canceledAt`, so a paused sub
-                // (which must be reversed with resume(), a different axis) falls
-                // through here untouched instead of being silently un-paused.
                 if (existing.canceledAt == null) {
                     return wrapWithHelpers(existing);
+                }
+
+                // Guard 2: only a LIVE soft-cancel is reversible — one whose
+                // status is still a pre-finalization, chargeable state
+                // (`active`/`trialing`/`past_due`). Everything else is rejected:
+                // - `canceled`: finalized hard-cancel, terminal at the provider.
+                // - `expired`: the period already ended.
+                // - `paused`: a DIFFERENT axis (reverse with `resume`). This case
+                //   is the important one for MercadoPago, where `pause()` and
+                //   `cancel(id,{cancelAtPeriodEnd:true})` both PUT the preapproval
+                //   to `paused`. Un-cancelling a subscription that is BOTH
+                //   soft-cancelled (canceledAt set) AND paused would re-authorize
+                //   provider billing while the local status stayed `paused` — a
+                //   money/entitlement desync. Reject it so the caller resolves the
+                //   compound state explicitly (resume, then re-evaluate).
+                if (!UNCANCELLABLE_STATUSES.has(existing.status)) {
+                    throw new QZPayConflictError(
+                        `Subscription '${id}' (status '${existing.status}') is not in a reversible soft-cancelled state.`,
+                        'not_soft_cancelled'
+                    );
                 }
 
                 // Reverse the soft-cancel AT THE PROVIDER. Each adapter reverses

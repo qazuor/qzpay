@@ -982,10 +982,36 @@ describe('billing.subscriptions', () => {
         // Hard-cancel → status 'canceled'.
         await billing.subscriptions.cancel(created.id);
 
-        await expect(billing.subscriptions.uncancel(created.id)).rejects.toThrow(/already cancelled/i);
+        await expect(billing.subscriptions.uncancel(created.id)).rejects.toThrow(/not in a reversible soft-cancelled state/i);
         // Never touched the provider, never cleared the stamp.
         expect(subscriptions.uncancel).not.toHaveBeenCalled();
         const after = await billing.subscriptions.get(created.id);
+        expect(after?.canceledAt).not.toBeNull();
+    });
+
+    // Round-2 finding: for MercadoPago, pause() and cancel(id,{cancelAtPeriodEnd:true})
+    // both PUT the preapproval to 'paused'. A subscription that is BOTH soft-cancelled
+    // (canceledAt set) AND paused (status 'paused') must NOT be un-cancelled — doing so
+    // would re-authorize provider billing while the local status stayed 'paused'.
+    it('GUARD: rejects un-cancelling a soft-cancelled subscription that is also paused (no provider call)', async () => {
+        const storage = createMockStorage();
+        const { paymentAdapter, subscriptions } = makeUncancelAdapter();
+        const billing = createQZPayBilling({ storage, plans: mockPlans, paymentAdapter });
+
+        const created = await billing.subscriptions.create({ customerId: 'cus_123', planId: 'pro' });
+        await storage.subscriptions.update(created.id, {
+            providerSubscriptionIds: { mercadopago: 'mp_pre_1' }
+            // biome-ignore lint/suspicious/noExplicitAny: mock storage update accepts the extra field
+        } as any);
+        // Soft-cancel (stamps canceledAt) THEN pause (status -> 'paused').
+        await billing.subscriptions.cancel(created.id, { cancelAtPeriodEnd: true });
+        await billing.subscriptions.pause(created.id);
+
+        await expect(billing.subscriptions.uncancel(created.id)).rejects.toThrow(/not in a reversible soft-cancelled state/i);
+        // Critical: the provider was NOT re-authorized behind the paused local state.
+        expect(subscriptions.uncancel).not.toHaveBeenCalled();
+        const after = await billing.subscriptions.get(created.id);
+        expect(after?.status).toBe('paused');
         expect(after?.canceledAt).not.toBeNull();
     });
 
