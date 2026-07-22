@@ -94,7 +94,8 @@ export interface QZPayUpdateSubscriptionServiceInput {
     quantity?: number;
     metadata?: QZPayMetadata;
     status?: QZPaySubscriptionStatus;
-    canceledAt?: Date;
+    /** Cancellation timestamp. Pass `null` to CLEAR it; omit to leave untouched. */
+    canceledAt?: Date | null;
     cancelAt?: Date;
     /** Current period start date (for renewals) */
     currentPeriodStart?: Date;
@@ -1526,22 +1527,43 @@ class QZPayBillingImpl implements QZPayBilling {
                     throw new QZPayNotFoundError('Subscription', id);
                 }
 
-                // Reverse a soft-cancel: re-authorize the provider preapproval
-                // that cancel(id, { cancelAtPeriodEnd: true }) paused, so it
-                // charges again. Mirrors cancel/pause/resume provider propagation
-                // and the same providerSyncErrorStrategy guard so a provider
-                // hiccup does not strand the local record.
+                // Guard 1: a finalized hard-cancel (`status: 'canceled'`) is
+                // terminal at the provider (irreversible) — reject rather than
+                // clear the local stamp and desync from a dead preapproval.
+                if (existing.status === 'canceled') {
+                    throw new QZPayConflictError(
+                        `Subscription '${id}' is already cancelled and cannot be un-cancelled.`,
+                        'already_cancelled'
+                    );
+                }
+
+                // Guard 2: nothing to reverse. A subscription that was never
+                // soft-cancelled has no `canceledAt` stamp — no-op (idempotent).
+                // This is ALSO what stops uncancel from touching a `pause()`d
+                // subscription: pause() never sets `canceledAt`, so a paused sub
+                // (which must be reversed with resume(), a different axis) falls
+                // through here untouched instead of being silently un-paused.
+                if (existing.canceledAt == null) {
+                    return wrapWithHelpers(existing);
+                }
+
+                // Reverse the soft-cancel AT THE PROVIDER. Each adapter reverses
+                // ITS OWN soft-cancel mechanism (MP re-authorizes the paused
+                // preapproval; Stripe clears `cancel_at_period_end`) — this is
+                // NOT `resume`, which reverses `pause`. Same
+                // providerSyncErrorStrategy guard as cancel/pause/resume so a
+                // provider hiccup does not strand the local record.
                 if (paymentAdapter?.subscriptions) {
                     const providerSubscriptionId = existing.providerSubscriptionIds?.[paymentAdapter.provider];
                     if (providerSubscriptionId) {
                         try {
-                            await paymentAdapter.subscriptions.resume(providerSubscriptionId);
+                            await paymentAdapter.subscriptions.uncancel(providerSubscriptionId);
                         } catch (error) {
                             if (providerSyncErrorStrategy === 'throw') {
                                 throw error;
                             }
                             logger.warn(
-                                'Failed to resume provider subscription on uncancel, updating local record only (providerSyncErrorStrategy=log)',
+                                'Failed to uncancel provider subscription, updating local record only (providerSyncErrorStrategy=log)',
                                 {
                                     error: error instanceof Error ? error.message : String(error),
                                     subscriptionId: id,
@@ -1556,7 +1578,7 @@ class QZPayBillingImpl implements QZPayBilling {
                 // changed: a soft-cancel left it `active`/`trialing`, so un-cancel
                 // preserves it (unlike resume, which forces `active`).
                 const subscription = await storage.subscriptions.update(id, { canceledAt: null });
-                await emitter.emit('subscription.updated', subscription);
+                await emitter.emit('subscription.uncanceled', subscription);
                 return wrapWithHelpers(subscription);
             },
             changePlan: async (id, options) => {

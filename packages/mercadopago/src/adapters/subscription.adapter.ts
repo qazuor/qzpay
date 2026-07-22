@@ -196,6 +196,23 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
         });
     }
 
+    /**
+     * Reverse a period-end soft-cancel: PUT `{ status: 'authorized' }`, which
+     * re-authorizes a preapproval that {@link cancel}(id, true) paused. This is
+     * the exact inverse of the reversible soft-cancel (paused → authorized), so
+     * MercadoPago resumes charging on the next cycle. A `cancelled` (hard-cancel)
+     * preapproval is terminal and MercadoPago rejects this transition — the core
+     * `uncancel` guards that off before reaching the adapter.
+     */
+    async uncancel(providerSubscriptionId: string): Promise<void> {
+        return wrapAdapterMethod('Uncancel subscription', async () => {
+            await this.preapprovalApi.update({
+                id: providerSubscriptionId,
+                body: { status: 'authorized' }
+            });
+        });
+    }
+
     async retrieve(providerSubscriptionId: string): Promise<QZPayProviderSubscription> {
         return wrapAdapterMethod('Retrieve subscription', async () => {
             const response = await this.preapprovalApi.get({ id: providerSubscriptionId });

@@ -174,6 +174,27 @@ export class QZPayStripeSubscriptionAdapter implements QZPayPaymentSubscriptionA
     }
 
     /**
+     * Reverse a period-end soft-cancel in Stripe: clear `cancel_at_period_end`.
+     *
+     * The exact inverse of {@link cancel}(id, true) (which sets
+     * `cancel_at_period_end: true`), so Stripe no longer terminates the
+     * subscription at period end. This is a DIFFERENT axis from
+     * {@link pause}/{@link resume} (which use `pause_collection`), so `uncancel`
+     * must not be conflated with `resume`.
+     */
+    async uncancel(providerSubscriptionId: string): Promise<void> {
+        return withRetry(
+            async () => {
+                await this.stripe.subscriptions.update(providerSubscriptionId, {
+                    cancel_at_period_end: false
+                });
+            },
+            this.retryConfig,
+            'Uncancel subscription'
+        );
+    }
+
+    /**
      * Retrieve a subscription from Stripe
      */
     async retrieve(providerSubscriptionId: string): Promise<QZPayProviderSubscription> {

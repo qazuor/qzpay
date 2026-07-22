@@ -230,6 +230,16 @@ export function createMockPaymentAdapter(config?: MockPaymentAdapterConfig): {
                 }
             },
 
+            async uncancel(providerSubscriptionId): Promise<void> {
+                // Reverse a period-end soft-cancel: clear the flag + cancellation
+                // stamp. Does NOT touch `status` (mirrors the real providers).
+                const subscription = store.subscriptions.get(providerSubscriptionId);
+                if (subscription) {
+                    subscription.cancelAtPeriodEnd = false;
+                    subscription.canceledAt = null;
+                }
+            },
+
             async retrieve(providerSubscriptionId): Promise<QZPayProviderSubscription> {
                 const subscription = store.subscriptions.get(providerSubscriptionId);
                 if (!subscription) {

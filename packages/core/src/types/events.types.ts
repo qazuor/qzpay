@@ -39,6 +39,9 @@ export type QZPayEventMap = {
     'subscription.canceled': QZPaySubscription;
     'subscription.paused': QZPaySubscription;
     'subscription.resumed': QZPaySubscription;
+    /** A soft-cancel (`cancel(id, { cancelAtPeriodEnd: true })`) was reversed via
+     * `uncancel(id)` before finalization — the mirror of `subscription.canceled`. */
+    'subscription.uncanceled': QZPaySubscription;
     'subscription.trial_ending': QZPaySubscription;
     'subscription.trial_ended': QZPaySubscription;
     'subscription.linked': QZPaySubscription;

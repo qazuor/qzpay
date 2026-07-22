@@ -425,6 +425,20 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
         });
     });
 
+    describe('uncancel', () => {
+        // Reverse of cancel(id, true) — re-authorizes the paused preapproval.
+        it('re-authorizes the paused preapproval', async () => {
+            mockPreApprovalApi.update.mockResolvedValue({});
+
+            await adapter.uncancel('preapproval_123');
+
+            expect(mockPreApprovalApi.update).toHaveBeenCalledWith({
+                id: 'preapproval_123',
+                body: { status: 'authorized' }
+            });
+        });
+    });
+
     describe('retrieve', () => {
         it('retrieves a subscription', async () => {
             mockPreApprovalApi.get.mockResolvedValue(createMockMPPreapproval({ id: 'preapproval_123', status: 'authorized' }));
