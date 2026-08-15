@@ -5,6 +5,7 @@ import type { QZPayEmailAdapter } from './adapters/email.adapter.js';
 import type {
     QZPayPaymentAdapter,
     QZPayProviderCreateCheckoutInput,
+    QZPayProviderCreateCustomerInput,
     QZPayProviderCreateSubscriptionInput
 } from './adapters/payment.adapter.js';
 import type { QZPayStorageAdapter } from './adapters/storage.adapter.js';
@@ -1130,14 +1131,92 @@ class QZPayBillingImpl implements QZPayBilling {
             },
             get: (id) => storage.customers.findById(id),
             getByExternalId: (externalId) => storage.customers.findByExternalId(externalId),
+            /**
+             * Update a customer locally and mirror the change to the provider.
+             *
+             * Only `email` and `name` cross the boundary — they are the fields a
+             * provider-side customer actually holds, and the ones that end up on
+             * the provider's own receipts and notifications. Local-only fields
+             * (metadata, saved cards, provider id map) skip the round trip.
+             *
+             * This is a MIRROR sync, not a money movement: a provider outage must
+             * not stop a user from changing their name, so failures honour
+             * `providerSyncErrorStrategy` exactly like `subscriptions.pause/resume`.
+             * Do NOT convert this to the unconditional throw used by
+             * `payments.refund()` — there, a local-only write lies about money;
+             * here it only means the provider copy lags.
+             */
             update: async (id, input) => {
+                if (paymentAdapter?.customers) {
+                    const existing = await storage.customers.findById(id);
+                    const providerCustomerId = existing?.providerCustomerIds?.[paymentAdapter.provider];
+                    // No link means there is no provider-side record to mirror
+                    // onto — nothing to sync, and nothing wrong with that.
+                    if (providerCustomerId) {
+                        const providerInput: Partial<QZPayProviderCreateCustomerInput> = {};
+                        if (input.email !== undefined) providerInput.email = input.email;
+                        if (input.name !== undefined) providerInput.name = input.name;
+
+                        if (Object.keys(providerInput).length > 0) {
+                            try {
+                                await paymentAdapter.customers.update(providerCustomerId, providerInput);
+                            } catch (error) {
+                                if (providerSyncErrorStrategy === 'throw') {
+                                    throw error;
+                                }
+                                logger.warn(
+                                    'Failed to update provider customer, updating local record only (providerSyncErrorStrategy=log)',
+                                    {
+                                        error: error instanceof Error ? error.message : String(error),
+                                        customerId: id,
+                                        provider: paymentAdapter.provider
+                                    }
+                                );
+                            }
+                        }
+                    }
+                }
+
                 const customer = await storage.customers.update(id, input);
                 if (customer) {
                     await emitter.emit('customer.updated', customer);
                 }
                 return customer;
             },
+            /**
+             * Delete a customer locally and at the provider.
+             *
+             * The provider-side customer is what holds the saved cards, so a
+             * local-only delete leaves the payment instruments alive at the
+             * provider indefinitely — the opposite of what a caller asking to
+             * delete a customer (or honouring an erasure request) expects.
+             *
+             * Deletion at the provider is NOT reversible. The provider leg is
+             * attempted first so a `providerSyncErrorStrategy: 'throw'` caller can
+             * abort before the local record is gone; under `'log'` the local
+             * delete proceeds and the provider copy is left for reconciliation.
+             */
             delete: async (id) => {
+                if (paymentAdapter?.customers) {
+                    // Read BEFORE deleting: the provider id lives on the record.
+                    const existing = await storage.customers.findById(id);
+                    const providerCustomerId = existing?.providerCustomerIds?.[paymentAdapter.provider];
+                    if (providerCustomerId) {
+                        try {
+                            await paymentAdapter.customers.delete(providerCustomerId);
+                        } catch (error) {
+                            if (providerSyncErrorStrategy === 'throw') {
+                                throw error;
+                            }
+                            logger.warn('Failed to delete provider customer, deleting local record only (providerSyncErrorStrategy=log)', {
+                                error: error instanceof Error ? error.message : String(error),
+                                customerId: id,
+                                provider: paymentAdapter.provider
+                            });
+                        }
+                    }
+                }
+
                 await storage.customers.delete(id);
                 const customer = await storage.customers.findById(id);
                 if (customer) {
