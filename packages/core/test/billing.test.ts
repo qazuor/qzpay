@@ -2632,6 +2632,166 @@ describe('billing.payments.refund → provider adapter (H-146)', () => {
     });
 });
 
+/**
+ * Customer mirror-sync suite.
+ *
+ * `customers.update()` and `customers.delete()` used to write only to storage
+ * while `adapter.customers.update/delete` sat unused: the provider-side customer
+ * kept a stale email forever, and survived a local deletion together with its
+ * saved cards.
+ *
+ * Unlike `payments.refund()` — where a local-only write is a lie about money and
+ * therefore always throws — these are MIRROR syncs. They follow the same
+ * `providerSyncErrorStrategy` contract as `subscriptions.cancel/pause/resume`:
+ * a provider hiccup must not stop a user from renaming themselves.
+ */
+describe('billing.customers → provider mirror sync', () => {
+    function createCustomerAdapter(update: ReturnType<typeof vi.fn>, remove: ReturnType<typeof vi.fn>) {
+        return {
+            provider: 'mercadopago' as const,
+            customers: { create: vi.fn(async () => 'mp_cus_new'), update, delete: remove, retrieve: vi.fn() },
+            subscriptions: { create: vi.fn(), update: vi.fn(), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn(), retrieve: vi.fn() },
+            payments: { create: vi.fn(), capture: vi.fn(), cancel: vi.fn(), refund: vi.fn(), retrieve: vi.fn() },
+            checkout: { create: vi.fn(), retrieve: vi.fn(), expire: vi.fn() }
+            // biome-ignore lint/suspicious/noExplicitAny: cast to satisfy structural QZPayPaymentAdapter shape in test
+        } as any;
+    }
+
+    /** Seed a customer already linked to the provider, bypassing create()'s own sync. */
+    async function seedLinkedCustomer(storage: QZPayStorageAdapter) {
+        return storage.customers.create({
+            email: 'old@example.com',
+            name: 'Old Name',
+            externalId: 'ext_mirror',
+            providerCustomerIds: { mercadopago: 'mp_cus_linked' }
+        } as never);
+    }
+
+    describe('update', () => {
+        it('propagates email and name to the provider', async () => {
+            const storage = createMockStorage();
+            const update = vi.fn();
+            const billing = createQZPayBilling({ storage, paymentAdapter: createCustomerAdapter(update, vi.fn()) as never });
+            const customer = await seedLinkedCustomer(storage);
+
+            const updated = await billing.customers.update(customer.id, { email: 'new@example.com', name: 'New Name' });
+
+            expect(update).toHaveBeenCalledTimes(1);
+            expect(update).toHaveBeenCalledWith('mp_cus_linked', { email: 'new@example.com', name: 'New Name' });
+            expect(updated?.email).toBe('new@example.com');
+        });
+
+        it('does NOT call the provider when neither email nor name changes', async () => {
+            // Local-only fields (metadata, savedCards) have no provider counterpart;
+            // a round trip per metadata write would be pure latency.
+            const storage = createMockStorage();
+            const update = vi.fn();
+            const billing = createQZPayBilling({ storage, paymentAdapter: createCustomerAdapter(update, vi.fn()) as never });
+            const customer = await seedLinkedCustomer(storage);
+
+            await billing.customers.update(customer.id, { metadata: { lastSyncedAt: 'now' } });
+
+            expect(update).not.toHaveBeenCalled();
+        });
+
+        it('does NOT call the provider when the customer was never linked', async () => {
+            const storage = createMockStorage();
+            const update = vi.fn();
+            const billing = createQZPayBilling({ storage, paymentAdapter: createCustomerAdapter(update, vi.fn()) as never });
+            const customer = await storage.customers.create({
+                email: 'unlinked@example.com',
+                name: 'Unlinked',
+                externalId: 'ext_unlinked'
+            } as never);
+
+            const updated = await billing.customers.update(customer.id, { email: 'changed@example.com' });
+
+            expect(update).not.toHaveBeenCalled();
+            expect(updated?.email).toBe('changed@example.com');
+        });
+
+        it('still applies the local update when the provider fails under strategy=log', async () => {
+            const storage = createMockStorage();
+            const update = vi.fn(async () => {
+                throw new Error('MP down');
+            });
+            const billing = createQZPayBilling({
+                storage,
+                paymentAdapter: createCustomerAdapter(update, vi.fn()) as never,
+                providerSyncErrorStrategy: 'log'
+            });
+            const customer = await seedLinkedCustomer(storage);
+
+            const updated = await billing.customers.update(customer.id, { email: 'new@example.com' });
+
+            // A provider outage must not block a user from changing their email.
+            expect(updated?.email).toBe('new@example.com');
+        });
+
+        it('propagates the provider error under strategy=throw', async () => {
+            const storage = createMockStorage();
+            const update = vi.fn(async () => {
+                throw new Error('MP down');
+            });
+            const billing = createQZPayBilling({
+                storage,
+                paymentAdapter: createCustomerAdapter(update, vi.fn()) as never,
+                providerSyncErrorStrategy: 'throw'
+            });
+            const customer = await seedLinkedCustomer(storage);
+
+            await expect(billing.customers.update(customer.id, { email: 'new@example.com' })).rejects.toThrow(/MP down/);
+        });
+    });
+
+    describe('delete', () => {
+        it('deletes the customer at the provider too', async () => {
+            const storage = createMockStorage();
+            const remove = vi.fn();
+            const billing = createQZPayBilling({ storage, paymentAdapter: createCustomerAdapter(vi.fn(), remove) as never });
+            const customer = await seedLinkedCustomer(storage);
+
+            await billing.customers.delete(customer.id);
+
+            expect(remove).toHaveBeenCalledTimes(1);
+            expect(remove).toHaveBeenCalledWith('mp_cus_linked');
+            expect(storage.customers.delete).toHaveBeenCalledWith(customer.id);
+        });
+
+        it('still deletes locally when the provider fails under strategy=log', async () => {
+            const storage = createMockStorage();
+            const remove = vi.fn(async () => {
+                throw new Error('MP down');
+            });
+            const billing = createQZPayBilling({
+                storage,
+                paymentAdapter: createCustomerAdapter(vi.fn(), remove) as never,
+                providerSyncErrorStrategy: 'log'
+            });
+            const customer = await seedLinkedCustomer(storage);
+
+            await billing.customers.delete(customer.id);
+
+            expect(storage.customers.delete).toHaveBeenCalledWith(customer.id);
+        });
+
+        it('does NOT call the provider when the customer was never linked', async () => {
+            const storage = createMockStorage();
+            const remove = vi.fn();
+            const billing = createQZPayBilling({ storage, paymentAdapter: createCustomerAdapter(vi.fn(), remove) as never });
+            const customer = await storage.customers.create({
+                email: 'unlinked@example.com',
+                name: 'Unlinked',
+                externalId: 'ext_unlinked_del'
+            } as never);
+
+            await billing.customers.delete(customer.id);
+
+            expect(remove).not.toHaveBeenCalled();
+        });
+    });
+});
+
 describe('billing.invoices', () => {
     it('should create an invoice', async () => {
         const storage = createMockStorage();
