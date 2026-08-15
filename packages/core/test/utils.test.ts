@@ -11,6 +11,7 @@ import {
     qzpayAssertValidMetadata,
     qzpayCalculateProration,
     qzpayCentsToDecimal,
+    qzpayClassifyRefundStatus,
     qzpayCreateIdempotencyHash,
     qzpayCreateValidator,
     qzpayDaysSince,
@@ -1336,6 +1337,39 @@ describe('validation.utils', () => {
                     })
                 ).toThrow(RangeError);
             });
+        });
+    });
+});
+
+describe('refund-status.utils', () => {
+    describe('qzpayClassifyRefundStatus', () => {
+        it.each(['approved', 'succeeded', 'success', 'completed', 'refunded', 'partially_refunded'])(
+            'classifies %s as succeeded',
+            (status) => {
+                expect(qzpayClassifyRefundStatus(status)).toBe('succeeded');
+            }
+        );
+
+        it.each(['rejected', 'failed', 'cancelled', 'canceled', 'error', 'declined'])('classifies %s as failed', (status) => {
+            expect(qzpayClassifyRefundStatus(status)).toBe('failed');
+        });
+
+        it.each(['pending', 'in_process', 'requires_action'])('classifies %s as pending', (status) => {
+            expect(qzpayClassifyRefundStatus(status)).toBe('pending');
+        });
+
+        it('is case- and whitespace-insensitive', () => {
+            expect(qzpayClassifyRefundStatus('  APPROVED ')).toBe('succeeded');
+            expect(qzpayClassifyRefundStatus('Rejected')).toBe('failed');
+        });
+
+        it('never promotes an unknown status to succeeded', () => {
+            // The whole point of the allowlist: a provider inventing a new
+            // status string must not be able to mark a payment `refunded`.
+            expect(qzpayClassifyRefundStatus('who_knows')).toBe('pending');
+            expect(qzpayClassifyRefundStatus('')).toBe('pending');
+            expect(qzpayClassifyRefundStatus(null)).toBe('pending');
+            expect(qzpayClassifyRefundStatus(undefined)).toBe('pending');
         });
     });
 });

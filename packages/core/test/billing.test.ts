@@ -2455,6 +2455,183 @@ describe('billing.payments', () => {
     });
 });
 
+/**
+ * H-146 regression suite.
+ *
+ * `payments.refund()` used to write `status: 'refunded'` straight to storage
+ * and emit `payment.refunded` without ever calling the provider. The local row
+ * claimed the money went back while the provider never moved a cent (measured
+ * in Hospeda production: a refund answered in 36ms — no network call — against
+ * a real 1.800.000-centavo payment that was never returned).
+ *
+ * Every test below encodes one half of the same invariant: the provider is
+ * called, and the local status mirrors what the PROVIDER answered — never what
+ * the caller asked for.
+ */
+describe('billing.payments.refund → provider adapter (H-146)', () => {
+    type MockRefundAdapter = {
+        provider: 'mercadopago';
+        payments: { refund: ReturnType<typeof vi.fn> };
+    };
+
+    /** Minimal adapter carrying only what refund() touches. */
+    function createRefundAdapter(refund: ReturnType<typeof vi.fn>): MockRefundAdapter {
+        return {
+            provider: 'mercadopago' as const,
+            customers: { create: vi.fn(), update: vi.fn(), delete: vi.fn(), retrieve: vi.fn() },
+            subscriptions: { create: vi.fn(), update: vi.fn(), cancel: vi.fn(), pause: vi.fn(), resume: vi.fn(), retrieve: vi.fn() },
+            payments: { create: vi.fn(), capture: vi.fn(), cancel: vi.fn(), refund, retrieve: vi.fn() },
+            checkout: { create: vi.fn(), retrieve: vi.fn(), expire: vi.fn() }
+            // biome-ignore lint/suspicious/noExplicitAny: cast to satisfy structural QZPayPaymentAdapter shape in test
+        } as any;
+    }
+
+    /** Seed a succeeded payment already linked to a provider payment id. */
+    async function seedLinkedPayment(billing: ReturnType<typeof createQZPayBilling>, amount = 1_800_000) {
+        return billing.payments.record({
+            id: 'pay_h146',
+            customerId: 'cus_h146',
+            amount,
+            currency: 'ARS',
+            status: 'succeeded',
+            provider: 'mercadopago',
+            providerPaymentId: 'mp_pay_777'
+        });
+    }
+
+    it('calls the provider refund adapter with the provider payment id', async () => {
+        const storage = createMockStorage();
+        const refund = vi.fn(async () => ({ id: 'mp_refund_1', status: 'approved', amount: 1_800_000 }));
+        const billing = createQZPayBilling({ storage, paymentAdapter: createRefundAdapter(refund) as never });
+        await seedLinkedPayment(billing);
+
+        const refunded = await billing.payments.refund({ paymentId: 'pay_h146', reason: 'Customer request' });
+
+        expect(refund).toHaveBeenCalledTimes(1);
+        // No `amount` forwarded: omitting it is how adapters express a FULL
+        // refund. Synthesizing the total here would cap an otherwise-full refund.
+        expect(refund).toHaveBeenCalledWith({ paymentId: 'pay_h146', reason: 'Customer request' }, 'mp_pay_777');
+        expect(refunded.status).toBe('refunded');
+    });
+
+    it('does NOT mark the row refunded when the provider refund throws', async () => {
+        const storage = createMockStorage();
+        const refund = vi.fn(async () => {
+            throw new Error('MP down');
+        });
+        const billing = createQZPayBilling({ storage, paymentAdapter: createRefundAdapter(refund) as never });
+        await seedLinkedPayment(billing);
+        const handler = vi.fn();
+        billing.on('payment.refunded', handler);
+
+        await expect(billing.payments.refund({ paymentId: 'pay_h146' })).rejects.toThrow(/MP down/);
+
+        const stored = await billing.payments.get('pay_h146');
+        expect(stored?.status).toBe('succeeded');
+        expect(stored?.metadata?.refundedAmount).toBeUndefined();
+        expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('does NOT downgrade a refund failure under providerSyncErrorStrategy=log', async () => {
+        // cancel/pause fall back to a local-only write when the provider call
+        // fails. Refund must NOT: a local `refunded` with no provider refund is
+        // exactly the H-146 lie. `log` may not buy a fail-open here.
+        const storage = createMockStorage();
+        const refund = vi.fn(async () => {
+            throw new Error('MP down');
+        });
+        const billing = createQZPayBilling({
+            storage,
+            paymentAdapter: createRefundAdapter(refund) as never,
+            providerSyncErrorStrategy: 'log'
+        });
+        await seedLinkedPayment(billing);
+
+        await expect(billing.payments.refund({ paymentId: 'pay_h146' })).rejects.toThrow(/MP down/);
+
+        const stored = await billing.payments.get('pay_h146');
+        expect(stored?.status).toBe('succeeded');
+    });
+
+    it('does NOT mark the row refunded when the provider rejects the refund', async () => {
+        const storage = createMockStorage();
+        const refund = vi.fn(async () => ({ id: 'mp_refund_2', status: 'rejected', amount: 0 }));
+        const billing = createQZPayBilling({ storage, paymentAdapter: createRefundAdapter(refund) as never });
+        await seedLinkedPayment(billing);
+        const handler = vi.fn();
+        billing.on('payment.refunded', handler);
+
+        await expect(billing.payments.refund({ paymentId: 'pay_h146' })).rejects.toThrow(/rejected/i);
+
+        const stored = await billing.payments.get('pay_h146');
+        expect(stored?.status).toBe('succeeded');
+        expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('leaves the status untouched while the provider refund is still pending', async () => {
+        const storage = createMockStorage();
+        const refund = vi.fn(async () => ({ id: 'mp_refund_3', status: 'in_process', amount: 1_800_000 }));
+        const billing = createQZPayBilling({ storage, paymentAdapter: createRefundAdapter(refund) as never });
+        await seedLinkedPayment(billing);
+        const handler = vi.fn();
+        billing.on('payment.refunded', handler);
+
+        const result = await billing.payments.refund({ paymentId: 'pay_h146' });
+
+        // Money has NOT moved yet — the webhook that confirms it will flip the
+        // status. Claiming `refunded` here is the same lie, one step earlier.
+        expect(result.status).toBe('succeeded');
+        expect(result.metadata?.refundStatus).toBe('pending');
+        expect(result.metadata?.refundId).toBe('mp_refund_3');
+        expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('reflects the amount the PROVIDER refunded, not the amount requested', async () => {
+        const storage = createMockStorage();
+        // Caller asks for 900.000; the provider only returns 400.000.
+        const refund = vi.fn(async () => ({ id: 'mp_refund_4', status: 'approved', amount: 400_000 }));
+        const billing = createQZPayBilling({ storage, paymentAdapter: createRefundAdapter(refund) as never });
+        await seedLinkedPayment(billing);
+
+        const refunded = await billing.payments.refund({ paymentId: 'pay_h146', amount: 900_000 });
+
+        expect(refund).toHaveBeenCalledWith({ paymentId: 'pay_h146', amount: 900_000 }, 'mp_pay_777');
+        expect(refunded.status).toBe('partially_refunded');
+        expect(refunded.metadata?.refundedAmount).toBe(400_000);
+    });
+
+    it('throws instead of refunding locally when the payment has no provider id', async () => {
+        const storage = createMockStorage();
+        const refund = vi.fn();
+        const billing = createQZPayBilling({ storage, paymentAdapter: createRefundAdapter(refund) as never });
+        await billing.payments.record({
+            id: 'pay_unlinked',
+            customerId: 'cus_h146',
+            amount: 5000,
+            currency: 'ARS',
+            status: 'succeeded'
+        });
+
+        await expect(billing.payments.refund({ paymentId: 'pay_unlinked' })).rejects.toThrow(/not linked to mercadopago/i);
+
+        expect(refund).not.toHaveBeenCalled();
+        const stored = await billing.payments.get('pay_unlinked');
+        expect(stored?.status).toBe('succeeded');
+    });
+
+    it('still refunds locally when no payment adapter is configured', async () => {
+        // Adapter-less deployments (manual/offline reconciliation) keep the
+        // legacy local-only behaviour — there is no provider to lie about.
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage });
+        await seedLinkedPayment(billing);
+
+        const refunded = await billing.payments.refund({ paymentId: 'pay_h146' });
+
+        expect(refunded.status).toBe('refunded');
+    });
+});
+
 describe('billing.invoices', () => {
     it('should create an invoice', async () => {
         const storage = createMockStorage();

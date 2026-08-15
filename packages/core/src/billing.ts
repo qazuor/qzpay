@@ -48,11 +48,12 @@ import type {
     QZPaySubscriptionMetrics
 } from './types/metrics.types.js';
 import type { QZPayCreatePaymentMethodInput, QZPayPaymentMethod, QZPayUpdatePaymentMethodInput } from './types/payment-method.types.js';
-import type { QZPayPayment } from './types/payment.types.js';
+import type { QZPayPayment, QZPayRefundInput } from './types/payment.types.js';
 import type { QZPayPlan, QZPayPrice } from './types/plan.types.js';
 import type { QZPayPromoCode } from './types/promo-code.types.js';
 import type { QZPayScheduledPlanChange, QZPaySubscription } from './types/subscription.types.js';
 import { createDefaultLogger } from './utils/default-logger.js';
+import { qzpayClassifyRefundStatus } from './utils/refund-status.utils.js';
 import { qzpayCreateValidator } from './utils/validation.utils.js';
 
 /**
@@ -62,6 +63,53 @@ import { qzpayCreateValidator } from './utils/validation.utils.js';
  * `uncancel` (see `subscriptions.uncancel`).
  */
 const UNCANCELLABLE_STATUSES: ReadonlySet<QZPaySubscriptionStatus> = new Set(['active', 'trialing', 'past_due']);
+
+/**
+ * Build the metadata patch written by `payments.refund()`.
+ *
+ * Kept as a single builder so the settled and the still-pending paths agree on
+ * key names — a refund audited from `metadata` alone must show WHO refunded it
+ * (`refundProvider`), WHICH provider-side refund it was (`refundId`) and
+ * WHETHER it settled (`refundStatus`), not just an amount.
+ *
+ * @param params.payment - Payment being refunded; its existing metadata is preserved.
+ * @param params.reason - Caller-supplied reason, omitted from the patch when undefined.
+ * @param params.refundedAmount - Amount actually refunded. Omitted while pending, since nothing has been refunded yet.
+ * @param params.provider - Provider that performed the refund, when one is configured.
+ * @param params.refundId - Provider-side refund identifier, when the provider returned one.
+ * @param params.refundStatus - Settlement state of the refund.
+ * @returns The metadata object to persist.
+ */
+function buildRefundMetadata(params: {
+    payment: QZPayPayment;
+    reason?: string | undefined;
+    refundedAmount?: number | undefined;
+    provider?: string | undefined;
+    refundId?: string | undefined;
+    refundStatus: 'succeeded' | 'pending';
+}): Record<string, string | number | boolean | null> {
+    const metadata: Record<string, string | number | boolean | null> = {
+        ...params.payment.metadata,
+        refundStatus: params.refundStatus
+    };
+    if (params.refundedAmount !== undefined) {
+        // biome-ignore lint/complexity/useLiteralKeys: TS4111 requires bracket notation for index signature
+        metadata['refundedAmount'] = params.refundedAmount;
+    }
+    if (params.reason !== undefined) {
+        // biome-ignore lint/complexity/useLiteralKeys: TS4111 requires bracket notation for index signature
+        metadata['refundReason'] = params.reason;
+    }
+    if (params.provider !== undefined) {
+        // biome-ignore lint/complexity/useLiteralKeys: TS4111 requires bracket notation for index signature
+        metadata['refundProvider'] = params.provider;
+    }
+    if (params.refundId !== undefined) {
+        // biome-ignore lint/complexity/useLiteralKeys: TS4111 requires bracket notation for index signature
+        metadata['refundId'] = params.refundId;
+    }
+    return metadata;
+}
 
 /**
  * Subscription service input types
@@ -1993,24 +2041,132 @@ class QZPayBillingImpl implements QZPayBilling {
 
                 return payment;
             },
+            /**
+             * Refund a payment AT THE PROVIDER, then mirror the provider's
+             * verdict onto the local record.
+             *
+             * Order matters and is not negotiable (H-146): the provider is
+             * asked first, and the local row is only marked `refunded` /
+             * `partially_refunded` once the provider says the money actually
+             * moved. Writing the local status first — or writing it without
+             * calling the provider at all, which is what this method used to
+             * do — produces a record claiming a customer was paid back when
+             * nothing left the account.
+             *
+             * Behaviour by provider outcome:
+             * - settled (`approved`/`succeeded`/…) → status updated from the
+             *   amount the PROVIDER refunded, `payment.refunded` emitted.
+             * - refused (`rejected`/`cancelled`/…) → throws, row untouched.
+             * - pending / unrecognised → metadata records the in-flight refund,
+             *   status left as-is, no event. A webhook settles it later.
+             *
+             * Unlike `subscriptions.cancel/pause/resume`, this method does NOT
+             * honour `providerSyncErrorStrategy: 'log'`. Falling back to a
+             * local-only write is precisely the failure mode being fixed: an
+             * un-refunded payment marked `refunded` is worse than a refund that
+             * visibly failed and can be retried.
+             *
+             * @throws QZPayNotFoundError when the payment does not exist.
+             * @throws QZPayValidationError when an adapter is configured but the
+             *   payment carries no provider payment id for it.
+             * @throws QZPayProviderSyncError when the provider refuses the refund.
+             */
             refund: async (input) => {
                 const payment = await storage.payments.findById(input.paymentId);
                 if (!payment) {
                     throw new QZPayNotFoundError('Payment', input.paymentId);
                 }
 
-                const refundAmount = input.amount ?? payment.amount;
-                const updateMetadata: Record<string, string | number | boolean | null> = {
-                    ...payment.metadata,
-                    refundedAmount: refundAmount
-                };
-                if (input.reason !== undefined) {
-                    // biome-ignore lint/complexity/useLiteralKeys: TS4111 requires bracket notation for index signature
-                    updateMetadata['refundReason'] = input.reason;
+                // Amount used for LOCAL bookkeeping when the provider does not
+                // report one back. The value forwarded to the provider is
+                // `input.amount` verbatim — leaving it undefined is how every
+                // adapter expresses "full refund", and synthesizing an explicit
+                // total here would turn a full refund into an amount-capped one.
+                const requestedAmount = input.amount ?? payment.amount;
+
+                let refundedAmount = requestedAmount;
+                let providerRefundId: string | undefined;
+
+                if (paymentAdapter?.payments) {
+                    const providerPaymentId = payment.providerPaymentIds?.[paymentAdapter.provider];
+                    if (!providerPaymentId) {
+                        // No provider id means core has no way to move the
+                        // money. Marking it refunded locally would be a lie, so
+                        // surface it instead: the operator refunds it at the
+                        // provider console and reconciles via webhook/record().
+                        throw new QZPayValidationError(
+                            `Payment ${input.paymentId} is not linked to ${paymentAdapter.provider} — cannot refund at the provider`,
+                            'paymentId',
+                            input.paymentId
+                        );
+                    }
+
+                    const providerInput: QZPayRefundInput = { paymentId: input.paymentId };
+                    if (input.amount !== undefined) providerInput.amount = input.amount;
+                    if (input.reason !== undefined) providerInput.reason = input.reason;
+
+                    // Intentionally unguarded: a throw here must propagate so
+                    // the caller learns the refund did NOT happen.
+                    const providerRefund = await paymentAdapter.payments.refund(providerInput, providerPaymentId);
+                    const outcome = qzpayClassifyRefundStatus(providerRefund.status);
+                    providerRefundId = providerRefund.id;
+
+                    if (outcome === 'failed') {
+                        logger.error('Provider refused the refund, leaving the local payment untouched', {
+                            provider: paymentAdapter.provider,
+                            paymentId: input.paymentId,
+                            providerPaymentId,
+                            providerRefundId,
+                            providerStatus: providerRefund.status,
+                            operation: 'refund_payment',
+                            errorCode: QZPayErrorCode.PROVIDER_PAYMENT_FAILED
+                        });
+                        throw new QZPayProviderSyncError(
+                            `Provider refused the refund (status '${providerRefund.status}')`,
+                            paymentAdapter.provider,
+                            'payment.refund',
+                            { paymentId: input.paymentId, providerRefundId, providerStatus: providerRefund.status }
+                        );
+                    }
+
+                    if (outcome === 'pending') {
+                        // The provider accepted the request but has not settled
+                        // it. Record the in-flight refund WITHOUT touching the
+                        // status — the money has not moved yet.
+                        logger.info('Provider refund accepted but not settled, leaving the local status untouched', {
+                            provider: paymentAdapter.provider,
+                            paymentId: input.paymentId,
+                            providerRefundId,
+                            providerStatus: providerRefund.status,
+                            operation: 'refund_payment'
+                        });
+                        return storage.payments.update(input.paymentId, {
+                            metadata: buildRefundMetadata({
+                                payment,
+                                reason: input.reason,
+                                provider: paymentAdapter.provider,
+                                refundId: providerRefundId,
+                                refundStatus: 'pending'
+                            })
+                        });
+                    }
+
+                    // Settled. Trust the provider's amount over the requested
+                    // one — a provider is free to refund less than asked. Fall
+                    // back to the request only when it reports no amount at all.
+                    refundedAmount = providerRefund.amount > 0 ? providerRefund.amount : requestedAmount;
                 }
+
                 const updated = await storage.payments.update(input.paymentId, {
-                    status: refundAmount >= payment.amount ? 'refunded' : 'partially_refunded',
-                    metadata: updateMetadata
+                    status: refundedAmount >= payment.amount ? 'refunded' : 'partially_refunded',
+                    metadata: buildRefundMetadata({
+                        payment,
+                        reason: input.reason,
+                        refundedAmount,
+                        ...(paymentAdapter ? { provider: paymentAdapter.provider } : {}),
+                        ...(providerRefundId ? { refundId: providerRefundId } : {}),
+                        refundStatus: 'succeeded'
+                    })
                 });
                 await emitter.emit('payment.refunded', updated);
                 return updated;
