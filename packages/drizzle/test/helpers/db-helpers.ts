@@ -203,9 +203,13 @@ async function pushSchema(): Promise<void> {
             version UUID NOT NULL DEFAULT gen_random_uuid()
         )
     `;
+    // Must mirror `oneActivePerResourceIdx` in
+    // src/schema/subscription-polling-jobs.schema.ts. This DDL is hand-written
+    // rather than derived from the Drizzle schema, so an index changed there
+    // and not here leaves the suite testing a shape that no longer exists.
     await rawSql`
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_polling_jobs_one_active_per_sub
-            ON billing_subscription_polling_jobs (subscription_id)
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_polling_jobs_one_active_per_resource
+            ON billing_subscription_polling_jobs (provider, provider_resource_id)
             WHERE status = 'pending'
     `;
     await rawSql`

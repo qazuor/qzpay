@@ -445,6 +445,14 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 return row ? mapDrizzlePollingJobToCore(row) : null;
             },
 
+            async findActiveByProviderResourceId(
+                provider: string,
+                providerResourceId: string
+            ): Promise<QZPaySubscriptionPollingJob | null> {
+                const row = await repo.findActiveByProviderResourceId(provider, providerResourceId);
+                return row ? mapDrizzlePollingJobToCore(row) : null;
+            },
+
             async findActiveBySubscriptionId(subscriptionId: string): Promise<QZPaySubscriptionPollingJob | null> {
                 const row = await repo.findActiveBySubscriptionId(subscriptionId);
                 return row ? mapDrizzlePollingJobToCore(row) : null;
