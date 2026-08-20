@@ -75,11 +75,11 @@ describe('QZPaySubscriptionPollingJobsRepository', () => {
             expect(job?.version).toBeDefined();
         });
 
-        it('should return null on partial-unique conflict (second active job for same subscription)', async () => {
+        it('should return null on partial-unique conflict (second active job for the SAME resource)', async () => {
             const first = await repo.create({
                 subscriptionId,
                 provider: 'mercadopago',
-                providerResourceId: 'preapproval_first',
+                providerResourceId: 'preapproval_same',
                 status: 'pending',
                 attempts: 0,
                 maxAttempts: 60,
@@ -88,24 +88,93 @@ describe('QZPaySubscriptionPollingJobsRepository', () => {
             });
             expect(first).not.toBeNull();
 
-            const second = await repo.create({
+            const duplicate = await repo.create({
                 subscriptionId,
                 provider: 'mercadopago',
-                providerResourceId: 'preapproval_second',
+                providerResourceId: 'preapproval_same',
                 status: 'pending',
                 attempts: 0,
                 maxAttempts: 60,
                 nextPollAt: new Date(),
                 metadata: {}
             });
-            expect(second).toBeNull();
+            expect(duplicate).toBeNull();
         });
 
-        it('should allow a second job for the same subscription when the first is terminal', async () => {
+        it('should allow concurrent active jobs for DIFFERENT resources of the same subscription', async () => {
+            // Regression guard. This is the exact shape that lost real money:
+            // one subscription, several one-time checkouts in flight at once.
+            // The old index was scoped to `subscription_id`, so the first
+            // checkout — even an abandoned one — held the only slot and every
+            // later enqueue returned null, leaving the purchase that actually
+            // got PAID with no polling job. MP Preferences have no Webhooks v2
+            // channel, so that job is the only activation path there is.
+            const abandonedCheckout = await repo.create({
+                subscriptionId,
+                provider: 'mercadopago',
+                providerResourceId: 'checkout_abandoned',
+                resourceType: 'one_time_payment',
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: 60,
+                nextPollAt: new Date(),
+                metadata: {}
+            });
+            expect(abandonedCheckout).not.toBeNull();
+
+            const paidCheckout = await repo.create({
+                subscriptionId,
+                provider: 'mercadopago',
+                providerResourceId: 'checkout_paid',
+                resourceType: 'one_time_payment',
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: 60,
+                nextPollAt: new Date(),
+                metadata: {}
+            });
+            expect(paidCheckout).not.toBeNull();
+            expect(paidCheckout?.providerResourceId).toBe('checkout_paid');
+            expect(paidCheckout?.id).not.toBe(abandonedCheckout?.id);
+        });
+
+        it('should scope resource uniqueness per provider', async () => {
+            // Resource ids are only unique inside one provider's namespace, so
+            // the same id under two providers must not collide.
+            const mp = await repo.create({
+                subscriptionId,
+                provider: 'mercadopago',
+                providerResourceId: 'shared_id',
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: 60,
+                nextPollAt: new Date(),
+                metadata: {}
+            });
+            expect(mp).not.toBeNull();
+
+            const stripe = await repo.create({
+                subscriptionId,
+                provider: 'stripe',
+                providerResourceId: 'shared_id',
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: 60,
+                nextPollAt: new Date(),
+                metadata: {}
+            });
+            expect(stripe).not.toBeNull();
+        });
+
+        it('should allow a second job for the same RESOURCE once the first is terminal', async () => {
+            // Both jobs deliberately share one providerResourceId: with two
+            // different ids the second insert would succeed regardless of the
+            // first's status, and this test would pass without proving that
+            // terminal rows are exempt from the partial index.
             const first = await repo.create({
                 subscriptionId,
                 provider: 'mercadopago',
-                providerResourceId: 'preapproval_first',
+                providerResourceId: 'preapproval_retried',
                 status: 'pending',
                 attempts: 0,
                 maxAttempts: 60,
@@ -124,11 +193,11 @@ describe('QZPaySubscriptionPollingJobsRepository', () => {
             });
             expect(terminated?.status).toBe('succeeded');
 
-            // Now a second `pending` job for the same sub is allowed
+            // Now a second `pending` job for the same resource is allowed
             const second = await repo.create({
                 subscriptionId,
                 provider: 'mercadopago',
-                providerResourceId: 'preapproval_second',
+                providerResourceId: 'preapproval_retried',
                 status: 'pending',
                 attempts: 0,
                 maxAttempts: 60,
@@ -136,6 +205,7 @@ describe('QZPaySubscriptionPollingJobsRepository', () => {
                 metadata: {}
             });
             expect(second).not.toBeNull();
+            expect(second?.id).not.toBe(first.id);
         });
     });
 
@@ -201,6 +271,118 @@ describe('QZPaySubscriptionPollingJobsRepository', () => {
             });
 
             const found = await repo.findActiveBySubscriptionId(subscriptionId);
+            expect(found).toBeNull();
+        });
+
+        it('should return the OLDEST pending job when a subscription has several', async () => {
+            // Now that one subscription can hold several concurrent jobs, an
+            // unordered `LIMIT 1` would return an arbitrary row and a caller
+            // closing "the" job would close a different purchase each call.
+            const first = await repo.create({
+                subscriptionId,
+                provider: 'mercadopago',
+                providerResourceId: 'checkout_older',
+                resourceType: 'one_time_payment',
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: 60,
+                nextPollAt: new Date(),
+                metadata: {}
+            });
+            const second = await repo.create({
+                subscriptionId,
+                provider: 'mercadopago',
+                providerResourceId: 'checkout_newer',
+                resourceType: 'one_time_payment',
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: 60,
+                nextPollAt: new Date(),
+                metadata: {}
+            });
+            if (!first || !second) throw new Error('Setup failed');
+
+            // Repeat: a single call could match the oldest by chance.
+            for (let i = 0; i < 5; i++) {
+                const found = await repo.findActiveBySubscriptionId(subscriptionId);
+                expect(found?.id).toBe(first.id);
+            }
+        });
+    });
+
+    describe('findActiveByProviderResourceId', () => {
+        it('should return the pending job for that exact resource, not a sibling', async () => {
+            const target = await repo.create({
+                subscriptionId,
+                provider: 'mercadopago',
+                providerResourceId: 'checkout_target',
+                resourceType: 'one_time_payment',
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: 60,
+                nextPollAt: new Date(),
+                metadata: {}
+            });
+            const sibling = await repo.create({
+                subscriptionId,
+                provider: 'mercadopago',
+                providerResourceId: 'checkout_sibling',
+                resourceType: 'one_time_payment',
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: 60,
+                nextPollAt: new Date(),
+                metadata: {}
+            });
+            if (!target || !sibling) throw new Error('Setup failed');
+
+            const found = await repo.findActiveByProviderResourceId('mercadopago', 'checkout_target');
+            expect(found?.id).toBe(target.id);
+            expect(found?.id).not.toBe(sibling.id);
+        });
+
+        it('should NOT return a terminal job', async () => {
+            const job = await repo.create({
+                subscriptionId,
+                provider: 'mercadopago',
+                providerResourceId: 'checkout_done',
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: 60,
+                nextPollAt: new Date(),
+                metadata: {}
+            });
+            if (!job) throw new Error('Setup failed');
+            await repo.tryLockedUpdate({
+                id: job.id,
+                expectedVersion: job.version,
+                status: 'succeeded',
+                completedAt: new Date()
+            });
+
+            const found = await repo.findActiveByProviderResourceId('mercadopago', 'checkout_done');
+            expect(found).toBeNull();
+        });
+
+        it('should not match the same resource id under a different provider', async () => {
+            const job = await repo.create({
+                subscriptionId,
+                provider: 'mercadopago',
+                providerResourceId: 'ambiguous_id',
+                status: 'pending',
+                attempts: 0,
+                maxAttempts: 60,
+                nextPollAt: new Date(),
+                metadata: {}
+            });
+            if (!job) throw new Error('Setup failed');
+
+            expect(await repo.findActiveByProviderResourceId('stripe', 'ambiguous_id')).toBeNull();
+            expect(await repo.findActiveByProviderResourceId('mercadopago', 'ambiguous_id')).not.toBeNull();
+        });
+
+        it('should return null for an unknown resource id', async () => {
+            const found = await repo.findActiveByProviderResourceId('mercadopago', 'never_created');
             expect(found).toBeNull();
         });
     });

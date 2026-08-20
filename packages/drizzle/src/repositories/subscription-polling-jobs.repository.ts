@@ -50,7 +50,7 @@ function isUniqueViolation(error: unknown): boolean {
  *
  * All public methods are designed to be safe under concurrent worker
  * access. `create` swallows the partial-unique violation that fires
- * when a second active job is attempted for the same subscription
+ * when a second active job is attempted for the same provider resource
  * and returns `null` in that case. `tryLockedUpdate` performs a
  * `WHERE id = $1 AND version = $2` UPDATE and returns `null` when
  * another worker already moved the row forward.
@@ -62,9 +62,13 @@ export class QZPaySubscriptionPollingJobsRepository {
      * Insert a new pending polling job.
      *
      * Returns `null` if a partial-unique violation is raised — i.e.,
-     * there is already a `pending` job for the same subscription. The
-     * caller can then choose to read the existing job and treat it as
-     * the source of truth.
+     * there is already a `pending` job for the same
+     * `(provider, provider_resource_id)`. The caller can then choose to
+     * read the existing job and treat it as the source of truth.
+     *
+     * Note this is scoped to the RESOURCE, not the subscription: several
+     * concurrent one-time checkouts belonging to one subscription each get
+     * their own job. See the index JSDoc in the schema for why.
      */
     async create(input: QZPayBillingSubscriptionPollingJobInsert): Promise<QZPayBillingSubscriptionPollingJob | null> {
         try {
@@ -91,9 +95,44 @@ export class QZPaySubscriptionPollingJobsRepository {
     }
 
     /**
-     * Find the active (`pending`) polling job for a subscription, if any.
-     * Returns the single active job because the partial-unique index
-     * enforces at most one.
+     * Find the active (`pending`) polling job for a single provider
+     * resource, if any. At most one can exist — the partial-unique index
+     * on `(provider, provider_resource_id)` enforces it.
+     *
+     * This is the precise lookup a webhook handler should use to close the
+     * job its event resolved. Prefer it over
+     * {@link findActiveBySubscriptionId}, which cannot tell apart several
+     * concurrent jobs belonging to the same subscription.
+     */
+    async findActiveByProviderResourceId(provider: string, providerResourceId: string): Promise<QZPayBillingSubscriptionPollingJob | null> {
+        const result = await this.db
+            .select()
+            .from(billingSubscriptionPollingJobs)
+            .where(
+                and(
+                    eq(billingSubscriptionPollingJobs.provider, provider),
+                    eq(billingSubscriptionPollingJobs.providerResourceId, providerResourceId),
+                    eq(billingSubscriptionPollingJobs.status, 'pending')
+                )
+            )
+            .limit(1);
+        return firstOrNull(result);
+    }
+
+    /**
+     * Find AN active (`pending`) polling job for a subscription, if any.
+     *
+     * A subscription may now have SEVERAL active jobs at once — one per
+     * in-flight one-time checkout — so this returns the OLDEST one rather
+     * than an arbitrary row. The `ORDER BY created_at, id` is load-bearing:
+     * without it Postgres may return a different row per call, which makes
+     * a caller that closes "the" job close a different purchase's job each
+     * time.
+     *
+     * Because of that ambiguity, callers that know which resource their
+     * event refers to MUST use {@link findActiveByProviderResourceId}
+     * instead. This method remains for callers that genuinely act on the
+     * subscription as a whole (e.g. cancelling everything in flight).
      */
     async findActiveBySubscriptionId(subscriptionId: string): Promise<QZPayBillingSubscriptionPollingJob | null> {
         const result = await this.db
@@ -102,6 +141,7 @@ export class QZPaySubscriptionPollingJobsRepository {
             .where(
                 and(eq(billingSubscriptionPollingJobs.subscriptionId, subscriptionId), eq(billingSubscriptionPollingJobs.status, 'pending'))
             )
+            .orderBy(asc(billingSubscriptionPollingJobs.createdAt), asc(billingSubscriptionPollingJobs.id))
             .limit(1);
         return firstOrNull(result);
     }

@@ -26,9 +26,11 @@ import { billingSubscriptions } from './subscriptions.schema.js';
  * `failed`, `timeout`, `cancelled`) cause the job to stop being scanned.
  *
  * Optimistic locking via `version` prevents two workers from processing
- * the same job concurrently. A partial unique index on `subscription_id`
- * (where status='pending') prevents enqueuing duplicate active jobs for
- * the same subscription.
+ * the same job concurrently. A partial unique index on
+ * `(provider, provider_resource_id)` (where status='pending') prevents
+ * enqueuing duplicate active jobs for the same provider resource, while
+ * still allowing one subscription to have several concurrent jobs — one
+ * per in-flight one-time checkout.
  */
 export const billingSubscriptionPollingJobs = pgTable(
     'billing_subscription_polling_jobs',
@@ -108,14 +110,30 @@ export const billingSubscriptionPollingJobs = pgTable(
          */
         subscriptionIdx: index('idx_polling_jobs_subscription').on(table.subscriptionId),
         /**
-         * At most one ACTIVE polling job per subscription. Prevents
+         * At most one ACTIVE polling job per polled RESOURCE. Prevents
          * duplicate enqueuing if `schedulePolling()` is called twice
-         * concurrently. Historical jobs (succeeded/failed/timeout/
-         * cancelled) are NOT constrained — multiple terminal rows per
-         * subscription are allowed for audit trail.
+         * concurrently for the same provider resource. Historical jobs
+         * (succeeded/failed/timeout/cancelled) are NOT constrained —
+         * multiple terminal rows per resource are allowed for audit trail.
+         *
+         * Scoped to `(provider, provider_resource_id)`, NOT `subscription_id`.
+         * The subscription-scoped version of this index silently broke every
+         * one-time-payment flow: a subscription can legitimately have SEVERAL
+         * concurrent one-time checkouts in flight (e.g. two add-on purchases),
+         * and they all hang off the same `subscription_id`. The first checkout
+         * — even an ABANDONED one — held the only slot for its whole lifetime,
+         * so `create()` returned `null` for every later checkout and those
+         * purchases got no polling job at all. Since MP Preferences deliver no
+         * Webhooks v2 event, polling is their ONLY activation path, so a
+         * rejected enqueue meant an approved payment was never recorded.
+         * Measured 2026-08-20: the two checkouts that were actually PAID were
+         * exactly the two whose enqueue this index rejected.
+         *
+         * `provider` is part of the key because resource ids are only unique
+         * within a single provider's namespace.
          */
-        oneActivePerSubscriptionIdx: uniqueIndex('idx_polling_jobs_one_active_per_sub')
-            .on(table.subscriptionId)
+        oneActivePerResourceIdx: uniqueIndex('idx_polling_jobs_one_active_per_resource')
+            .on(table.provider, table.providerResourceId)
             .where(sql`status = 'pending'`)
     })
 );

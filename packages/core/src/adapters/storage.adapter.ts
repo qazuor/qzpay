@@ -136,8 +136,10 @@ export interface QZPaySubscriptionStorage {
  */
 export interface QZPaySubscriptionPollingJobStorage {
     /**
-     * Create a new polling job. Returns `null` when an active job
-     * already exists for the same subscription (uniqueness violation).
+     * Create a new polling job. Returns `null` when an active job already
+     * exists for the same `(provider, providerResourceId)` (uniqueness
+     * violation) — NOT merely for the same subscription, which may hold
+     * several concurrent jobs, one per in-flight one-time checkout.
      */
     create(input: QZPaySchedulePollingInput): Promise<QZPaySubscriptionPollingJob | null>;
     /**
@@ -148,9 +150,26 @@ export interface QZPaySubscriptionPollingJobStorage {
     /** Fetch a job by id. */
     findById(id: string): Promise<QZPaySubscriptionPollingJob | null>;
     /**
-     * Fetch the active (`pending`) polling job for a subscription, if any.
-     * Used by webhook handlers to mark the job as `succeeded` when the
-     * provider event arrives before the next poll.
+     * Fetch the active (`pending`) polling job for one provider resource,
+     * if any. At most one can exist per `(provider, providerResourceId)`.
+     *
+     * This is what a webhook handler should use to mark "the job my event
+     * just resolved" as `succeeded`: it names the resource explicitly, so
+     * it cannot close a sibling job belonging to a different in-flight
+     * checkout of the same subscription.
+     */
+    findActiveByProviderResourceId(provider: string, providerResourceId: string): Promise<QZPaySubscriptionPollingJob | null>;
+    /**
+     * Fetch AN active (`pending`) polling job for a subscription, if any.
+     *
+     * A subscription may have SEVERAL active jobs at once — one per
+     * in-flight one-time checkout — so implementations MUST return the
+     * oldest under a deterministic order, never an arbitrary row.
+     *
+     * Prefer {@link findActiveByProviderResourceId} whenever the caller
+     * knows which resource its event refers to: closing "the" job of a
+     * subscription that has more than one in flight closes the wrong
+     * purchase's job.
      */
     findActiveBySubscriptionId(subscriptionId: string): Promise<QZPaySubscriptionPollingJob | null>;
     /**
