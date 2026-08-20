@@ -332,6 +332,112 @@ describe('QZPayMercadoPagoPaymentAdapter', () => {
 
             expect(result.metadata).toEqual({ valid: 'value' });
         });
+
+        // `status: 'refunded'` alone cannot tell a partial refund from a total
+        // one. A consumer that only sees the status has to guess, and the
+        // natural guess ("assume total") is the destructive one — it revokes
+        // whatever the payment paid for. These tests pin the amount through.
+        describe('refundedAmount', () => {
+            it('surfaces a PARTIAL refund in cents, distinct from the charge', async () => {
+                mockPaymentApi.get.mockResolvedValue(
+                    createMockMPPayment({
+                        status: 'refunded',
+                        transaction_amount: 1000.0,
+                        transaction_amount_refunded: 300.0
+                    })
+                );
+
+                const result = await adapter.retrieve('12345');
+
+                expect(result.refundedAmount).toBe(30000);
+                expect(result.amount).toBe(100000);
+                // The whole point: a consumer can now tell partial from total.
+                expect(result.refundedAmount).toBeLessThan(result.amount);
+            });
+
+            it('surfaces a TOTAL refund as an amount equal to the charge', async () => {
+                mockPaymentApi.get.mockResolvedValue(
+                    createMockMPPayment({
+                        status: 'refunded',
+                        transaction_amount: 1000.0,
+                        transaction_amount_refunded: 1000.0
+                    })
+                );
+
+                const result = await adapter.retrieve('12345');
+
+                expect(result.refundedAmount).toBe(100000);
+                expect(result.amount).toBe(100000);
+            });
+
+            it('rounds fractional major units the same way `amount` does', async () => {
+                mockPaymentApi.get.mockResolvedValue(
+                    createMockMPPayment({
+                        transaction_amount: 75.5,
+                        transaction_amount_refunded: 10.555
+                    })
+                );
+
+                const result = await adapter.retrieve('12345');
+
+                expect(result.amount).toBe(7550);
+                expect(result.refundedAmount).toBe(1056);
+            });
+
+            it('preserves an explicit zero from the provider', async () => {
+                mockPaymentApi.get.mockResolvedValue(
+                    createMockMPPayment({
+                        transaction_amount_refunded: 0
+                    })
+                );
+
+                const result = await adapter.retrieve('12345');
+
+                expect(result.refundedAmount).toBe(0);
+                expect('refundedAmount' in result).toBe(true);
+            });
+
+            it('omits the key entirely when the provider does not report it', async () => {
+                mockPaymentApi.get.mockResolvedValue(createMockMPPayment({}));
+
+                const result = await adapter.retrieve('12345');
+
+                // Absent must stay distinguishable from an explicit zero.
+                expect('refundedAmount' in result).toBe(false);
+            });
+
+            it('omits the key when the provider sends a non-numeric value', async () => {
+                mockPaymentApi.get.mockResolvedValue(
+                    createMockMPPayment({
+                        transaction_amount_refunded: 'not-a-number'
+                    })
+                );
+
+                const result = await adapter.retrieve('12345');
+
+                expect('refundedAmount' in result).toBe(false);
+            });
+
+            it('is mapped by search results too, not just retrieve', async () => {
+                mockPaymentApi.search.mockResolvedValue({
+                    results: [
+                        {
+                            id: 777,
+                            status: 'refunded',
+                            transaction_amount: 200,
+                            transaction_amount_refunded: 50,
+                            currency_id: 'ARS'
+                        }
+                    ]
+                });
+
+                const results = await adapter.search({ externalReference: 'order-777' });
+
+                expect(results).toHaveLength(1);
+                expect(results[0]?.refundedAmount).toBe(5000);
+                expect(results[0]?.amount).toBe(20000);
+            });
+        });
     });
 
     describe('search', () => {

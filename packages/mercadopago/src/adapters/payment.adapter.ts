@@ -18,6 +18,34 @@ import { type RetryConfig, withRetry } from '../utils/retry.utils.js';
 import { sanitizeEmail } from '../utils/sanitize.utils.js';
 import { QZPayMercadoPagoCardTokenAdapterImpl } from './card-token.adapter.js';
 
+/**
+ * Map MercadoPago's `transaction_amount_refunded` onto
+ * {@link QZPayProviderPayment.refundedAmount}.
+ *
+ * MercadoPago reports the figure in MAJOR units (pesos, e.g. `300.50`), the same
+ * unit as `transaction_amount`; `QZPayProviderPayment` carries every money value
+ * in MINOR units (cents/centavos), so it is converted here with the identical
+ * `Math.round(value * 100)` the `amount` mapping already uses. Getting these two
+ * out of step is precisely the bug this field exists to prevent, so they are
+ * converted the same way, in the same place.
+ *
+ * Returns an EMPTY object when the provider did not report the figure, so the
+ * key is omitted rather than set to `undefined` — `refundedAmount: 0` (the
+ * provider saying "nothing refunded") stays distinguishable from "the provider
+ * said nothing". A legitimate `0` is preserved.
+ *
+ * @param transactionAmountRefunded - Raw MP `transaction_amount_refunded`, in major units.
+ * @returns `{ refundedAmount }` in minor units, or `{}` when unreported.
+ */
+function mapRefundedAmount(transactionAmountRefunded: number | undefined | null): {
+    refundedAmount?: number;
+} {
+    if (typeof transactionAmountRefunded !== 'number' || Number.isNaN(transactionAmountRefunded)) {
+        return {};
+    }
+    return { refundedAmount: Math.round(transactionAmountRefunded * 100) };
+}
+
 export class QZPayMercadoPagoPaymentAdapter implements QZPayPaymentPaymentAdapter {
     private readonly paymentApi: Payment;
     private readonly refundApi: PaymentRefund;
@@ -294,6 +322,7 @@ export class QZPayMercadoPagoPaymentAdapter implements QZPayPaymentPaymentAdapte
         id: string | number;
         status?: string;
         transaction_amount?: number;
+        transaction_amount_refunded?: number;
         currency_id?: string;
         metadata?: Record<string, unknown> | undefined;
     }): QZPayProviderPayment {
@@ -303,6 +332,7 @@ export class QZPayMercadoPagoPaymentAdapter implements QZPayPaymentPaymentAdapte
             id: String(result.id),
             status,
             amount: Math.round(transactionAmount * 100),
+            ...mapRefundedAmount(result.transaction_amount_refunded),
             currency: (result.currency_id ?? 'USD').toUpperCase(),
             metadata: this.extractMetadata(result.metadata)
         };
@@ -316,6 +346,7 @@ export class QZPayMercadoPagoPaymentAdapter implements QZPayPaymentPaymentAdapte
             id: String(payment.id),
             status,
             amount: Math.round(transactionAmount * 100), // Convert to cents
+            ...mapRefundedAmount(payment.transaction_amount_refunded),
             currency: (payment.currency_id ?? 'USD').toUpperCase(),
             metadata: this.extractMetadata(payment.metadata)
         };
