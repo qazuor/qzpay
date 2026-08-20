@@ -267,6 +267,25 @@ export interface QZPayProviderPayment {
     status: string;
     amount: number;
     currency: string;
+    /**
+     * How much of {@link amount} the provider has already refunded, in the SAME
+     * minor units as `amount` (cents/centavos) — never the provider's own major
+     * units, and never a fraction.
+     *
+     * `undefined` means "the provider did not report a refunded amount", which
+     * is NOT the same as zero: a consumer must not read the absence as "nothing
+     * was refunded" when the payment's `status` says otherwise. `0` means the
+     * provider explicitly reported that nothing has been refunded.
+     *
+     * Why this exists: a `status` of `'refunded'` alone cannot distinguish a
+     * partial refund from a total one, and treating an unknown amount as a full
+     * refund is the destructive default (it revokes whatever the payment paid
+     * for). Adapters that can read the figure from the provider MUST populate
+     * it so consumers can tell the two apart without a second provider call.
+     *
+     * Adapters whose provider does not expose the figure leave it `undefined`.
+     */
+    refundedAmount?: number;
     metadata: Record<string, string>;
     clientSecret?: string;
     nextAction?: {
