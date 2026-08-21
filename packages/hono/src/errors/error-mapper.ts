@@ -4,6 +4,7 @@
  * Maps different error types to appropriate HTTP status codes and error codes
  */
 
+import { QZPayConflictError, QZPayNotFoundError, QZPayProviderSyncError, QZPayValidationError } from '@qazuor/qzpay-core';
 import { HttpStatus } from './http-error.js';
 import { QZPayHttpError } from './http-error.js';
 
@@ -18,6 +19,83 @@ export interface ErrorMappingResult {
     /** Error message */
     message: string;
 }
+
+/**
+ * Maps qzpay-core's typed error hierarchy (`packages/core/src/errors/`) to
+ * HTTP status/code by `instanceof`, checked BEFORE the message-text
+ * `ERROR_PATTERNS` fallback below.
+ *
+ * This is what stops a deliberate domain rejection — e.g. the refund guard
+ * throwing `QZPayValidationError` when a payment has no provider link —
+ * from being reported to the client as a 500 INTERNAL_ERROR just because
+ * its message text doesn't happen to match one of the regexes. A typed
+ * `QZPayError` subclass already tells us exactly what kind of rejection
+ * this is; matching on its message is strictly worse information.
+ *
+ * Ordered most-specific first. Every entry here corresponds to a concrete
+ * subclass of `QZPayError`; the base `QZPayError` class itself is
+ * deliberately NOT listed. An error of that exact (unclassified) type — or
+ * any error type qzpay-core adds in the future without a matching entry
+ * here — falls through to the `ERROR_PATTERNS` matching and then the 500
+ * default below, exactly as it did before this map existed. That is the
+ * fail-safe: unrecognized errors must never be promoted to something other
+ * than 500 by accident.
+ *
+ * Each entry checks `instanceof` OR the class's own `name`. The name check
+ * is not redundant: `instanceof` compares constructor identity, so it
+ * silently returns false whenever the throwing code and this module resolve
+ * to two different copies of qzpay-core — a duplicated transitive
+ * dependency, a mixed CJS/ESM resolution, a consumer that pinned a
+ * different version of core than of hono. That failure mode is invisible in
+ * tests, where there is only ever one module instance, and would land as a
+ * silent regression back to 500 in exactly the deployment shapes we cannot
+ * observe. Every subclass sets `this.name` to its own class name in its
+ * constructor, so the name is a stable marker that survives module
+ * duplication.
+ */
+const QZPAY_CORE_ERROR_TYPES: Array<{
+    matches: (error: Error) => boolean;
+    status: number;
+    code: string;
+}> = [
+    // Deliberate input/domain-rule rejection (422) — well-formed request,
+    // semantically invalid per QZPay's own rules. Uses UNPROCESSABLE_ENTITY,
+    // not BAD_REQUEST: this file's own `ERROR_PATTERNS` below already treats
+    // "invalid"/"validation"/"required" message text as 422, and
+    // `isValidationError()` checks specifically for that status. Mapping
+    // QZPayValidationError to 400 instead would make a real, typed
+    // validation error invisible to `isValidationError()` while a generic
+    // `Error('invalid ...')` still passed it — worse, not better.
+    {
+        matches: (error) => error instanceof QZPayValidationError || error.name === 'QZPayValidationError',
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        code: 'VALIDATION_ERROR'
+    },
+
+    // Requested entity does not exist (404).
+    {
+        matches: (error) => error instanceof QZPayNotFoundError || error.name === 'QZPayNotFoundError',
+        status: HttpStatus.NOT_FOUND,
+        code: 'NOT_FOUND'
+    },
+
+    // Operation conflicts with current resource state (409).
+    {
+        matches: (error) => error instanceof QZPayConflictError || error.name === 'QZPayConflictError',
+        status: HttpStatus.CONFLICT,
+        code: 'CONFLICT'
+    },
+
+    // Failed to sync with an external payment provider (502) — this server
+    // acts as a gateway to the provider (MercadoPago, Stripe, ...) and the
+    // upstream call failed or was refused; the client's request itself was
+    // fine.
+    {
+        matches: (error) => error instanceof QZPayProviderSyncError || error.name === 'QZPayProviderSyncError',
+        status: HttpStatus.BAD_GATEWAY,
+        code: 'PROVIDER_SYNC_FAILED'
+    }
+];
 
 /**
  * Error patterns to match against error messages
@@ -86,6 +164,15 @@ export function mapErrorToHttpStatus(error: unknown): ErrorMappingResult {
 
     // Handle standard Error objects
     if (error instanceof Error) {
+        // Recognize qzpay-core's typed error hierarchy by TYPE first. A
+        // deliberate domain rejection must not depend on its message text
+        // happening to match one of the ERROR_PATTERNS regexes below.
+        for (const { matches, status, code } of QZPAY_CORE_ERROR_TYPES) {
+            if (matches(error)) {
+                return { status, code, message: error.message };
+            }
+        }
+
         const message = error.message;
 
         // Check against all error patterns

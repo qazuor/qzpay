@@ -42,6 +42,7 @@ describe('HttpStatus', () => {
         expect(HttpStatus.UNPROCESSABLE_ENTITY).toBe(422);
         expect(HttpStatus.TOO_MANY_REQUESTS).toBe(429);
         expect(HttpStatus.INTERNAL_SERVER_ERROR).toBe(500);
+        expect(HttpStatus.BAD_GATEWAY).toBe(502);
     });
 
     it('should be readonly', () => {
