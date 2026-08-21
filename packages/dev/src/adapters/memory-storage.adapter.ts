@@ -32,6 +32,7 @@ import type {
     QZPayCreatePlanInput,
     QZPayCreatePriceInput,
     QZPayCreatePromoCodeInput,
+    QZPayCreateRefundInput,
     QZPayCreateSubscriptionInput,
     QZPayCreateVendorInput,
     QZPayCustomer,
@@ -50,6 +51,7 @@ import type {
     QZPayPlan,
     QZPayPrice,
     QZPayPromoCode,
+    QZPayRefund,
     QZPaySetLimitInput,
     QZPaySourceType,
     QZPayStorageAdapter,
@@ -83,6 +85,8 @@ export interface MemoryStorageData {
     customers: Map<string, QZPayCustomer>;
     subscriptions: Map<string, QZPaySubscription>;
     payments: Map<string, QZPayPayment>;
+    /** Individual refund events, keyed by refund id. Multiple entries can share a `paymentId`. */
+    refunds: Map<string, QZPayRefund>;
     paymentMethods: Map<string, QZPayPaymentMethod>;
     invoices: Map<string, QZPayInvoice>;
     plans: Map<string, QZPayPlan>;
@@ -159,6 +163,7 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
         customers: new Map(),
         subscriptions: new Map(),
         payments: new Map(),
+        refunds: new Map(),
         paymentMethods: new Map(),
         invoices: new Map(),
         plans: new Map(),
@@ -180,6 +185,7 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
         data.customers.clear();
         data.subscriptions.clear();
         data.payments.clear();
+        data.refunds.clear();
         data.paymentMethods.clear();
         data.invoices.clear();
         data.plans.clear();
@@ -447,6 +453,59 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
             },
             async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPayment>> {
                 return paginate(Array.from(data.payments.values()), options);
+            },
+            async createRefund(input: QZPayCreateRefundInput): Promise<void> {
+                // Idempotent by providerRefundId (HOS-669): mirrors the
+                // partial UNIQUE constraint the Drizzle adapter enforces at
+                // the DB layer (idx_refunds_provider_refund_id_unique). A
+                // second settled event for the SAME provider refund id —
+                // e.g. a retried `payments.refund()` call after a network
+                // blip hid a successful provider response — is silently
+                // ignored instead of inserted, so it cannot inflate
+                // `getTotalRefundedAmount()`'s total. A refund with no
+                // `providerRefundId` (local-only, no payment adapter
+                // configured) has nothing to deduplicate against and
+                // always inserts.
+                if (input.providerRefundId) {
+                    for (const existing of data.refunds.values()) {
+                        if (Object.values(existing.providerRefundIds).includes(input.providerRefundId)) {
+                            return;
+                        }
+                    }
+                }
+
+                const refund: QZPayRefund = {
+                    id: generateId('refund'),
+                    paymentId: input.paymentId,
+                    amount: input.amount,
+                    currency: input.currency,
+                    reason: input.reason ?? null,
+                    status: input.status,
+                    // `QZPayCreateRefundInput` carries a single provider-side id without
+                    // the provider name that keys `providerRefundIds` elsewhere (e.g.
+                    // `payment.providerPaymentIds`); 'unknown' mirrors the same fallback
+                    // `mapCorePaymentToDrizzle` uses when a provider name isn't resolvable.
+                    providerRefundIds: input.providerRefundId ? { unknown: input.providerRefundId } : {},
+                    createdAt: getCurrentTime()
+                };
+                data.refunds.set(refund.id, refund);
+            },
+            async getTotalRefundedAmount(paymentId: string): Promise<number> {
+                let total = 0;
+                for (const refund of data.refunds.values()) {
+                    if (refund.paymentId === paymentId && refund.status === 'succeeded') {
+                        total += refund.amount;
+                    }
+                }
+                return total;
+            },
+            async hasRefundForProviderRefundId(providerRefundId: string): Promise<boolean> {
+                for (const refund of data.refunds.values()) {
+                    if (Object.values(refund.providerRefundIds).includes(providerRefundId)) {
+                        return true;
+                    }
+                }
+                return false;
             }
         },
 

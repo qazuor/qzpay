@@ -698,6 +698,18 @@ async function pushSchema(rawSql: ReturnType<typeof postgres>): Promise<void> {
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     `;
+    // Must mirror `providerRefundIdUniqueIdx` in
+    // packages/drizzle/src/schema/payments.schema.ts (HOS-669). This is not
+    // optional here: `createRefund` uses `ON CONFLICT (provider_refund_id)
+    // WHERE provider_refund_id IS NOT NULL DO NOTHING`, and Postgres rejects
+    // the whole statement when no matching unique index exists — so the table
+    // being present without the index breaks refunds instead of merely
+    // leaving them un-deduplicated.
+    await rawSql`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_refunds_provider_refund_id_unique
+            ON billing_refunds (provider_refund_id)
+            WHERE provider_refund_id IS NOT NULL
+    `;
 
     // 7. Customer entitlements table
     await rawSql`

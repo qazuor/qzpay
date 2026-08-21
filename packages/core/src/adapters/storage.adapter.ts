@@ -12,6 +12,7 @@ import type {
     QZPayCreatePlanInput,
     QZPayCreatePriceInput,
     QZPayCreatePromoCodeInput,
+    QZPayCreateRefundInput,
     QZPayCreateSubscriptionInput,
     QZPayCreateVendorInput,
     QZPayCustomer,
@@ -186,6 +187,44 @@ export interface QZPayPaymentStorage {
     findById(id: string): Promise<QZPayPayment | null>;
     findByCustomerId(customerId: string): Promise<QZPayPayment[]>;
     list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPayment>>;
+    /**
+     * Persist one individual refund event for a payment.
+     *
+     * Storage adapters MUST keep this as an append-only record (never
+     * overwrite a previous refund event) so that {@link getTotalRefundedAmount}
+     * can derive an accurate running total across multiple partial refunds.
+     */
+    createRefund(input: QZPayCreateRefundInput): Promise<void>;
+    /**
+     * Sum every settled refund event persisted for a payment via
+     * {@link createRefund}, in minor units (cents/centavos).
+     *
+     * This is the ACCUMULATED total across every refund event for the
+     * payment — not just the most recent one — which is what determines
+     * whether a payment refunded in several tranches has reached
+     * `payment.amount` and should transition to `refunded` rather than
+     * staying `partially_refunded` forever.
+     */
+    getTotalRefundedAmount(paymentId: string): Promise<number>;
+    /**
+     * Whether a refund event carrying this exact provider-side refund id
+     * has already been persisted via {@link createRefund}, for ANY payment.
+     *
+     * `payments.refund()` calls this before persisting a settled refund
+     * that carries a `providerRefundId`, so a retried call — e.g. after a
+     * network blip hid a successful provider response — does not persist
+     * the same event twice and inflate {@link getTotalRefundedAmount}'s
+     * total (HOS-669).
+     *
+     * This is an optimization, NOT the idempotency guarantee: a read here
+     * followed by a write moments later is a classic TOCTOU gap under
+     * concurrent retries. Implementations of {@link createRefund} MUST
+     * independently enforce uniqueness on `providerRefundId` at the
+     * storage layer (e.g. a partial unique DB constraint with
+     * `ON CONFLICT ... DO NOTHING`) so a duplicate write is rejected even
+     * when two calls race past this check at the same time.
+     */
+    hasRefundForProviderRefundId(providerRefundId: string): Promise<boolean>;
 }
 
 export interface QZPayPaymentMethodStorage {

@@ -18,6 +18,7 @@ function createMockStorage(): QZPayStorageAdapter {
     const customers: Map<string, QZPayCustomer> = new Map();
     const subscriptions: Map<string, QZPaySubscription> = new Map();
     const payments: Map<string, QZPayPayment> = new Map();
+    const refunds: { paymentId: string; amount: number; status: string; providerRefundId?: string }[] = [];
     const invoices: Map<string, QZPayInvoice> = new Map();
     const promoCodes: Map<string, QZPayPromoCode> = new Map();
     const entitlements: Map<string, QZPayCustomerEntitlement> = new Map();
@@ -132,7 +133,30 @@ function createMockStorage(): QZPayStorageAdapter {
                 payments.set(id, updated);
                 return updated;
             }),
-            list: vi.fn(async () => ({ data: Array.from(payments.values()), total: payments.size, limit: 100, offset: 0, hasMore: false }))
+            list: vi.fn(async () => ({ data: Array.from(payments.values()), total: payments.size, limit: 100, offset: 0, hasMore: false })),
+            createRefund: vi.fn(async (input) => {
+                // Deliberately naive/append-only, NOT deduplicated — the real
+                // storage adapters enforce idempotency by providerRefundId at
+                // the DB layer (a partial UNIQUE constraint, HOS-669), which
+                // this in-memory mock does not reproduce. Keeping this mock
+                // naive is what makes the HOS-669 duplicate-refund tests
+                // below an honest test of `billing.payments.refund()`'s OWN
+                // pre-check (`hasRefundForProviderRefundId`) — if that guard
+                // in `billing.ts` were removed, this mock would happily
+                // append a second row and the test would catch it.
+                refunds.push({
+                    paymentId: input.paymentId,
+                    amount: input.amount,
+                    status: input.status,
+                    ...(input.providerRefundId !== undefined ? { providerRefundId: input.providerRefundId } : {})
+                });
+            }),
+            getTotalRefundedAmount: vi.fn(async (paymentId) => {
+                return refunds.filter((r) => r.paymentId === paymentId && r.status === 'succeeded').reduce((sum, r) => sum + r.amount, 0);
+            }),
+            hasRefundForProviderRefundId: vi.fn(async (providerRefundId) => {
+                return refunds.some((r) => r.providerRefundId === providerRefundId);
+            })
         },
         invoices: {
             create: vi.fn(async (input) => {
@@ -2598,6 +2622,109 @@ describe('billing.payments.refund → provider adapter (H-146)', () => {
         expect(refund).toHaveBeenCalledWith({ paymentId: 'pay_h146', amount: 900_000 }, 'mp_pay_777');
         expect(refunded.status).toBe('partially_refunded');
         expect(refunded.metadata?.refundedAmount).toBe(400_000);
+    });
+
+    /**
+     * HOS-669 regression suite.
+     *
+     * A payment refunded across TWO tranches that together add up to the
+     * full amount stayed `partially_refunded` forever: the status was
+     * derived from `providerRefund.amount` (this event only), never from an
+     * accumulated total. Measured in Hospeda production: a 15.000-centavo
+     * payment refunded 5.000 then 10.000 stayed `partially_refunded` after
+     * the second, fully-covering refund.
+     */
+    it('accumulates two partial refunds into a full refund (HOS-669)', async () => {
+        const storage = createMockStorage();
+        // Two 50% tranches settle at the provider; the SECOND call must push
+        // the payment to `refunded` because 5.000 + 5.000 reaches the full
+        // 10.000 — comparing only the second event's amount against the
+        // total (the bug) would leave the row `partially_refunded` forever.
+        const refund = vi
+            .fn()
+            .mockResolvedValueOnce({ id: 'mp_refund_a', status: 'approved', amount: 5_000 })
+            .mockResolvedValueOnce({ id: 'mp_refund_b', status: 'approved', amount: 5_000 });
+        const billing = createQZPayBilling({ storage, paymentAdapter: createRefundAdapter(refund) as never });
+        await seedLinkedPayment(billing, 10_000);
+
+        const first = await billing.payments.refund({ paymentId: 'pay_h146', amount: 5_000, reason: 'First tranche' });
+        expect(first.status).toBe('partially_refunded');
+        expect(first.metadata?.refundedAmount).toBe(5_000);
+
+        const second = await billing.payments.refund({ paymentId: 'pay_h146', amount: 5_000, reason: 'Second tranche' });
+        expect(second.status).toBe('refunded');
+        expect(second.metadata?.refundedAmount).toBe(10_000);
+    });
+
+    it('persists each settled refund event and derives the status from the accumulated total', async () => {
+        const storage = createMockStorage();
+        const refund = vi.fn(async () => ({ id: 'mp_refund_x', status: 'approved', amount: 3_000 }));
+        const billing = createQZPayBilling({ storage, paymentAdapter: createRefundAdapter(refund) as never });
+        await seedLinkedPayment(billing, 10_000);
+
+        await billing.payments.refund({ paymentId: 'pay_h146', amount: 3_000 });
+
+        expect(storage.payments.createRefund).toHaveBeenCalledWith(
+            expect.objectContaining({ paymentId: 'pay_h146', amount: 3_000, status: 'succeeded' })
+        );
+        expect(storage.payments.getTotalRefundedAmount).toHaveBeenCalledWith('pay_h146');
+    });
+
+    it('accumulates local-only refunds the same way when no payment adapter is configured', async () => {
+        // Adapter-less deployments must ALSO persist a refund event per call
+        // and derive status from the accumulated total, not just take the
+        // legacy single-shot amount.
+        const storage = createMockStorage();
+        const billing = createQZPayBilling({ storage });
+        await seedLinkedPayment(billing, 10_000);
+
+        const first = await billing.payments.refund({ paymentId: 'pay_h146', amount: 4_000 });
+        expect(first.status).toBe('partially_refunded');
+
+        const second = await billing.payments.refund({ paymentId: 'pay_h146', amount: 6_000 });
+        expect(second.status).toBe('refunded');
+    });
+
+    /**
+     * HOS-669 follow-up: persisting the accumulated total introduced a NEW
+     * risk that `createRefund()` was called unconditionally, with nothing
+     * stopping the SAME settled provider refund from being persisted twice.
+     *
+     * Realistic trigger: a 10.000 payment is refunded 5.000; the HTTP
+     * response is lost to a network blip after MercadoPago already
+     * processed it; the caller retries and MP returns the SAME
+     * providerRefundId for the already-processed refund.
+     */
+    it('does not persist a duplicate refund event when the provider replays the same providerRefundId', async () => {
+        const storage = createMockStorage();
+        const refund = vi.fn(async () => ({ id: 'mp_refund_dup', status: 'approved', amount: 5_000 }));
+        const billing = createQZPayBilling({ storage, paymentAdapter: createRefundAdapter(refund) as never });
+        await seedLinkedPayment(billing, 10_000);
+
+        const first = await billing.payments.refund({ paymentId: 'pay_h146', amount: 5_000, reason: 'First attempt' });
+        expect(first.status).toBe('partially_refunded');
+        expect(first.metadata?.refundedAmount).toBe(5_000);
+
+        // Retry: the caller believes the first attempt failed and asks
+        // again. The provider settles the SAME underlying refund and
+        // returns the SAME providerRefundId back.
+        const retried = await billing.payments.refund({ paymentId: 'pay_h146', amount: 5_000, reason: 'Retry after timeout' });
+
+        // The bug this guards against: comparing SUM(amount) against
+        // payment.amount WITHOUT deduplication would see 5.000 + 5.000 =
+        // 10.000 and mark the payment `refunded`, having actually returned
+        // only half the money — a money-losing bug in the opposite
+        // direction of the one HOS-669's accumulated-total fix addressed.
+        expect(retried.status).toBe('partially_refunded');
+        expect(retried.metadata?.refundedAmount).toBe(5_000);
+
+        // Only ONE refund event was ever persisted for this
+        // providerRefundId — the duplicate write was skipped entirely by
+        // `billing.payments.refund()`'s pre-check, not merely tolerated by
+        // storage after the fact.
+        expect(storage.payments.createRefund).toHaveBeenCalledTimes(1);
+        expect(storage.payments.hasRefundForProviderRefundId).toHaveBeenCalledWith('mp_refund_dup');
+        expect(await storage.payments.getTotalRefundedAmount('pay_h146')).toBe(5_000);
     });
 
     it('throws instead of refunding locally when the payment has no provider id', async () => {

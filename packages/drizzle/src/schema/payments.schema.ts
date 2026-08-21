@@ -3,7 +3,8 @@
  *
  * Stores payment transaction records.
  */
-import { boolean, index, integer, jsonb, numeric, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { boolean, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import type { z } from 'zod';
 import { billingCustomers } from './customers.schema.js';
@@ -55,7 +56,10 @@ export const billingPayments = pgTable(
 /**
  * Billing refunds table
  *
- * Tracks refunds for payments.
+ * Tracks refunds for payments. Each row is one settled refund EVENT (not
+ * a running total) — `billing.payments.refund()` sums them via
+ * `getTotalRefundedAmount()` to derive `refunded` vs `partially_refunded`
+ * across multiple tranches (HOS-669).
  */
 export const billingRefunds = pgTable(
     'billing_refunds',
@@ -75,7 +79,32 @@ export const billingRefunds = pgTable(
     },
     (table) => ({
         paymentIdx: index('idx_refunds_payment').on(table.paymentId),
-        providerIdIdx: index('idx_refunds_provider_id').on(table.providerRefundId)
+        /**
+         * At most one refund event per PROVIDER refund id. Summing
+         * `billing_refunds.amount` (HOS-669) turns a duplicated row into
+         * an inflated total that can push a payment to `refunded` after
+         * returning only part of the money — a realistic trigger is a
+         * caller retrying `payments.refund()` after a network blip hid a
+         * successful provider response, so the provider replays the SAME
+         * refund id on the retry.
+         *
+         * Replaces the old plain `idx_refunds_provider_id` lookup index —
+         * this partial unique index still serves every equality lookup
+         * the old one did, for every row that actually carries a
+         * provider id.
+         *
+         * PARTIAL (`WHERE provider_refund_id IS NOT NULL`) because the
+         * column is nullable: a local-only refund with no payment adapter
+         * configured has no provider id to deduplicate against, and NULLs
+         * must never collide with each other under a UNIQUE constraint.
+         *
+         * `createRefund()` in `payments.repository.ts` targets this index
+         * with `onConflictDoNothing`, so a duplicate write is silently
+         * ignored rather than throwing.
+         */
+        providerRefundIdUniqueIdx: uniqueIndex('idx_refunds_provider_refund_id_unique')
+            .on(table.providerRefundId)
+            .where(sql`provider_refund_id IS NOT NULL`)
     })
 );
 

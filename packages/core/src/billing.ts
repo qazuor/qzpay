@@ -49,7 +49,7 @@ import type {
     QZPaySubscriptionMetrics
 } from './types/metrics.types.js';
 import type { QZPayCreatePaymentMethodInput, QZPayPaymentMethod, QZPayUpdatePaymentMethodInput } from './types/payment-method.types.js';
-import type { QZPayPayment, QZPayRefundInput } from './types/payment.types.js';
+import type { QZPayCreateRefundInput, QZPayPayment, QZPayRefundInput } from './types/payment.types.js';
 import type { QZPayPlan, QZPayPrice } from './types/plan.types.js';
 import type { QZPayPromoCode } from './types/promo-code.types.js';
 import type { QZPayScheduledPlanChange, QZPaySubscription } from './types/subscription.types.js';
@@ -2133,11 +2133,23 @@ class QZPayBillingImpl implements QZPayBilling {
              * nothing left the account.
              *
              * Behaviour by provider outcome:
-             * - settled (`approved`/`succeeded`/…) → status updated from the
-             *   amount the PROVIDER refunded, `payment.refunded` emitted.
+             * - settled (`approved`/`succeeded`/…) → this refund event is
+             *   persisted via `storage.payments.createRefund()` and the status
+             *   is derived from the ACCUMULATED total across every settled
+             *   event for the payment (`storage.payments.getTotalRefundedAmount()`),
+             *   not just this call's amount — a payment refunded across two
+             *   50% tranches reaches `refunded` on the second call instead of
+             *   staying `partially_refunded` forever. `payment.refunded` emitted.
+             *   A refund event carrying a `providerRefundId` already seen for
+             *   an earlier call (e.g. a retry after a network blip hid a
+             *   successful response) is NOT persisted a second time — see
+             *   `storage.payments.hasRefundForProviderRefundId()` — which
+             *   stops a duplicate row from inflating the accumulated total
+             *   (HOS-669).
              * - refused (`rejected`/`cancelled`/…) → throws, row untouched.
              * - pending / unrecognised → metadata records the in-flight refund,
-             *   status left as-is, no event. A webhook settles it later.
+             *   status left as-is, no event, nothing persisted to the refund
+             *   ledger yet. A webhook settles it later.
              *
              * Unlike `subscriptions.cancel/pause/resume`, this method does NOT
              * honour `providerSyncErrorStrategy: 'log'`. Falling back to a
@@ -2236,12 +2248,57 @@ class QZPayBillingImpl implements QZPayBilling {
                     refundedAmount = providerRefund.amount > 0 ? providerRefund.amount : requestedAmount;
                 }
 
+                // Persist THIS refund event, then read back the ACCUMULATED
+                // total across every settled event for the payment. A payment
+                // refunded across several tranches (e.g. two 50% refunds) must
+                // compare the running total against `payment.amount`, not just
+                // the amount from this one call — comparing per-event amounts
+                // is exactly the bug that left a payment refunded in full stuck
+                // at `partially_refunded` forever.
+                const refundEventInput: QZPayCreateRefundInput = {
+                    paymentId: input.paymentId,
+                    amount: refundedAmount,
+                    currency: payment.currency,
+                    status: 'succeeded',
+                    ...(input.reason !== undefined ? { reason: input.reason } : {}),
+                    ...(providerRefundId !== undefined ? { providerRefundId } : {}),
+                    livemode: payment.livemode
+                };
+
+                // A refund with no `providerRefundId` (local-only, no payment
+                // adapter configured) has no key to deduplicate against —
+                // there is no synthetic substitute worth inventing — so it
+                // is always persisted, same as before this check existed.
+                //
+                // This pre-check is an optimization, NOT the idempotency
+                // guarantee: reading here and writing moments later is a
+                // TOCTOU gap that two concurrent retries can both slip
+                // through. The real guarantee is the storage adapter's own
+                // `createRefund` (a partial UNIQUE constraint on the Drizzle
+                // adapter), which rejects the duplicate write even when this
+                // check races. This just skips the redundant round trip and
+                // makes the dedup behaviour observable/testable here (HOS-669).
+                const isDuplicateProviderRefund =
+                    providerRefundId !== undefined && (await storage.payments.hasRefundForProviderRefundId(providerRefundId));
+
+                if (isDuplicateProviderRefund) {
+                    logger.info('Refund event already persisted for this provider refund id, skipping duplicate write', {
+                        ...(paymentAdapter ? { provider: paymentAdapter.provider } : {}),
+                        paymentId: input.paymentId,
+                        providerRefundId,
+                        operation: 'refund_payment'
+                    });
+                } else {
+                    await storage.payments.createRefund(refundEventInput);
+                }
+                const totalRefundedAmount = await storage.payments.getTotalRefundedAmount(input.paymentId);
+
                 const updated = await storage.payments.update(input.paymentId, {
-                    status: refundedAmount >= payment.amount ? 'refunded' : 'partially_refunded',
+                    status: totalRefundedAmount >= payment.amount ? 'refunded' : 'partially_refunded',
                     metadata: buildRefundMetadata({
                         payment,
                         reason: input.reason,
-                        refundedAmount,
+                        refundedAmount: totalRefundedAmount,
                         ...(paymentAdapter ? { provider: paymentAdapter.provider } : {}),
                         ...(providerRefundId ? { refundId: providerRefundId } : {}),
                         refundStatus: 'succeeded'
