@@ -6,7 +6,7 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { type QZPayDrizzleStorageAdapter, createQZPayDrizzleAdapter } from '../src/adapter/index.js';
-import { billingPayments } from '../src/schema/index.js';
+import { billingPayments, billingRefunds } from '../src/schema/index.js';
 import { clearTestData, getTestDatabase, startTestDatabase, stopTestDatabase } from './helpers/db-helpers.js';
 
 describe('QZPayDrizzleStorageAdapter', () => {
@@ -406,6 +406,129 @@ describe('QZPayDrizzleStorageAdapter', () => {
                 livemode: true
             });
             expect(await adapter.payments.getTotalRefundedAmount(created.id)).toBe(10_000);
+        });
+
+        /**
+         * HOS-669 follow-up: persisting the accumulated total introduced a
+         * NEW risk that `createRefund()` was called unconditionally, with
+         * nothing stopping the SAME settled provider refund from being
+         * persisted twice. Realistic trigger: a network blip hides a
+         * successful provider response after MercadoPago already processed
+         * a refund; the caller retries and the provider returns the SAME
+         * providerRefundId.
+         */
+        it('does not insert a duplicate row when the same providerRefundId is persisted twice', async () => {
+            const created = await adapter.payments.create({
+                customerId,
+                amount: 10_000,
+                currency: 'USD',
+                status: 'succeeded',
+                providerPaymentIds: { mercadopago: 'mp_txn_refund_dup' }
+            });
+
+            await adapter.payments.createRefund({
+                paymentId: created.id,
+                amount: 5_000,
+                currency: 'USD',
+                status: 'succeeded',
+                providerRefundId: 'mp_refund_dup',
+                livemode: true
+            });
+
+            // Retry: same provider refund id persisted again.
+            await adapter.payments.createRefund({
+                paymentId: created.id,
+                amount: 5_000,
+                currency: 'USD',
+                status: 'succeeded',
+                providerRefundId: 'mp_refund_dup',
+                livemode: true
+            });
+
+            // Exactly ONE row for this providerRefundId, not two — the
+            // partial UNIQUE index (idx_refunds_provider_refund_id_unique)
+            // rejected the second insert via ON CONFLICT DO NOTHING.
+            const db = getTestDatabase();
+            const rows = await db.select().from(billingRefunds).where(eq(billingRefunds.providerRefundId, 'mp_refund_dup'));
+            expect(rows).toHaveLength(1);
+
+            // The total is NOT doubled — it reflects the single settled
+            // event. Without the constraint this would be 10_000, wrongly
+            // reaching `payment.amount` and marking the payment `refunded`
+            // after only half the money actually moved.
+            expect(await adapter.payments.getTotalRefundedAmount(created.id)).toBe(5_000);
+        });
+
+        it('allows two DIFFERENT providerRefundIds to both persist and accumulate', async () => {
+            const created = await adapter.payments.create({
+                customerId,
+                amount: 10_000,
+                currency: 'USD',
+                status: 'succeeded',
+                providerPaymentIds: { mercadopago: 'mp_txn_refund_distinct' }
+            });
+
+            await adapter.payments.createRefund({
+                paymentId: created.id,
+                amount: 5_000,
+                currency: 'USD',
+                status: 'succeeded',
+                providerRefundId: 'mp_refund_distinct_a',
+                livemode: true
+            });
+            await adapter.payments.createRefund({
+                paymentId: created.id,
+                amount: 5_000,
+                currency: 'USD',
+                status: 'succeeded',
+                providerRefundId: 'mp_refund_distinct_b',
+                livemode: true
+            });
+
+            expect(await adapter.payments.getTotalRefundedAmount(created.id)).toBe(10_000);
+        });
+
+        it('still persists a refund with no providerRefundId (local-only path)', async () => {
+            const created = await adapter.payments.create({
+                customerId,
+                amount: 10_000,
+                currency: 'USD',
+                status: 'succeeded',
+                providerPaymentIds: {}
+            });
+
+            await adapter.payments.createRefund({
+                paymentId: created.id,
+                amount: 10_000,
+                currency: 'USD',
+                status: 'succeeded',
+                livemode: true
+            });
+
+            expect(await adapter.payments.getTotalRefundedAmount(created.id)).toBe(10_000);
+        });
+
+        it('backs hasRefundForProviderRefundId with the persisted ledger', async () => {
+            const created = await adapter.payments.create({
+                customerId,
+                amount: 10_000,
+                currency: 'USD',
+                status: 'succeeded',
+                providerPaymentIds: { mercadopago: 'mp_txn_has_refund' }
+            });
+
+            expect(await adapter.payments.hasRefundForProviderRefundId('mp_refund_missing')).toBe(false);
+
+            await adapter.payments.createRefund({
+                paymentId: created.id,
+                amount: 5_000,
+                currency: 'USD',
+                status: 'succeeded',
+                providerRefundId: 'mp_refund_present',
+                livemode: true
+            });
+
+            expect(await adapter.payments.hasRefundForProviderRefundId('mp_refund_present')).toBe(true);
         });
     });
 

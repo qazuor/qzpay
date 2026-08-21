@@ -365,11 +365,49 @@ export class QZPayPaymentsRepository {
     // ==================== Refunds ====================
 
     /**
-     * Create a refund
+     * Create a refund event, idempotently by `providerRefundId` (HOS-669).
+     *
+     * Targets the partial unique index `idx_refunds_provider_refund_id_unique`
+     * (`provider_refund_id WHERE provider_refund_id IS NOT NULL`) with
+     * `ON CONFLICT ... DO NOTHING`, so persisting the same settled provider
+     * refund twice — e.g. a caller retrying `payments.refund()` after a
+     * network blip hid a successful provider response — does NOT insert a
+     * second row. A duplicate row would inflate the SUM `getTotalRefundedAmount()`
+     * derives its total from, marking a payment `refunded` after only part
+     * of the money actually moved.
+     *
+     * A refund with no `providerRefundId` (the local-only path, no payment
+     * adapter configured) has nothing to conflict against — the partial
+     * index's `WHERE` clause excludes NULLs — so it always inserts, exactly
+     * as before this method became idempotent.
      */
     async createRefund(input: QZPayBillingRefundInsert): Promise<QZPayBillingRefund> {
-        const result = await this.db.insert(billingRefunds).values(input).returning();
-        return firstOrThrow(result, 'Refund', 'new');
+        const result = await this.db
+            .insert(billingRefunds)
+            .values(input)
+            .onConflictDoNothing({
+                target: billingRefunds.providerRefundId,
+                where: sql`${billingRefunds.providerRefundId} IS NOT NULL`
+            })
+            .returning();
+
+        if (result.length > 0) {
+            return firstOrThrow(result, 'Refund', 'new');
+        }
+
+        // Zero rows back means the insert hit the conflict target above,
+        // which only matches non-null `providerRefundId` values — so this
+        // path is unreachable for a local-only refund.
+        if (!input.providerRefundId) {
+            throw new Error('createRefund: insert returned no row for a refund with no providerRefundId — this should be unreachable');
+        }
+
+        const existing = await this.findRefundByProviderRefundId(input.providerRefundId);
+        if (!existing) {
+            throw new Error(`createRefund: conflict reported for providerRefundId ${input.providerRefundId} but no existing row was found`);
+        }
+
+        return existing;
     }
 
     /**

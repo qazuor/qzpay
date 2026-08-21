@@ -285,6 +285,15 @@ async function pushSchema(): Promise<void> {
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     `;
+    // Must mirror `providerRefundIdUniqueIdx` in src/schema/payments.schema.ts
+    // (HOS-669). This DDL is hand-written rather than derived from the
+    // Drizzle schema, so an index changed there and not here leaves the
+    // suite testing a shape that no longer exists.
+    await rawSql`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_refunds_provider_refund_id_unique
+            ON billing_refunds (provider_refund_id)
+            WHERE provider_refund_id IS NOT NULL
+    `;
 
     // 6. Entitlements definition table
     await rawSql`

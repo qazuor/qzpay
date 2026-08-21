@@ -521,6 +521,11 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
 
             async getTotalRefundedAmount(paymentId: string): Promise<number> {
                 return repo.getTotalRefundedAmount(paymentId);
+            },
+
+            async hasRefundForProviderRefundId(providerRefundId: string): Promise<boolean> {
+                const existing = await repo.findRefundByProviderRefundId(providerRefundId);
+                return existing !== null;
             }
         };
     }
