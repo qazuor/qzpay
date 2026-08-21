@@ -12,6 +12,7 @@ import type {
     QZPayCreatePlanInput,
     QZPayCreatePriceInput,
     QZPayCreatePromoCodeInput,
+    QZPayCreateRefundInput,
     QZPayCreateSubscriptionInput,
     QZPayCreateVendorInput,
     QZPayCustomer,
@@ -186,6 +187,25 @@ export interface QZPayPaymentStorage {
     findById(id: string): Promise<QZPayPayment | null>;
     findByCustomerId(customerId: string): Promise<QZPayPayment[]>;
     list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPayment>>;
+    /**
+     * Persist one individual refund event for a payment.
+     *
+     * Storage adapters MUST keep this as an append-only record (never
+     * overwrite a previous refund event) so that {@link getTotalRefundedAmount}
+     * can derive an accurate running total across multiple partial refunds.
+     */
+    createRefund(input: QZPayCreateRefundInput): Promise<void>;
+    /**
+     * Sum every settled refund event persisted for a payment via
+     * {@link createRefund}, in minor units (cents/centavos).
+     *
+     * This is the ACCUMULATED total across every refund event for the
+     * payment — not just the most recent one — which is what determines
+     * whether a payment refunded in several tranches has reached
+     * `payment.amount` and should transition to `refunded` rather than
+     * staying `partially_refunded` forever.
+     */
+    getTotalRefundedAmount(paymentId: string): Promise<number>;
 }
 
 export interface QZPayPaymentMethodStorage {
