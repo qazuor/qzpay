@@ -10,6 +10,7 @@ import type {
     QZPayCreatePlanInput,
     QZPayCreatePriceInput,
     QZPayCreatePromoCodeInput,
+    QZPayCreateRefundInput,
     QZPayCreateSubscriptionInput,
     QZPayCreateVendorInput,
     QZPayCustomer,
@@ -503,6 +504,23 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 const offset = options?.offset ?? 0;
                 const result = await repo.search({ livemode, limit, offset });
                 return toPaginatedResult(result, mapDrizzlePaymentToCore, limit, offset);
+            },
+
+            async createRefund(input: QZPayCreateRefundInput): Promise<void> {
+                await repo.createRefund({
+                    paymentId: input.paymentId,
+                    amount: input.amount,
+                    currency: input.currency,
+                    status: input.status,
+                    reason: input.reason ?? null,
+                    providerRefundId: input.providerRefundId ?? null,
+                    livemode: input.livemode,
+                    metadata: input.metadata ?? {}
+                });
+            },
+
+            async getTotalRefundedAmount(paymentId: string): Promise<number> {
+                return repo.getTotalRefundedAmount(paymentId);
             }
         };
     }

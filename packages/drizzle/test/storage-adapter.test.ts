@@ -368,6 +368,45 @@ describe('QZPayDrizzleStorageAdapter', () => {
             const [row] = await db.select().from(billingPayments).where(eq(billingPayments.id, created.id));
             expect(row?.provider).toBe('mercadopago');
         });
+
+        /**
+         * HOS-669: `createRefund`/`getTotalRefundedAmount` back the accumulated
+         * refund total core's `payments.refund()` needs to tell a payment
+         * refunded across several tranches from one that is only partially
+         * refunded. These wrap the (already covered) repository methods, so
+         * these tests exercise the wiring, not the SQL.
+         */
+        it('accumulates refunded amount across multiple refund events', async () => {
+            const created = await adapter.payments.create({
+                customerId,
+                amount: 10_000,
+                currency: 'USD',
+                status: 'succeeded',
+                providerPaymentIds: { mercadopago: 'mp_txn_refund_accum' }
+            });
+
+            expect(await adapter.payments.getTotalRefundedAmount(created.id)).toBe(0);
+
+            await adapter.payments.createRefund({
+                paymentId: created.id,
+                amount: 4_000,
+                currency: 'USD',
+                status: 'succeeded',
+                livemode: true
+            });
+            expect(await adapter.payments.getTotalRefundedAmount(created.id)).toBe(4_000);
+
+            await adapter.payments.createRefund({
+                paymentId: created.id,
+                amount: 6_000,
+                currency: 'USD',
+                status: 'succeeded',
+                reason: 'Second tranche',
+                providerRefundId: 'mp_refund_2',
+                livemode: true
+            });
+            expect(await adapter.payments.getTotalRefundedAmount(created.id)).toBe(10_000);
+        });
     });
 
     describe('transaction support', () => {
