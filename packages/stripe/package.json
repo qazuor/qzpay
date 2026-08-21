@@ -1,6 +1,6 @@
 {
     "name": "@qazuor/qzpay-stripe",
-    "version": "1.3.3",
+    "version": "1.3.4",
     "description": "Stripe payment provider adapter for QZPay billing library",
     "type": "module",
     "main": "./dist/index.cjs",
