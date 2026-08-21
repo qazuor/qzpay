@@ -81,6 +81,41 @@ describe('Error Mapper', () => {
                 expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
                 expect(result.code).toBe('INTERNAL_ERROR');
             });
+
+            it('should still classify by name when instanceof fails (duplicated qzpay-core copy)', () => {
+                // Arrange: an error shaped exactly like one thrown from a
+                // SECOND copy of qzpay-core resolved elsewhere in the
+                // dependency tree. `instanceof` compares constructor
+                // identity, so it is false here even though this is, for
+                // every practical purpose, a QZPayValidationError. Without
+                // the name fallback this silently regressed to 500 — and
+                // only ever in real deployments, never in a test run, which
+                // is the worst place for a regression to hide.
+                const foreignError = new Error('Payment abc is not linked to mercadopago');
+                foreignError.name = 'QZPayValidationError';
+
+                // Act
+                const result = mapErrorToHttpStatus(foreignError);
+
+                // Assert
+                expect(foreignError instanceof QZPayValidationError).toBe(false);
+                expect(result.status).toBe(HttpStatus.UNPROCESSABLE_ENTITY);
+                expect(result.code).toBe('VALIDATION_ERROR');
+            });
+
+            it('should not classify an ordinary error whose name was never set by qzpay-core', () => {
+                // Arrange: guards the fallback above against over-reach —
+                // only the exact class names qualify, not any error that
+                // happens to mention a provider.
+                const error = new Error('Payment abc is not linked to mercadopago');
+
+                // Act
+                const result = mapErrorToHttpStatus(error);
+
+                // Assert
+                expect(result.status).toBe(HttpStatus.INTERNAL_SERVER_ERROR);
+                expect(result.code).toBe('INTERNAL_ERROR');
+            });
         });
 
         it('should map "not found" error to 404', () => {
