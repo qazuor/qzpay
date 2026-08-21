@@ -676,6 +676,38 @@ async function createSchema(sql: ReturnType<typeof postgres>): Promise<void> {
         )
     `;
 
+    // The refund ledger `payments.refund()` reads its accumulated total from
+    // (HOS-669). Without this table the refund route answers 404 rather than
+    // failing loudly: Postgres raises `relation "billing_refunds" does not
+    // exist`, and the error mapper's `/does not exist/i` pattern classifies
+    // that text as NOT_FOUND. This DDL is hand-written rather than derived
+    // from the Drizzle schema — the third such copy in the repo — so a table
+    // added there and not here fails in a way that looks like a routing bug.
+    await sql`
+        CREATE TABLE IF NOT EXISTS billing_refunds (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            payment_id UUID NOT NULL REFERENCES billing_payments(id),
+            amount INTEGER NOT NULL,
+            currency VARCHAR(3) NOT NULL,
+            status VARCHAR(50) NOT NULL,
+            reason VARCHAR(100),
+            provider_refund_id VARCHAR(255),
+            livemode BOOLEAN NOT NULL DEFAULT true,
+            metadata JSONB DEFAULT '{}',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `;
+    // Must mirror `providerRefundIdUniqueIdx` in
+    // packages/drizzle/src/schema/payments.schema.ts — it is what makes the
+    // ledger idempotent, and deriving a payment's status from a SUM over a
+    // ledger that accepts duplicates would mark a half-refunded payment as
+    // fully refunded.
+    await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_refunds_provider_refund_id_unique
+            ON billing_refunds (provider_refund_id)
+            WHERE provider_refund_id IS NOT NULL
+    `;
+
     await sql`
         CREATE TABLE IF NOT EXISTS billing_invoices (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
