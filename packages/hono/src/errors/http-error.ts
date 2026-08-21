@@ -56,7 +56,9 @@ export const HttpStatus = Object.freeze({
     /** 429 Too Many Requests - Rate limit exceeded */
     TOO_MANY_REQUESTS: 429,
     /** 500 Internal Server Error - Server error */
-    INTERNAL_SERVER_ERROR: 500
+    INTERNAL_SERVER_ERROR: 500,
+    /** 502 Bad Gateway - Upstream payment provider failed or refused */
+    BAD_GATEWAY: 502
 } as const);
 
 /**
