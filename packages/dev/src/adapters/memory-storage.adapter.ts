@@ -455,6 +455,25 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                 return paginate(Array.from(data.payments.values()), options);
             },
             async createRefund(input: QZPayCreateRefundInput): Promise<void> {
+                // Idempotent by providerRefundId (HOS-669): mirrors the
+                // partial UNIQUE constraint the Drizzle adapter enforces at
+                // the DB layer (idx_refunds_provider_refund_id_unique). A
+                // second settled event for the SAME provider refund id —
+                // e.g. a retried `payments.refund()` call after a network
+                // blip hid a successful provider response — is silently
+                // ignored instead of inserted, so it cannot inflate
+                // `getTotalRefundedAmount()`'s total. A refund with no
+                // `providerRefundId` (local-only, no payment adapter
+                // configured) has nothing to deduplicate against and
+                // always inserts.
+                if (input.providerRefundId) {
+                    for (const existing of data.refunds.values()) {
+                        if (Object.values(existing.providerRefundIds).includes(input.providerRefundId)) {
+                            return;
+                        }
+                    }
+                }
+
                 const refund: QZPayRefund = {
                     id: generateId('refund'),
                     paymentId: input.paymentId,
@@ -479,6 +498,14 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                     }
                 }
                 return total;
+            },
+            async hasRefundForProviderRefundId(providerRefundId: string): Promise<boolean> {
+                for (const refund of data.refunds.values()) {
+                    if (Object.values(refund.providerRefundIds).includes(providerRefundId)) {
+                        return true;
+                    }
+                }
+                return false;
             }
         },
 
