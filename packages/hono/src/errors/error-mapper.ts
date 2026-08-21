@@ -40,6 +40,18 @@ export interface ErrorMappingResult {
  * default below, exactly as it did before this map existed. That is the
  * fail-safe: unrecognized errors must never be promoted to something other
  * than 500 by accident.
+ *
+ * Each entry checks `instanceof` OR the class's own `name`. The name check
+ * is not redundant: `instanceof` compares constructor identity, so it
+ * silently returns false whenever the throwing code and this module resolve
+ * to two different copies of qzpay-core — a duplicated transitive
+ * dependency, a mixed CJS/ESM resolution, a consumer that pinned a
+ * different version of core than of hono. That failure mode is invisible in
+ * tests, where there is only ever one module instance, and would land as a
+ * silent regression back to 500 in exactly the deployment shapes we cannot
+ * observe. Every subclass sets `this.name` to its own class name in its
+ * constructor, so the name is a stable marker that survives module
+ * duplication.
  */
 const QZPAY_CORE_ERROR_TYPES: Array<{
     matches: (error: Error) => boolean;
@@ -54,19 +66,35 @@ const QZPAY_CORE_ERROR_TYPES: Array<{
     // QZPayValidationError to 400 instead would make a real, typed
     // validation error invisible to `isValidationError()` while a generic
     // `Error('invalid ...')` still passed it — worse, not better.
-    { matches: (error) => error instanceof QZPayValidationError, status: HttpStatus.UNPROCESSABLE_ENTITY, code: 'VALIDATION_ERROR' },
+    {
+        matches: (error) => error instanceof QZPayValidationError || error.name === 'QZPayValidationError',
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        code: 'VALIDATION_ERROR'
+    },
 
     // Requested entity does not exist (404).
-    { matches: (error) => error instanceof QZPayNotFoundError, status: HttpStatus.NOT_FOUND, code: 'NOT_FOUND' },
+    {
+        matches: (error) => error instanceof QZPayNotFoundError || error.name === 'QZPayNotFoundError',
+        status: HttpStatus.NOT_FOUND,
+        code: 'NOT_FOUND'
+    },
 
     // Operation conflicts with current resource state (409).
-    { matches: (error) => error instanceof QZPayConflictError, status: HttpStatus.CONFLICT, code: 'CONFLICT' },
+    {
+        matches: (error) => error instanceof QZPayConflictError || error.name === 'QZPayConflictError',
+        status: HttpStatus.CONFLICT,
+        code: 'CONFLICT'
+    },
 
     // Failed to sync with an external payment provider (502) — this server
     // acts as a gateway to the provider (MercadoPago, Stripe, ...) and the
     // upstream call failed or was refused; the client's request itself was
     // fine.
-    { matches: (error) => error instanceof QZPayProviderSyncError, status: HttpStatus.BAD_GATEWAY, code: 'PROVIDER_SYNC_FAILED' }
+    {
+        matches: (error) => error instanceof QZPayProviderSyncError || error.name === 'QZPayProviderSyncError',
+        status: HttpStatus.BAD_GATEWAY,
+        code: 'PROVIDER_SYNC_FAILED'
+    }
 ];
 
 /**
