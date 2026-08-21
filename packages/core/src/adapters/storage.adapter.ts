@@ -206,6 +206,25 @@ export interface QZPayPaymentStorage {
      * staying `partially_refunded` forever.
      */
     getTotalRefundedAmount(paymentId: string): Promise<number>;
+    /**
+     * Whether a refund event carrying this exact provider-side refund id
+     * has already been persisted via {@link createRefund}, for ANY payment.
+     *
+     * `payments.refund()` calls this before persisting a settled refund
+     * that carries a `providerRefundId`, so a retried call — e.g. after a
+     * network blip hid a successful provider response — does not persist
+     * the same event twice and inflate {@link getTotalRefundedAmount}'s
+     * total (HOS-669).
+     *
+     * This is an optimization, NOT the idempotency guarantee: a read here
+     * followed by a write moments later is a classic TOCTOU gap under
+     * concurrent retries. Implementations of {@link createRefund} MUST
+     * independently enforce uniqueness on `providerRefundId` at the
+     * storage layer (e.g. a partial unique DB constraint with
+     * `ON CONFLICT ... DO NOTHING`) so a duplicate write is rejected even
+     * when two calls race past this check at the same time.
+     */
+    hasRefundForProviderRefundId(providerRefundId: string): Promise<boolean>;
 }
 
 export interface QZPayPaymentMethodStorage {
