@@ -11,6 +11,7 @@ import {
     billingSubscriptions
 } from '../schema/index.js';
 import type { QZPayDatabase } from '../utils/connection.js';
+import { resolveOrderBy } from '../utils/order-by.js';
 import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
 
 /**
@@ -31,10 +32,13 @@ export type QZPaySubscriptionStatusValue =
  */
 export interface QZPaySubscriptionSearchOptions {
     customerId?: string;
+    planId?: string;
     status?: QZPaySubscriptionStatusValue | QZPaySubscriptionStatusValue[];
     livemode?: boolean;
     limit?: number;
     offset?: number;
+    orderBy?: string | undefined;
+    orderDirection?: 'asc' | 'desc' | undefined;
 }
 
 /**
@@ -387,12 +391,16 @@ export class QZPaySubscriptionsRepository {
      * Search subscriptions
      */
     async search(options: QZPaySubscriptionSearchOptions): Promise<QZPayPaginatedResult<QZPayBillingSubscription>> {
-        const { customerId, status, livemode, limit = 100, offset = 0 } = options;
+        const { customerId, planId, status, livemode, limit = 100, offset = 0, orderBy, orderDirection } = options;
 
         const conditions = [isNull(billingSubscriptions.deletedAt)];
 
         if (customerId) {
             conditions.push(eq(billingSubscriptions.customerId, customerId));
+        }
+
+        if (planId) {
+            conditions.push(eq(billingSubscriptions.planId, planId));
         }
 
         if (status) {
@@ -418,7 +426,7 @@ export class QZPaySubscriptionsRepository {
             .select()
             .from(billingSubscriptions)
             .where(and(...conditions))
-            .orderBy(sql`${billingSubscriptions.createdAt} DESC`)
+            .orderBy(resolveOrderBy({ table: billingSubscriptions, entity: 'subscriptions', orderBy, orderDirection }))
             .limit(limit)
             .offset(offset);
 

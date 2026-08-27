@@ -13,6 +13,7 @@ import {
     billingAddons,
     billingSubscriptionAddons
 } from '../schema/index.js';
+import { resolveOrderBy } from '../utils/order-by.js';
 import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
 
 /**
@@ -25,6 +26,8 @@ export interface QZPayAddonSearchOptions {
     livemode?: boolean;
     limit?: number;
     offset?: number;
+    orderBy?: string | undefined;
+    orderDirection?: 'asc' | 'desc' | undefined;
 }
 
 /**
@@ -152,7 +155,7 @@ export class QZPayAddonsRepository {
      * Search add-ons
      */
     async search(options: QZPayAddonSearchOptions): Promise<QZPayPaginatedResult<QZPayBillingAddon>> {
-        const { query, active, billingInterval, livemode, limit = 100, offset = 0 } = options;
+        const { query, active, billingInterval, livemode, limit = 100, offset = 0, orderBy, orderDirection } = options;
 
         const conditions = [isNull(billingAddons.deletedAt)];
 
@@ -189,7 +192,7 @@ export class QZPayAddonsRepository {
             .select()
             .from(billingAddons)
             .where(and(...conditions))
-            .orderBy(sql`${billingAddons.createdAt} DESC`)
+            .orderBy(resolveOrderBy({ table: billingAddons, entity: 'addons', orderBy, orderDirection }))
             .limit(limit)
             .offset(offset);
 

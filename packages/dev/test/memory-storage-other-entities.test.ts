@@ -104,7 +104,7 @@ describe('adapter.subscriptions', () => {
                 planId: 'plan_123'
             });
 
-            const result = await adapter.subscriptions.list();
+            const result = await adapter.subscriptions.list({ limit: 100 });
 
             expect(result.data).toHaveLength(1);
         });

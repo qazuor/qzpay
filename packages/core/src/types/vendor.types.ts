@@ -10,6 +10,15 @@ export interface QZPayVendor {
     name: string;
     email: string;
     status: QZPayVendorStatus;
+    /**
+     * Whether the vendor has completed onboarding far enough to be paid.
+     *
+     * Storage sets this to `true` when onboarding reaches `completed`. It was
+     * previously readable only from the storage row, never from the domain
+     * object, which made `QZPayVendorFilters.canReceivePayments` impossible for
+     * a non-SQL adapter to honour.
+     */
+    canReceivePayments: boolean;
     commissionRate: number;
     payoutSchedule: QZPayPayoutSchedule;
     providerAccountIds: Record<string, string>;

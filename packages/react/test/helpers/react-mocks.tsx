@@ -58,6 +58,7 @@ export function createMockBilling(): QZPayBilling {
         },
         plans: {
             list: vi.fn(),
+            listAll: vi.fn(),
             get: vi.fn(),
             getActive: vi.fn(),
             getPrices: vi.fn()

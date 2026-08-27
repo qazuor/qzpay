@@ -44,6 +44,7 @@ export function mapDrizzleVendorToCore(drizzle: QZPayBillingVendor): QZPayVendor
         name: drizzle.name ?? '',
         email: drizzle.email,
         status: drizzle.onboardingStatus as QZPayVendorStatus,
+        canReceivePayments: drizzle.canReceivePayments ?? false,
         commissionRate: Number(drizzle.commissionRate),
         payoutSchedule: payoutSchedule ?? {
             interval: 'weekly',

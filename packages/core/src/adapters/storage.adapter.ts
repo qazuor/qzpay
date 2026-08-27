@@ -44,6 +44,33 @@ import type {
     QZPayVendor,
     QZPayVendorPayout
 } from '../types/index.js';
+export type * from './list-options.js';
+import type {
+    QZPayAddOnFilters,
+    QZPayAddOnOrderBy,
+    QZPayCheckoutFilters,
+    QZPayCheckoutOrderBy,
+    QZPayCustomerFilters,
+    QZPayCustomerOrderBy,
+    QZPayInvoiceFilters,
+    QZPayInvoiceOrderBy,
+    QZPayListAllOptions,
+    QZPayListOptions,
+    QZPayPaymentFilters,
+    QZPayPaymentMethodFilters,
+    QZPayPaymentMethodOrderBy,
+    QZPayPaymentOrderBy,
+    QZPayPlanFilters,
+    QZPayPlanOrderBy,
+    QZPayPriceFilters,
+    QZPayPriceOrderBy,
+    QZPayPromoCodeFilters,
+    QZPayPromoCodeOrderBy,
+    QZPaySubscriptionFilters,
+    QZPaySubscriptionOrderBy,
+    QZPayVendorFilters,
+    QZPayVendorOrderBy
+} from './list-options.js';
 
 export interface QZPayStorageAdapter {
     // Customer operations
@@ -100,7 +127,10 @@ export interface QZPayCustomerStorage {
     findById(id: string): Promise<QZPayCustomer | null>;
     findByExternalId(externalId: string): Promise<QZPayCustomer | null>;
     findByEmail(email: string): Promise<QZPayCustomer | null>;
-    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayCustomer>>;
+    /** Reads one page. `limit` is required; use {@link listAll} for every row. */
+    list(options: QZPayListOptions<QZPayCustomerFilters, QZPayCustomerOrderBy>): Promise<QZPayPaginatedResult<QZPayCustomer>>;
+    /** Reads every matching row, paginating internally. */
+    listAll(options?: QZPayListAllOptions<QZPayCustomerFilters, QZPayCustomerOrderBy>): Promise<QZPayCustomer[]>;
 }
 
 export interface QZPaySubscriptionStorage {
@@ -109,7 +139,10 @@ export interface QZPaySubscriptionStorage {
     delete(id: string): Promise<void>;
     findById(id: string): Promise<QZPaySubscription | null>;
     findByCustomerId(customerId: string): Promise<QZPaySubscription[]>;
-    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPaySubscription>>;
+    /** Reads one page. `limit` is required; use {@link listAll} for every row. */
+    list(options: QZPayListOptions<QZPaySubscriptionFilters, QZPaySubscriptionOrderBy>): Promise<QZPayPaginatedResult<QZPaySubscription>>;
+    /** Reads every matching row, paginating internally. */
+    listAll(options?: QZPayListAllOptions<QZPaySubscriptionFilters, QZPaySubscriptionOrderBy>): Promise<QZPaySubscription[]>;
 }
 
 /**
@@ -186,7 +219,10 @@ export interface QZPayPaymentStorage {
     update(id: string, payment: Partial<QZPayPayment>): Promise<QZPayPayment>;
     findById(id: string): Promise<QZPayPayment | null>;
     findByCustomerId(customerId: string): Promise<QZPayPayment[]>;
-    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPayment>>;
+    /** Reads one page. `limit` is required; use {@link listAll} for every row. */
+    list(options: QZPayListOptions<QZPayPaymentFilters, QZPayPaymentOrderBy>): Promise<QZPayPaginatedResult<QZPayPayment>>;
+    /** Reads every matching row, paginating internally. */
+    listAll(options?: QZPayListAllOptions<QZPayPaymentFilters, QZPayPaymentOrderBy>): Promise<QZPayPayment[]>;
     /**
      * Persist one individual refund event for a payment.
      *
@@ -235,7 +271,12 @@ export interface QZPayPaymentMethodStorage {
     findByCustomerId(customerId: string): Promise<QZPayPaymentMethod[]>;
     findDefaultByCustomerId(customerId: string): Promise<QZPayPaymentMethod | null>;
     setDefault(customerId: string, paymentMethodId: string): Promise<void>;
-    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPaymentMethod>>;
+    /** Reads one page. `limit` is required; use {@link listAll} for every row. */
+    list(
+        options: QZPayListOptions<QZPayPaymentMethodFilters, QZPayPaymentMethodOrderBy>
+    ): Promise<QZPayPaginatedResult<QZPayPaymentMethod>>;
+    /** Reads every matching row, paginating internally. */
+    listAll(options?: QZPayListAllOptions<QZPayPaymentMethodFilters, QZPayPaymentMethodOrderBy>): Promise<QZPayPaymentMethod[]>;
 }
 
 export interface QZPayInvoiceStorage {
@@ -243,7 +284,10 @@ export interface QZPayInvoiceStorage {
     update(id: string, invoice: Partial<QZPayInvoice>): Promise<QZPayInvoice>;
     findById(id: string): Promise<QZPayInvoice | null>;
     findByCustomerId(customerId: string): Promise<QZPayInvoice[]>;
-    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayInvoice>>;
+    /** Reads one page. `limit` is required; use {@link listAll} for every row. */
+    list(options: QZPayListOptions<QZPayInvoiceFilters, QZPayInvoiceOrderBy>): Promise<QZPayPaginatedResult<QZPayInvoice>>;
+    /** Reads every matching row, paginating internally. */
+    listAll(options?: QZPayListAllOptions<QZPayInvoiceFilters, QZPayInvoiceOrderBy>): Promise<QZPayInvoice[]>;
 }
 
 export interface QZPayPlanStorage {
@@ -251,7 +295,10 @@ export interface QZPayPlanStorage {
     update(id: string, plan: Partial<QZPayPlan>): Promise<QZPayPlan>;
     delete(id: string): Promise<void>;
     findById(id: string): Promise<QZPayPlan | null>;
-    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPlan>>;
+    /** Reads one page. `limit` is required; use {@link listAll} for every row. */
+    list(options: QZPayListOptions<QZPayPlanFilters, QZPayPlanOrderBy>): Promise<QZPayPaginatedResult<QZPayPlan>>;
+    /** Reads every matching row, paginating internally. */
+    listAll(options?: QZPayListAllOptions<QZPayPlanFilters, QZPayPlanOrderBy>): Promise<QZPayPlan[]>;
 }
 
 export interface QZPayPriceStorage {
@@ -260,7 +307,10 @@ export interface QZPayPriceStorage {
     delete(id: string): Promise<void>;
     findById(id: string): Promise<QZPayPrice | null>;
     findByPlanId(planId: string): Promise<QZPayPrice[]>;
-    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPrice>>;
+    /** Reads one page. `limit` is required; use {@link listAll} for every row. */
+    list(options: QZPayListOptions<QZPayPriceFilters, QZPayPriceOrderBy>): Promise<QZPayPaginatedResult<QZPayPrice>>;
+    /** Reads every matching row, paginating internally. */
+    listAll(options?: QZPayListAllOptions<QZPayPriceFilters, QZPayPriceOrderBy>): Promise<QZPayPrice[]>;
 }
 
 export interface QZPayPromoCodeStorage {
@@ -292,7 +342,10 @@ export interface QZPayPromoCodeStorage {
      * concurrency.
      */
     atomicIncrementRedemptions(id: string): Promise<QZPayPromoCode | null>;
-    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPromoCode>>;
+    /** Reads one page. `limit` is required; use {@link listAll} for every row. */
+    list(options: QZPayListOptions<QZPayPromoCodeFilters, QZPayPromoCodeOrderBy>): Promise<QZPayPaginatedResult<QZPayPromoCode>>;
+    /** Reads every matching row, paginating internally. */
+    listAll(options?: QZPayListAllOptions<QZPayPromoCodeFilters, QZPayPromoCodeOrderBy>): Promise<QZPayPromoCode[]>;
 }
 
 export interface QZPayVendorStorage {
@@ -301,7 +354,10 @@ export interface QZPayVendorStorage {
     delete(id: string): Promise<void>;
     findById(id: string): Promise<QZPayVendor | null>;
     findByExternalId(externalId: string): Promise<QZPayVendor | null>;
-    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayVendor>>;
+    /** Reads one page. `limit` is required; use {@link listAll} for every row. */
+    list(options: QZPayListOptions<QZPayVendorFilters, QZPayVendorOrderBy>): Promise<QZPayPaginatedResult<QZPayVendor>>;
+    /** Reads every matching row, paginating internally. */
+    listAll(options?: QZPayListAllOptions<QZPayVendorFilters, QZPayVendorOrderBy>): Promise<QZPayVendor[]>;
     createPayout(payout: QZPayVendorPayout): Promise<QZPayVendorPayout>;
     findPayoutsByVendorId(vendorId: string): Promise<QZPayVendorPayout[]>;
 }
@@ -336,7 +392,10 @@ export interface QZPayAddOnStorage {
     delete(id: string): Promise<void>;
     findById(id: string): Promise<QZPayAddOn | null>;
     findByPlanId(planId: string): Promise<QZPayAddOn[]>;
-    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayAddOn>>;
+    /** Reads one page. `limit` is required; use {@link listAll} for every row. */
+    list(options: QZPayListOptions<QZPayAddOnFilters, QZPayAddOnOrderBy>): Promise<QZPayPaginatedResult<QZPayAddOn>>;
+    /** Reads every matching row, paginating internally. */
+    listAll(options?: QZPayListAllOptions<QZPayAddOnFilters, QZPayAddOnOrderBy>): Promise<QZPayAddOn[]>;
 
     // Subscription add-on operations
     addToSubscription(input: {
@@ -382,15 +441,10 @@ export interface QZPayCheckoutStorage {
     update(id: string, input: Partial<QZPayCheckoutSession>): Promise<QZPayCheckoutSession>;
     findById(id: string): Promise<QZPayCheckoutSession | null>;
     findByCustomerId(customerId: string): Promise<QZPayCheckoutSession[]>;
-    list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayCheckoutSession>>;
-}
-
-export interface QZPayListOptions {
-    limit?: number;
-    offset?: number;
-    orderBy?: string;
-    orderDirection?: 'asc' | 'desc';
-    filters?: Record<string, unknown>;
+    /** Reads one page. `limit` is required; use {@link listAll} for every row. */
+    list(options: QZPayListOptions<QZPayCheckoutFilters, QZPayCheckoutOrderBy>): Promise<QZPayPaginatedResult<QZPayCheckoutSession>>;
+    /** Reads every matching row, paginating internally. */
+    listAll(options?: QZPayListAllOptions<QZPayCheckoutFilters, QZPayCheckoutOrderBy>): Promise<QZPayCheckoutSession[]>;
 }
 
 export interface QZPayPaginatedResult<T> {

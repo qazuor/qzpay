@@ -6,6 +6,7 @@
 import { and, count, eq, isNull, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { type QZPayBillingPaymentMethod, type QZPayBillingPaymentMethodInsert, billingPaymentMethods } from '../schema/index.js';
+import { resolveOrderBy } from '../utils/order-by.js';
 import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
 
 /**
@@ -18,6 +19,8 @@ export interface QZPayPaymentMethodSearchOptions {
     livemode?: boolean;
     limit?: number;
     offset?: number;
+    orderBy?: string | undefined;
+    orderDirection?: 'asc' | 'desc' | undefined;
 }
 
 /**
@@ -205,7 +208,7 @@ export class QZPayPaymentMethodsRepository {
      * Search payment methods
      */
     async search(options: QZPayPaymentMethodSearchOptions): Promise<QZPayPaginatedResult<QZPayBillingPaymentMethod>> {
-        const { customerId, type, provider, livemode, limit = 100, offset = 0 } = options;
+        const { customerId, type, provider, livemode, limit = 100, offset = 0, orderBy, orderDirection } = options;
 
         const conditions = [isNull(billingPaymentMethods.deletedAt)];
 
@@ -236,7 +239,7 @@ export class QZPayPaymentMethodsRepository {
             .select()
             .from(billingPaymentMethods)
             .where(and(...conditions))
-            .orderBy(sql`${billingPaymentMethods.createdAt} DESC`)
+            .orderBy(resolveOrderBy({ table: billingPaymentMethods, entity: 'paymentMethods', orderBy, orderDirection }))
             .limit(limit)
             .offset(offset);
 

@@ -354,7 +354,11 @@ export interface QZPayCustomerService {
         input: Parameters<QZPayStorageAdapter['customers']['update']>[1]
     ) => ReturnType<QZPayStorageAdapter['customers']['update']>;
     delete: (id: string) => ReturnType<QZPayStorageAdapter['customers']['delete']>;
-    list: (options?: Parameters<QZPayStorageAdapter['customers']['list']>[0]) => ReturnType<QZPayStorageAdapter['customers']['list']>;
+    list: (options: Parameters<QZPayStorageAdapter['customers']['list']>[0]) => ReturnType<QZPayStorageAdapter['customers']['list']>;
+    /** Reads every matching row, paginating internally. */
+    listAll: (
+        options?: Parameters<QZPayStorageAdapter['customers']['listAll']>[0]
+    ) => ReturnType<QZPayStorageAdapter['customers']['listAll']>;
     syncUser: (input: Parameters<QZPayStorageAdapter['customers']['create']>[0]) => ReturnType<QZPayStorageAdapter['customers']['create']>;
 }
 
@@ -446,8 +450,12 @@ export interface QZPaySubscriptionService {
      * List subscriptions with pagination
      */
     list: (
-        options?: Parameters<QZPayStorageAdapter['subscriptions']['list']>[0]
+        options: Parameters<QZPayStorageAdapter['subscriptions']['list']>[0]
     ) => ReturnType<QZPayStorageAdapter['subscriptions']['list']>;
+    /** Reads every matching row, paginating internally. */
+    listAll: (
+        options?: Parameters<QZPayStorageAdapter['subscriptions']['listAll']>[0]
+    ) => ReturnType<QZPayStorageAdapter['subscriptions']['listAll']>;
 }
 
 /**
@@ -496,7 +504,11 @@ export interface QZPayInvoiceService {
     /**
      * List invoices with pagination
      */
-    list: (options?: Parameters<QZPayStorageAdapter['invoices']['list']>[0]) => ReturnType<QZPayStorageAdapter['invoices']['list']>;
+    list: (options: Parameters<QZPayStorageAdapter['invoices']['list']>[0]) => ReturnType<QZPayStorageAdapter['invoices']['list']>;
+    /** Reads every matching row, paginating internally. */
+    listAll: (
+        options?: Parameters<QZPayStorageAdapter['invoices']['listAll']>[0]
+    ) => ReturnType<QZPayStorageAdapter['invoices']['listAll']>;
 }
 
 /**
@@ -544,7 +556,11 @@ export interface QZPayPaymentService {
     /**
      * List payments with pagination
      */
-    list: (options?: Parameters<QZPayStorageAdapter['payments']['list']>[0]) => ReturnType<QZPayStorageAdapter['payments']['list']>;
+    list: (options: Parameters<QZPayStorageAdapter['payments']['list']>[0]) => ReturnType<QZPayStorageAdapter['payments']['list']>;
+    /** Reads every matching row, paginating internally. */
+    listAll: (
+        options?: Parameters<QZPayStorageAdapter['payments']['listAll']>[0]
+    ) => ReturnType<QZPayStorageAdapter['payments']['listAll']>;
 }
 
 /**
@@ -569,7 +585,9 @@ export interface QZPayPlanService {
     /**
      * List all plans
      */
-    list: (options?: Parameters<QZPayStorageAdapter['plans']['list']>[0]) => ReturnType<QZPayStorageAdapter['plans']['list']>;
+    list: (options: Parameters<QZPayStorageAdapter['plans']['list']>[0]) => ReturnType<QZPayStorageAdapter['plans']['list']>;
+    /** Reads every matching row, paginating internally. */
+    listAll: (options?: Parameters<QZPayStorageAdapter['plans']['listAll']>[0]) => ReturnType<QZPayStorageAdapter['plans']['listAll']>;
 }
 
 /**
@@ -594,7 +612,11 @@ export interface QZPayPromoCodeService {
     /**
      * List promo codes
      */
-    list: (options?: Parameters<QZPayStorageAdapter['promoCodes']['list']>[0]) => ReturnType<QZPayStorageAdapter['promoCodes']['list']>;
+    list: (options: Parameters<QZPayStorageAdapter['promoCodes']['list']>[0]) => ReturnType<QZPayStorageAdapter['promoCodes']['list']>;
+    /** Reads every matching row, paginating internally. */
+    listAll: (
+        options?: Parameters<QZPayStorageAdapter['promoCodes']['listAll']>[0]
+    ) => ReturnType<QZPayStorageAdapter['promoCodes']['listAll']>;
 }
 
 /**
@@ -761,7 +783,9 @@ export interface QZPayAddOnService {
     /**
      * List all add-ons
      */
-    list: (options?: Parameters<QZPayStorageAdapter['addons']['list']>[0]) => ReturnType<QZPayStorageAdapter['addons']['list']>;
+    list: (options: Parameters<QZPayStorageAdapter['addons']['list']>[0]) => ReturnType<QZPayStorageAdapter['addons']['list']>;
+    /** Reads every matching row, paginating internally. */
+    listAll: (options?: Parameters<QZPayStorageAdapter['addons']['listAll']>[0]) => ReturnType<QZPayStorageAdapter['addons']['listAll']>;
 
     /**
      * Add an add-on to a subscription
@@ -841,8 +865,12 @@ export interface QZPayPaymentMethodService {
      * List payment methods with pagination
      */
     list: (
-        options?: Parameters<QZPayStorageAdapter['paymentMethods']['list']>[0]
+        options: Parameters<QZPayStorageAdapter['paymentMethods']['list']>[0]
     ) => ReturnType<QZPayStorageAdapter['paymentMethods']['list']>;
+    /** Reads every matching row, paginating internally. */
+    listAll: (
+        options?: Parameters<QZPayStorageAdapter['paymentMethods']['listAll']>[0]
+    ) => ReturnType<QZPayStorageAdapter['paymentMethods']['listAll']>;
 }
 
 /**
@@ -901,7 +929,11 @@ export interface QZPayCheckoutService {
     /**
      * List checkout sessions with pagination.
      */
-    list: (options?: Parameters<QZPayStorageAdapter['checkouts']['list']>[0]) => ReturnType<QZPayStorageAdapter['checkouts']['list']>;
+    list: (options: Parameters<QZPayStorageAdapter['checkouts']['list']>[0]) => ReturnType<QZPayStorageAdapter['checkouts']['list']>;
+    /** Reads every matching row, paginating internally. */
+    listAll: (
+        options?: Parameters<QZPayStorageAdapter['checkouts']['listAll']>[0]
+    ) => ReturnType<QZPayStorageAdapter['checkouts']['listAll']>;
 }
 
 export interface QZPayBilling {
@@ -1224,6 +1256,7 @@ class QZPayBillingImpl implements QZPayBilling {
                 }
             },
             list: (options) => storage.customers.list(options),
+            listAll: (options) => storage.customers.listAll(options),
             syncUser: async (input) => {
                 const existing = await storage.customers.findByExternalId(input.externalId ?? '');
                 if (existing) {
@@ -1818,7 +1851,8 @@ class QZPayBillingImpl implements QZPayBilling {
                 await emitter.emit('subscription.linked', linked);
                 return wrapWithHelpers(linked);
             },
-            list: (options) => storage.subscriptions.list(options)
+            list: (options) => storage.subscriptions.list(options),
+            listAll: (options) => storage.subscriptions.listAll(options)
         };
     }
 
@@ -1954,7 +1988,8 @@ class QZPayBillingImpl implements QZPayBilling {
             },
             get: async (id) => storage.checkouts.findById(id),
             getByCustomerId: async (customerId) => storage.checkouts.findByCustomerId(customerId),
-            list: (options) => storage.checkouts.list(options)
+            list: (options) => storage.checkouts.list(options),
+            listAll: (options) => storage.checkouts.listAll(options)
         };
     }
 
@@ -2307,7 +2342,8 @@ class QZPayBillingImpl implements QZPayBilling {
                 await emitter.emit('payment.refunded', updated);
                 return updated;
             },
-            list: (options) => storage.payments.list(options)
+            list: (options) => storage.payments.list(options),
+            listAll: (options) => storage.payments.listAll(options)
         };
     }
 
@@ -2356,7 +2392,8 @@ class QZPayBillingImpl implements QZPayBilling {
                 await emitter.emit('invoice.voided', invoice);
                 return invoice;
             },
-            list: (options) => storage.invoices.list(options)
+            list: (options) => storage.invoices.list(options),
+            listAll: (options) => storage.invoices.listAll(options)
         };
     }
 
@@ -2374,15 +2411,15 @@ class QZPayBillingImpl implements QZPayBilling {
                 return storage.plans.findById(id);
             },
             getActive: async () => {
-                const result = await storage.plans.list({ filters: { active: true } });
-                const storagePlans = result.data.filter((p) => p.active);
+                const storagePlans = (await storage.plans.listAll({ filters: { active: true } })).filter((p) => p.active);
                 const activConfigPlans = configPlans.filter((p) => p.active);
                 return [...activConfigPlans, ...storagePlans];
             },
             getPrices: async (planId) => {
                 return storage.prices.findByPlanId(planId);
             },
-            list: (options) => storage.plans.list(options)
+            list: (options) => storage.plans.list(options),
+            listAll: (options) => storage.plans.listAll(options)
         };
     }
 
@@ -2464,7 +2501,8 @@ class QZPayBillingImpl implements QZPayBilling {
                 }
             },
             getByCode: (code) => storage.promoCodes.findByCode(code),
-            list: (options) => storage.promoCodes.list(options)
+            list: (options) => storage.promoCodes.list(options),
+            listAll: (options) => storage.promoCodes.listAll(options)
         };
     }
 
@@ -2567,8 +2605,7 @@ class QZPayBillingImpl implements QZPayBilling {
 
         return {
             getMrr: async (query?: QZPayMetricsQuery) => {
-                const result = await storage.subscriptions.list({ limit: 10000 });
-                const subscriptions = result.data;
+                const subscriptions = await storage.subscriptions.listAll();
 
                 // Preload prices
                 for (const sub of subscriptions) {
@@ -2583,19 +2620,18 @@ class QZPayBillingImpl implements QZPayBilling {
             },
 
             getSubscriptionMetrics: async () => {
-                const result = await storage.subscriptions.list({ limit: 10000 });
-                return qzpayCalculateSubscriptionMetrics(result.data);
+                const subscriptions = await storage.subscriptions.listAll();
+                return qzpayCalculateSubscriptionMetrics(subscriptions);
             },
 
             getRevenueMetrics: async (query: QZPayMetricsQuery) => {
-                const result = await storage.payments.list({ limit: 10000 });
+                const payments = await storage.payments.listAll();
                 const currency = query.currency ?? defaultCurrency;
-                return qzpayCalculateRevenueMetrics(result.data, { start: query.startDate, end: query.endDate }, currency);
+                return qzpayCalculateRevenueMetrics(payments, { start: query.startDate, end: query.endDate }, currency);
             },
 
             getChurnMetrics: async (query: QZPayMetricsQuery) => {
-                const result = await storage.subscriptions.list({ limit: 10000 });
-                const subscriptions = result.data;
+                const subscriptions = await storage.subscriptions.listAll();
 
                 // Preload prices
                 for (const sub of subscriptions) {
@@ -2610,12 +2646,7 @@ class QZPayBillingImpl implements QZPayBilling {
             },
 
             getDashboard: async (query?: QZPayMetricsQuery) => {
-                const [subsResult, paymentsResult] = await Promise.all([
-                    storage.subscriptions.list({ limit: 10000 }),
-                    storage.payments.list({ limit: 10000 })
-                ]);
-
-                const subscriptions = subsResult.data;
+                const [subscriptions, payments] = await Promise.all([storage.subscriptions.listAll(), storage.payments.listAll()]);
 
                 // Preload prices
                 for (const sub of subscriptions) {
@@ -2625,7 +2656,7 @@ class QZPayBillingImpl implements QZPayBilling {
                     }
                 }
 
-                return qzpayCalculateDashboardMetrics(subscriptions, paymentsResult.data, getPriceSync, query);
+                return qzpayCalculateDashboardMetrics(subscriptions, payments, getPriceSync, query);
             }
         };
     }
@@ -2671,6 +2702,7 @@ class QZPayBillingImpl implements QZPayBilling {
             },
             getByPlanId: (planId) => storage.addons.findByPlanId(planId),
             list: (options) => storage.addons.list(options),
+            listAll: (options) => storage.addons.listAll(options),
             addToSubscription: async (input) => {
                 const addon = await storage.addons.findById(input.addOnId);
                 if (!addon) {
@@ -2845,7 +2877,8 @@ class QZPayBillingImpl implements QZPayBilling {
                     await emitter.emit('payment_method.updated', paymentMethod);
                 }
             },
-            list: (options) => storage.paymentMethods.list(options)
+            list: (options) => storage.paymentMethods.list(options),
+            listAll: (options) => storage.paymentMethods.listAll(options)
         };
     }
 

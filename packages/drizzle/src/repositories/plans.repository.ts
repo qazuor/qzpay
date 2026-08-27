@@ -6,6 +6,7 @@
 import { and, count, eq, ilike, isNull, or, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { type QZPayBillingPlan, type QZPayBillingPlanInsert, billingPlans } from '../schema/index.js';
+import { resolveOrderBy } from '../utils/order-by.js';
 import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
 
 /**
@@ -17,6 +18,8 @@ export interface QZPayPlanSearchOptions {
     livemode?: boolean;
     limit?: number;
     offset?: number;
+    orderBy?: string | undefined;
+    orderDirection?: 'asc' | 'desc' | undefined;
 }
 
 /**
@@ -115,7 +118,7 @@ export class QZPayPlansRepository {
      * Search plans
      */
     async search(options: QZPayPlanSearchOptions): Promise<QZPayPaginatedResult<QZPayBillingPlan>> {
-        const { query, active, livemode, limit = 100, offset = 0 } = options;
+        const { query, active, livemode, limit = 100, offset = 0, orderBy, orderDirection } = options;
 
         const conditions = [isNull(billingPlans.deletedAt)];
 
@@ -148,7 +151,7 @@ export class QZPayPlansRepository {
             .select()
             .from(billingPlans)
             .where(and(...conditions))
-            .orderBy(sql`${billingPlans.createdAt} DESC`)
+            .orderBy(resolveOrderBy({ table: billingPlans, entity: 'plans', orderBy, orderDirection }))
             .limit(limit)
             .offset(offset);
 

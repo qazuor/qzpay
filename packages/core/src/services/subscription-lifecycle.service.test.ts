@@ -70,10 +70,14 @@ describe('SubscriptionLifecycleService', () => {
                 list: vi.fn().mockResolvedValue({
                     data: [],
                     total: 0,
-                    limit: 10000,
+                    limit: 100,
                     offset: 0,
                     hasMore: false
                 }),
+                // The service reads whole tables through `listAll`, which returns
+                // a plain array. It used to say `list({ limit: 10000 })`, which was
+                // a guess at "everything" rather than actual pagination.
+                listAll: vi.fn().mockResolvedValue([]),
                 update: vi.fn().mockImplementation((id, input) =>
                     Promise.resolve({
                         id,
@@ -160,13 +164,7 @@ describe('SubscriptionLifecycleService', () => {
                 scheduledPlanChange: null
             };
 
-            mockStorage.subscriptions.list = vi.fn().mockResolvedValue({
-                data: [subscription],
-                total: 1,
-                limit: 10000,
-                offset: 0,
-                hasMore: false
-            });
+            mockStorage.subscriptions.listAll = vi.fn().mockResolvedValue([subscription]);
 
             const lifecycle = createSubscriptionLifecycle(mockBilling, mockStorage, config);
             const result = await lifecycle.processRenewals(now);
@@ -230,13 +228,7 @@ describe('SubscriptionLifecycleService', () => {
                 scheduledPlanChange: null
             };
 
-            mockStorage.subscriptions.list = vi.fn().mockResolvedValue({
-                data: [subscription],
-                total: 1,
-                limit: 10000,
-                offset: 0,
-                hasMore: false
-            });
+            mockStorage.subscriptions.listAll = vi.fn().mockResolvedValue([subscription]);
 
             const lifecycle = createSubscriptionLifecycle(mockBilling, mockStorage, config);
             const result = await lifecycle.processRenewals(now);
@@ -289,13 +281,7 @@ describe('SubscriptionLifecycleService', () => {
                 scheduledPlanChange: null
             };
 
-            mockStorage.subscriptions.list = vi.fn().mockResolvedValue({
-                data: [subscription],
-                total: 1,
-                limit: 10000,
-                offset: 0,
-                hasMore: false
-            });
+            mockStorage.subscriptions.listAll = vi.fn().mockResolvedValue([subscription]);
 
             const lifecycle = createSubscriptionLifecycle(mockBilling, mockStorage, config);
             const result = await lifecycle.processTrialConversions(now);
@@ -355,13 +341,7 @@ describe('SubscriptionLifecycleService', () => {
                 scheduledPlanChange: null
             };
 
-            mockStorage.subscriptions.list = vi.fn().mockResolvedValue({
-                data: [subscription],
-                total: 1,
-                limit: 10000,
-                offset: 0,
-                hasMore: false
-            });
+            mockStorage.subscriptions.listAll = vi.fn().mockResolvedValue([subscription]);
 
             const lifecycle = createSubscriptionLifecycle(mockBilling, mockStorage, config);
             const result = await lifecycle.processTrialConversions(now);
@@ -418,13 +398,7 @@ describe('SubscriptionLifecycleService', () => {
                 scheduledPlanChange: null
             };
 
-            mockStorage.subscriptions.list = vi.fn().mockResolvedValue({
-                data: [subscription],
-                total: 1,
-                limit: 10000,
-                offset: 0,
-                hasMore: false
-            });
+            mockStorage.subscriptions.listAll = vi.fn().mockResolvedValue([subscription]);
 
             const lifecycle = createSubscriptionLifecycle(mockBilling, mockStorage, config);
             const result = await lifecycle.processRetries(now);
@@ -482,13 +456,7 @@ describe('SubscriptionLifecycleService', () => {
                 scheduledPlanChange: null
             };
 
-            mockStorage.subscriptions.list = vi.fn().mockResolvedValue({
-                data: [subscription],
-                total: 1,
-                limit: 10000,
-                offset: 0,
-                hasMore: false
-            });
+            mockStorage.subscriptions.listAll = vi.fn().mockResolvedValue([subscription]);
 
             const lifecycle = createSubscriptionLifecycle(mockBilling, mockStorage, config);
             const result = await lifecycle.processCancellations(now);

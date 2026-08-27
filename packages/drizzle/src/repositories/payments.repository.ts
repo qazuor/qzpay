@@ -13,12 +13,29 @@ import {
     billingPayments,
     billingRefunds
 } from '../schema/index.js';
+import { resolveOrderBy } from '../utils/order-by.js';
 import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
 
 /**
  * Payment status values
  */
-export type QZPayPaymentStatusValue = 'pending' | 'processing' | 'succeeded' | 'failed' | 'canceled' | 'refunded' | 'partially_refunded';
+/**
+ * Payment statuses this repository can filter by.
+ *
+ * `disputed` was missing here while core's `QZPAY_PAYMENT_STATUS` has always
+ * defined it, so a status core can legitimately write to the column could not be
+ * expressed as a filter. Kept aligned with core: a value the system can store
+ * must be a value the system can query for.
+ */
+export type QZPayPaymentStatusValue =
+    | 'pending'
+    | 'processing'
+    | 'succeeded'
+    | 'failed'
+    | 'canceled'
+    | 'refunded'
+    | 'partially_refunded'
+    | 'disputed';
 
 /**
  * Payment search options
@@ -30,9 +47,15 @@ export interface QZPayPaymentSearchOptions {
     provider?: 'stripe' | 'mercadopago';
     startDate?: Date;
     endDate?: Date;
+    /** Inclusive lower bound on `amount`, in the currency's minor unit. */
+    minAmount?: number;
+    /** Inclusive upper bound on `amount`, in the currency's minor unit. */
+    maxAmount?: number;
     livemode?: boolean;
     limit?: number;
     offset?: number;
+    orderBy?: string | undefined;
+    orderDirection?: 'asc' | 'desc' | undefined;
 }
 
 /**
@@ -239,9 +262,31 @@ export class QZPayPaymentsRepository {
      * Search payments
      */
     async search(options: QZPayPaymentSearchOptions): Promise<QZPayPaginatedResult<QZPayBillingPayment>> {
-        const { customerId, subscriptionId, status, provider, startDate, endDate, livemode, limit = 100, offset = 0 } = options;
+        const {
+            customerId,
+            subscriptionId,
+            status,
+            provider,
+            startDate,
+            endDate,
+            minAmount,
+            maxAmount,
+            livemode,
+            limit = 100,
+            offset = 0,
+            orderBy,
+            orderDirection
+        } = options;
 
         const conditions = [isNull(billingPayments.deletedAt)];
+
+        if (minAmount !== undefined) {
+            conditions.push(gte(billingPayments.amount, minAmount));
+        }
+
+        if (maxAmount !== undefined) {
+            conditions.push(lte(billingPayments.amount, maxAmount));
+        }
 
         if (customerId) {
             conditions.push(eq(billingPayments.customerId, customerId));
@@ -286,7 +331,7 @@ export class QZPayPaymentsRepository {
             .select()
             .from(billingPayments)
             .where(and(...conditions))
-            .orderBy(sql`${billingPayments.createdAt} DESC`)
+            .orderBy(resolveOrderBy({ table: billingPayments, entity: 'payments', orderBy, orderDirection }))
             .limit(limit)
             .offset(offset);
 

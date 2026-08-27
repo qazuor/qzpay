@@ -29,8 +29,8 @@ export function CustomersView() {
         if (!billing) return;
         setIsLoading(true);
         try {
-            const result = await billing.customers.list();
-            setCustomers(result.data);
+            const result = await billing.customers.listAll();
+            setCustomers(result);
         } finally {
             setIsLoading(false);
         }
