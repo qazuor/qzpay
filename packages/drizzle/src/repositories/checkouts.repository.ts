@@ -8,6 +8,7 @@
 import { and, count, eq, inArray, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { type QZPayBillingCheckout, type QZPayBillingCheckoutInsert, billingCheckouts } from '../schema/index.js';
+import { resolveOrderBy } from '../utils/order-by.js';
 import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
 
 /**
@@ -24,6 +25,8 @@ export interface QZPayCheckoutSearchOptions {
     livemode?: boolean;
     limit?: number;
     offset?: number;
+    orderBy?: string | undefined;
+    orderDirection?: 'asc' | 'desc' | undefined;
 }
 
 /**
@@ -94,7 +97,7 @@ export class QZPayCheckoutsRepository {
      * Paginated search across all checkouts.
      */
     async search(options: QZPayCheckoutSearchOptions): Promise<QZPayPaginatedResult<QZPayBillingCheckout>> {
-        const { customerId, status, livemode, limit = 100, offset = 0 } = options;
+        const { customerId, status, livemode, limit = 100, offset = 0, orderBy, orderDirection } = options;
 
         const conditions = [];
 
@@ -124,7 +127,7 @@ export class QZPayCheckoutsRepository {
             .select()
             .from(billingCheckouts)
             .where(where)
-            .orderBy(sql`${billingCheckouts.createdAt} DESC`)
+            .orderBy(resolveOrderBy({ table: billingCheckouts, entity: 'checkouts', orderBy, orderDirection }))
             .limit(limit)
             .offset(offset);
 

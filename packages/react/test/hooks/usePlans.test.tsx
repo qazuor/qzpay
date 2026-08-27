@@ -28,7 +28,10 @@ describe('usePlans', () => {
         it('should fetch all plans when activeOnly is false', async () => {
             const mockBilling = createMockBilling();
             const mockPlans = [createMockPlan(), createMockPlan({ id: 'plan_456', active: false })];
-            vi.mocked(mockBilling.plans.list).mockResolvedValue({ data: mockPlans, hasMore: false });
+            // `listAll`, not `list`: this hook feeds a plan picker, and `list`
+            // would cap it at one page — it used to take the storage default of
+            // 20 without saying so.
+            vi.mocked(mockBilling.plans.listAll).mockResolvedValue(mockPlans);
 
             const { result } = renderHook(() => usePlans(false), {
                 wrapper: createWrapper(mockBilling)
@@ -39,7 +42,8 @@ describe('usePlans', () => {
             });
 
             expect(result.current.data).toEqual(mockPlans);
-            expect(mockBilling.plans.list).toHaveBeenCalled();
+            expect(mockBilling.plans.listAll).toHaveBeenCalled();
+            expect(mockBilling.plans.list).not.toHaveBeenCalled();
         });
 
         it('should handle fetch error', async () => {

@@ -204,7 +204,8 @@ function createMockStorage(): QZPayStorageAdapter {
             findById: vi.fn(async () => null),
             update: vi.fn(async () => ({}) as QZPayPlan),
             delete: vi.fn(async () => {}),
-            list: vi.fn(async () => ({ data: [], total: 0, limit: 100, offset: 0, hasMore: false }))
+            list: vi.fn(async () => ({ data: [], total: 0, limit: 100, offset: 0, hasMore: false })),
+            listAll: vi.fn(async () => [] as QZPayPlan[])
         },
         prices: {
             create: vi.fn(async () => ({}) as QZPayPrice),

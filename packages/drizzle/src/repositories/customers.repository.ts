@@ -3,7 +3,7 @@
  *
  * Provides customer-specific database operations.
  */
-import { and, count, eq, ilike, isNull, or, sql } from 'drizzle-orm';
+import { and, count, eq, ilike, isNull, or } from 'drizzle-orm';
 import {
     type QZPayBillingCustomer,
     type QZPayBillingCustomerEntitlement,
@@ -13,6 +13,7 @@ import {
     billingCustomers
 } from '../schema/index.js';
 import type { QZPayDatabase } from '../utils/connection.js';
+import { resolveOrderBy } from '../utils/order-by.js';
 import {
     type QZPayPaginatedResult,
     firstOrNull,
@@ -29,6 +30,8 @@ export interface QZPayCustomerSearchOptions {
     livemode?: boolean;
     limit?: number;
     offset?: number;
+    orderBy?: string | undefined;
+    orderDirection?: 'asc' | 'desc' | undefined;
 }
 
 /**
@@ -261,7 +264,7 @@ export class QZPayCustomersRepository {
      * Search customers by query (email, name, external ID)
      */
     async search(options: QZPayCustomerSearchOptions): Promise<QZPayPaginatedResult<QZPayBillingCustomer>> {
-        const { query, livemode } = options;
+        const { query, livemode, orderBy, orderDirection } = options;
         const { limit, offset } = qzpayValidatePagination(options.limit, options.offset);
 
         const conditions = [isNull(billingCustomers.deletedAt)];
@@ -295,7 +298,7 @@ export class QZPayCustomersRepository {
             .select()
             .from(billingCustomers)
             .where(and(...conditions))
-            .orderBy(sql`${billingCustomers.createdAt} DESC`)
+            .orderBy(resolveOrderBy({ table: billingCustomers, entity: 'customers', orderBy, orderDirection }))
             .limit(limit)
             .offset(offset);
 

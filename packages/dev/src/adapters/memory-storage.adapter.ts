@@ -24,6 +24,10 @@
  */
 import type {
     QZPayAddOn,
+    QZPayAddOnFilters,
+    QZPayAddOnOrderBy,
+    QZPayCheckoutFilters,
+    QZPayCheckoutOrderBy,
     QZPayCheckoutSession,
     QZPayCreateAddOnInput,
     QZPayCreateCustomerInput,
@@ -37,26 +41,45 @@ import type {
     QZPayCreateVendorInput,
     QZPayCustomer,
     QZPayCustomerEntitlement,
+    QZPayCustomerFilters,
     QZPayCustomerLimit,
+    QZPayCustomerOrderBy,
     QZPayEntitlement,
     QZPayGrantEntitlementInput,
     QZPayIncrementLimitInput,
     QZPayInvoice,
+    QZPayInvoiceFilters,
+    QZPayInvoiceOrderBy,
     QZPayLimit,
+    QZPayListAllOptions,
     QZPayListOptions,
     QZPayMetadata,
+    QZPayOneOrMany,
+    QZPayOrderDirection,
     QZPayPaginatedResult,
     QZPayPayment,
+    QZPayPaymentFilters,
     QZPayPaymentMethod,
+    QZPayPaymentMethodFilters,
+    QZPayPaymentMethodOrderBy,
+    QZPayPaymentOrderBy,
     QZPayPlan,
+    QZPayPlanFilters,
+    QZPayPlanOrderBy,
     QZPayPrice,
+    QZPayPriceFilters,
+    QZPayPriceOrderBy,
     QZPayPromoCode,
+    QZPayPromoCodeFilters,
+    QZPayPromoCodeOrderBy,
     QZPayRefund,
     QZPaySetLimitInput,
     QZPaySourceType,
     QZPayStorageAdapter,
     QZPaySubscription,
     QZPaySubscriptionAddOn,
+    QZPaySubscriptionFilters,
+    QZPaySubscriptionOrderBy,
     QZPayUpdateAddOnInput,
     QZPayUpdateCustomerInput,
     QZPayUpdatePaymentMethodInput,
@@ -64,6 +87,8 @@ import type {
     QZPayUpdateVendorInput,
     QZPayUsageRecord,
     QZPayVendor,
+    QZPayVendorFilters,
+    QZPayVendorOrderBy,
     QZPayVendorPayout
 } from '@qazuor/qzpay-core';
 
@@ -132,19 +157,273 @@ let idCounter = 0;
 const generateId = (prefix: string): string => `mock_${prefix}_${++idCounter}`;
 
 /**
- * Helper to apply pagination to a list
+ * Rows collected per internal "page" when `listAll` is called without a
+ * `batchSize`. The in-memory adapter has no real pagination cost, so this
+ * only exists to keep the option meaningful across adapters — it is not
+ * read anywhere in this file.
  */
-function paginate<T>(items: T[], options?: QZPayListOptions): QZPayPaginatedResult<T> {
-    const limit = options?.limit ?? 100;
-    const offset = options?.offset ?? 0;
+const LIST_ALL_DEFAULT_BATCH_SIZE = 200;
+
+/**
+ * Raised when a `listAll` result would exceed the caller's `maxItems` cap.
+ *
+ * Mirrors `QZPayListAllLimitExceededError` from
+ * `packages/drizzle/src/utils/collect-all.ts` (same name, same message
+ * shape) so callers that branch on `error.name` behave identically against
+ * either storage adapter. Duplicated rather than imported: this package has
+ * no dependency on `@qazuor/qzpay-drizzle` and this adapter must not
+ * introduce one.
+ */
+export class QZPayListAllLimitExceededError extends Error {
+    /** Entity being listed, e.g. `subscriptions`. */
+    readonly entity: string;
+    /** The cap that was exceeded. */
+    readonly maxItems: number;
+    /** Total rows the query matched. */
+    readonly total: number;
+
+    constructor(params: { entity: string; maxItems: number; total: number }) {
+        super(
+            `Listing all ${params.entity} exceeded maxItems=${params.maxItems} (matched ${params.total}). Raise maxItems, or narrow the query with filters.`
+        );
+        this.name = 'QZPayListAllLimitExceededError';
+        this.entity = params.entity;
+        this.maxItems = params.maxItems;
+        this.total = params.total;
+    }
+}
+
+/**
+ * Case-insensitive partial match across one or more text fields, mirroring
+ * the Drizzle adapter's `ilike(column, '%query%')` filter.
+ *
+ * An absent `query` filter matches everything, exactly like the Drizzle
+ * adapter's `if (query) { ... }` guard.
+ */
+function matchesQuery(query: string | undefined, ...fields: (string | null | undefined)[]): boolean {
+    if (!query) return true;
+    const needle = query.toLowerCase();
+    return fields.some((field) => field?.toLowerCase().includes(needle));
+}
+
+/**
+ * `QZPayOneOrMany<T>` filter match: a scalar filter is an equality check, an
+ * array filter is a membership check (mirrors Drizzle's `eq`/`inArray`
+ * branch on `Array.isArray(status)`). An absent filter matches everything.
+ */
+function matchesOneOrMany<T>(filterValue: QZPayOneOrMany<T> | undefined, actual: T): boolean {
+    if (filterValue === undefined) return true;
+    if (Array.isArray(filterValue)) return (filterValue as T[]).includes(actual);
+    return filterValue === actual;
+}
+
+/** Exact-equality filter. An absent filter matches everything. */
+function matchesEquality<T>(filterValue: T | undefined, actual: T): boolean {
+    return filterValue === undefined || filterValue === actual;
+}
+
+/** Inclusive `[startDate, endDate]` range filter over a `Date` field. */
+function matchesDateRange(startDate: Date | undefined, endDate: Date | undefined, actual: Date): boolean {
+    if (startDate && actual < startDate) return false;
+    if (endDate && actual > endDate) return false;
+    return true;
+}
+
+/** Compares two values of the same orderable field for `sortItems`. */
+function compareOrderableValues(a: unknown, b: unknown): number {
+    if (a instanceof Date && b instanceof Date) return a.getTime() - b.getTime();
+    if (typeof a === 'number' && typeof b === 'number') return a - b;
+    return String(a).localeCompare(String(b));
+}
+
+/**
+ * Sorts a list by `orderBy`/`orderDirection`, defaulting to `createdAt desc`
+ * — the same default the Drizzle adapter's `resolveOrderBy` applies.
+ *
+ * Returns a new array; the input is never mutated.
+ */
+function sortItems<T>(items: T[], orderBy: string | undefined, orderDirection: QZPayOrderDirection | undefined): T[] {
+    const key = orderBy ?? 'createdAt';
+    const direction = orderDirection ?? 'desc';
+    // Domain types (`QZPayCustomer`, `QZPaySubscription`, ...) declare no
+    // index signature, so a keyed lookup needs this cast — the key always
+    // comes from a `TOrderBy` union that is itself a key of the entity, so
+    // the lookup is safe despite the generic `T` not proving it statically.
+    const sorted = [...items].sort((a, b) =>
+        compareOrderableValues((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])
+    );
+    return direction === 'desc' ? sorted.reverse() : sorted;
+}
+
+/**
+ * Applies pagination to an already filtered + sorted list, for `list()`.
+ *
+ * `limit` is required by `QZPayListOptions`; `offset` defaults to 0.
+ */
+function paginateList<T>(items: T[], options: { limit: number; offset?: number }): QZPayPaginatedResult<T> {
+    const limit = options.limit;
+    const offset = options.offset ?? 0;
     const data = items.slice(offset, offset + limit);
     return {
         data,
         total: items.length,
         limit,
         offset,
-        hasMore: offset + limit < items.length
+        hasMore: offset + data.length < items.length
     };
+}
+
+/**
+ * Returns every item of an already filtered + sorted list, for `listAll()`.
+ *
+ * Throws {@link QZPayListAllLimitExceededError} when the result exceeds
+ * `maxItems`, instead of silently truncating — see the type's doc comment
+ * in `@qazuor/qzpay-core`'s `list-options.ts` for why that matters.
+ *
+ * `batchSize` has no pagination cost to pay against an in-memory array, but
+ * it is still validated the same way the Drizzle adapter's `collectAllPages`
+ * validates it, so a caller that passes a nonsensical value fails the same
+ * way against either adapter.
+ */
+function collectAllItems<T>(params: {
+    entity: string;
+    items: T[];
+    batchSize?: number | undefined;
+    maxItems?: number | undefined;
+}): T[] {
+    const { entity, items, maxItems } = params;
+    const batchSize = params.batchSize ?? LIST_ALL_DEFAULT_BATCH_SIZE;
+
+    if (!Number.isInteger(batchSize) || batchSize < 1) {
+        throw new RangeError(`batchSize must be a positive integer, received ${batchSize}`);
+    }
+
+    if (maxItems !== undefined && items.length > maxItems) {
+        throw new QZPayListAllLimitExceededError({ entity, maxItems, total: items.length });
+    }
+    return items;
+}
+
+/* ------------------------------------------------------------------ *
+ * Per-entity filter predicates
+ *
+ * Each mirrors the equivalent `search()` method's `conditions.push(...)`
+ * branches in `packages/drizzle/src/repositories/*.repository.ts`, so a
+ * filter behaves identically regardless of which storage adapter is under
+ * test. An absent filters object (or an absent individual filter) matches
+ * everything, same as the Drizzle adapter's `if (filters.x !== undefined)`
+ * guards.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Subscription filter predicate.
+ *
+ * Extracted so `list` and `listAll` share one definition — they each carried an
+ * inline copy, which is how a filter comes to behave differently depending on
+ * which of the two you called.
+ */
+function subscriptionMatchesFilters(subscription: QZPaySubscription, filters?: QZPaySubscriptionFilters): boolean {
+    if (!filters) return true;
+    return (
+        matchesEquality(filters.customerId, subscription.customerId) &&
+        matchesEquality(filters.planId, subscription.planId) &&
+        matchesOneOrMany(filters.status, subscription.status)
+    );
+}
+
+function paymentMatchesFilters(payment: QZPayPayment, filters?: QZPayPaymentFilters): boolean {
+    if (!filters) return true;
+    // `provider` is not a field on the core `QZPayPayment` type — the Drizzle
+    // adapter derives it from the first key of `providerPaymentIds`
+    // (`mapCorePaymentToDrizzle`, with an 'unknown' fallback), so the same
+    // derivation is used here for fidelity with that adapter's filter.
+    const provider = Object.keys(payment.providerPaymentIds)[0] ?? 'unknown';
+    return (
+        matchesEquality(filters.customerId, payment.customerId) &&
+        matchesEquality(filters.subscriptionId, payment.subscriptionId ?? undefined) &&
+        matchesOneOrMany(filters.status, payment.status) &&
+        matchesEquality(filters.provider, provider) &&
+        matchesDateRange(filters.startDate, filters.endDate, payment.createdAt) &&
+        (filters.minAmount === undefined || payment.amount >= filters.minAmount) &&
+        (filters.maxAmount === undefined || payment.amount <= filters.maxAmount)
+    );
+}
+
+function paymentMethodMatchesFilters(pm: QZPayPaymentMethod, filters?: QZPayPaymentMethodFilters): boolean {
+    if (!filters) return true;
+    // Same derivation as `paymentMatchesFilters` above, mirroring
+    // `mapCorePaymentMethodCreateToDrizzle`'s `providerPaymentMethodIds` map.
+    const provider = Object.keys(pm.providerPaymentMethodIds)[0] ?? 'unknown';
+    return (
+        matchesEquality(filters.customerId, pm.customerId) &&
+        matchesEquality(filters.type, pm.type) &&
+        matchesEquality(filters.provider, provider)
+    );
+}
+
+function checkoutMatchesFilters(checkout: QZPayCheckoutSession, filters?: QZPayCheckoutFilters): boolean {
+    if (!filters) return true;
+    return matchesEquality(filters.customerId, checkout.customerId ?? undefined) && matchesOneOrMany(filters.status, checkout.status);
+}
+
+function invoiceMatchesFilters(invoice: QZPayInvoice, filters?: QZPayInvoiceFilters): boolean {
+    if (!filters) return true;
+    return (
+        matchesEquality(filters.customerId, invoice.customerId) &&
+        matchesEquality(filters.subscriptionId, invoice.subscriptionId ?? undefined) &&
+        matchesOneOrMany(filters.status, invoice.status) &&
+        matchesDateRange(filters.startDate, filters.endDate, invoice.createdAt)
+    );
+}
+
+function planMatchesFilters(plan: QZPayPlan, filters?: QZPayPlanFilters): boolean {
+    if (!filters) return true;
+    return matchesQuery(filters.query, plan.name, plan.description) && matchesEquality(filters.active, plan.active);
+}
+
+function priceMatchesFilters(price: QZPayPrice, filters?: QZPayPriceFilters): boolean {
+    if (!filters) return true;
+    return (
+        matchesEquality(filters.planId, price.planId) &&
+        matchesEquality(filters.currency, price.currency) &&
+        matchesEquality(filters.billingInterval, price.billingInterval) &&
+        matchesEquality(filters.active, price.active)
+    );
+}
+
+function promoCodeMatchesFilters(promo: QZPayPromoCode, filters?: QZPayPromoCodeFilters): boolean {
+    if (!filters) return true;
+    // The Drizzle schema's `type` column IS the promo code's discount type
+    // (`mapCorePromoCodeCreateToDrizzle` writes `type: input.discountType`,
+    // `mapDrizzlePromoCodeToCore` reads `discountType: drizzle.type`), so
+    // the `type` filter is matched against `discountType` here.
+    return matchesEquality(filters.active, promo.active) && matchesEquality(filters.type, promo.discountType);
+}
+
+function vendorMatchesFilters(vendor: QZPayVendor, filters?: QZPayVendorFilters): boolean {
+    if (!filters) return true;
+    // `onboardingStatus` filters the Drizzle row's `onboarding_status`
+    // column, which `mapDrizzleVendorToCore` maps onto the core vendor's
+    // `status` field (`status: drizzle.onboardingStatus as QZPayVendorStatus`)
+    // — so `status` is what carries that value here too.
+    //
+    // `canReceivePayments` is now part of `QZPayVendor`, so it is filtered on
+    // the vendor's real value. It used to live only on the Drizzle row, which
+    // left this adapter unable to honour the filter at all.
+    return (
+        matchesQuery(filters.query, vendor.name, vendor.externalId) &&
+        (filters.onboardingStatus === undefined || filters.onboardingStatus === vendor.status) &&
+        matchesEquality(filters.canReceivePayments, vendor.canReceivePayments)
+    );
+}
+
+function addOnMatchesFilters(addOn: QZPayAddOn, filters?: QZPayAddOnFilters): boolean {
+    if (!filters) return true;
+    return (
+        matchesQuery(filters.query, addOn.name, addOn.description) &&
+        matchesEquality(filters.active, addOn.active) &&
+        (filters.billingInterval === undefined || filters.billingInterval === addOn.billingInterval)
+    );
 }
 
 /**
@@ -369,8 +648,21 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                 }
                 return null;
             },
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayCustomer>> {
-                return paginate(Array.from(data.customers.values()), options);
+            async list(
+                options: QZPayListOptions<QZPayCustomerFilters, QZPayCustomerOrderBy>
+            ): Promise<QZPayPaginatedResult<QZPayCustomer>> {
+                const filtered = Array.from(data.customers.values()).filter((customer) =>
+                    matchesQuery(options.filters?.query, customer.email, customer.name, customer.externalId)
+                );
+                const sorted = sortItems(filtered, options.orderBy, options.orderDirection);
+                return paginateList(sorted, options);
+            },
+            async listAll(options?: QZPayListAllOptions<QZPayCustomerFilters, QZPayCustomerOrderBy>): Promise<QZPayCustomer[]> {
+                const filtered = Array.from(data.customers.values()).filter((customer) =>
+                    matchesQuery(options?.filters?.query, customer.email, customer.name, customer.externalId)
+                );
+                const sorted = sortItems(filtered, options?.orderBy, options?.orderDirection);
+                return collectAllItems({ entity: 'customers', items: sorted, batchSize: options?.batchSize, maxItems: options?.maxItems });
             }
         },
 
@@ -424,8 +716,22 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
             async findByCustomerId(customerId: string): Promise<QZPaySubscription[]> {
                 return Array.from(data.subscriptions.values()).filter((s) => s.customerId === customerId);
             },
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPaySubscription>> {
-                return paginate(Array.from(data.subscriptions.values()), options);
+            async list(
+                options: QZPayListOptions<QZPaySubscriptionFilters, QZPaySubscriptionOrderBy>
+            ): Promise<QZPayPaginatedResult<QZPaySubscription>> {
+                const filtered = Array.from(data.subscriptions.values()).filter((sub) => subscriptionMatchesFilters(sub, options.filters));
+                const sorted = sortItems(filtered, options.orderBy, options.orderDirection);
+                return paginateList(sorted, options);
+            },
+            async listAll(options?: QZPayListAllOptions<QZPaySubscriptionFilters, QZPaySubscriptionOrderBy>): Promise<QZPaySubscription[]> {
+                const filtered = Array.from(data.subscriptions.values()).filter((sub) => subscriptionMatchesFilters(sub, options?.filters));
+                const sorted = sortItems(filtered, options?.orderBy, options?.orderDirection);
+                return collectAllItems({
+                    entity: 'subscriptions',
+                    items: sorted,
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems
+                });
             }
         },
 
@@ -451,8 +757,15 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
             async findByCustomerId(customerId: string): Promise<QZPayPayment[]> {
                 return Array.from(data.payments.values()).filter((p) => p.customerId === customerId);
             },
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPayment>> {
-                return paginate(Array.from(data.payments.values()), options);
+            async list(options: QZPayListOptions<QZPayPaymentFilters, QZPayPaymentOrderBy>): Promise<QZPayPaginatedResult<QZPayPayment>> {
+                const filtered = Array.from(data.payments.values()).filter((payment) => paymentMatchesFilters(payment, options.filters));
+                const sorted = sortItems(filtered, options.orderBy, options.orderDirection);
+                return paginateList(sorted, options);
+            },
+            async listAll(options?: QZPayListAllOptions<QZPayPaymentFilters, QZPayPaymentOrderBy>): Promise<QZPayPayment[]> {
+                const filtered = Array.from(data.payments.values()).filter((payment) => paymentMatchesFilters(payment, options?.filters));
+                const sorted = sortItems(filtered, options?.orderBy, options?.orderDirection);
+                return collectAllItems({ entity: 'payments', items: sorted, batchSize: options?.batchSize, maxItems: options?.maxItems });
             },
             async createRefund(input: QZPayCreateRefundInput): Promise<void> {
                 // Idempotent by providerRefundId (HOS-669): mirrors the
@@ -580,8 +893,24 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                     }
                 }
             },
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPaymentMethod>> {
-                return paginate(Array.from(data.paymentMethods.values()), options);
+            async list(
+                options: QZPayListOptions<QZPayPaymentMethodFilters, QZPayPaymentMethodOrderBy>
+            ): Promise<QZPayPaginatedResult<QZPayPaymentMethod>> {
+                const filtered = Array.from(data.paymentMethods.values()).filter((pm) => paymentMethodMatchesFilters(pm, options.filters));
+                const sorted = sortItems(filtered, options.orderBy, options.orderDirection);
+                return paginateList(sorted, options);
+            },
+            async listAll(
+                options?: QZPayListAllOptions<QZPayPaymentMethodFilters, QZPayPaymentMethodOrderBy>
+            ): Promise<QZPayPaymentMethod[]> {
+                const filtered = Array.from(data.paymentMethods.values()).filter((pm) => paymentMethodMatchesFilters(pm, options?.filters));
+                const sorted = sortItems(filtered, options?.orderBy, options?.orderDirection);
+                return collectAllItems({
+                    entity: 'paymentMethods',
+                    items: sorted,
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems
+                });
             }
         },
 
@@ -645,8 +974,15 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
             async findByCustomerId(customerId: string): Promise<QZPayInvoice[]> {
                 return Array.from(data.invoices.values()).filter((i) => i.customerId === customerId);
             },
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayInvoice>> {
-                return paginate(Array.from(data.invoices.values()), options);
+            async list(options: QZPayListOptions<QZPayInvoiceFilters, QZPayInvoiceOrderBy>): Promise<QZPayPaginatedResult<QZPayInvoice>> {
+                const filtered = Array.from(data.invoices.values()).filter((invoice) => invoiceMatchesFilters(invoice, options.filters));
+                const sorted = sortItems(filtered, options.orderBy, options.orderDirection);
+                return paginateList(sorted, options);
+            },
+            async listAll(options?: QZPayListAllOptions<QZPayInvoiceFilters, QZPayInvoiceOrderBy>): Promise<QZPayInvoice[]> {
+                const filtered = Array.from(data.invoices.values()).filter((invoice) => invoiceMatchesFilters(invoice, options?.filters));
+                const sorted = sortItems(filtered, options?.orderBy, options?.orderDirection);
+                return collectAllItems({ entity: 'invoices', items: sorted, batchSize: options?.batchSize, maxItems: options?.maxItems });
             }
         },
 
@@ -687,8 +1023,15 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
             async findById(id: string): Promise<QZPayPlan | null> {
                 return data.plans.get(id) ?? null;
             },
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPlan>> {
-                return paginate(Array.from(data.plans.values()), options);
+            async list(options: QZPayListOptions<QZPayPlanFilters, QZPayPlanOrderBy>): Promise<QZPayPaginatedResult<QZPayPlan>> {
+                const filtered = Array.from(data.plans.values()).filter((plan) => planMatchesFilters(plan, options.filters));
+                const sorted = sortItems(filtered, options.orderBy, options.orderDirection);
+                return paginateList(sorted, options);
+            },
+            async listAll(options?: QZPayListAllOptions<QZPayPlanFilters, QZPayPlanOrderBy>): Promise<QZPayPlan[]> {
+                const filtered = Array.from(data.plans.values()).filter((plan) => planMatchesFilters(plan, options?.filters));
+                const sorted = sortItems(filtered, options?.orderBy, options?.orderDirection);
+                return collectAllItems({ entity: 'plans', items: sorted, batchSize: options?.batchSize, maxItems: options?.maxItems });
             }
         },
 
@@ -733,8 +1076,15 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
             async findByPlanId(planId: string): Promise<QZPayPrice[]> {
                 return Array.from(data.prices.values()).filter((p) => p.planId === planId);
             },
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPrice>> {
-                return paginate(Array.from(data.prices.values()), options);
+            async list(options: QZPayListOptions<QZPayPriceFilters, QZPayPriceOrderBy>): Promise<QZPayPaginatedResult<QZPayPrice>> {
+                const filtered = Array.from(data.prices.values()).filter((price) => priceMatchesFilters(price, options.filters));
+                const sorted = sortItems(filtered, options.orderBy, options.orderDirection);
+                return paginateList(sorted, options);
+            },
+            async listAll(options?: QZPayListAllOptions<QZPayPriceFilters, QZPayPriceOrderBy>): Promise<QZPayPrice[]> {
+                const filtered = Array.from(data.prices.values()).filter((price) => priceMatchesFilters(price, options?.filters));
+                const sorted = sortItems(filtered, options?.orderBy, options?.orderDirection);
+                return collectAllItems({ entity: 'prices', items: sorted, batchSize: options?.batchSize, maxItems: options?.maxItems });
             }
         },
 
@@ -807,8 +1157,17 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                 promo.updatedAt = getCurrentTime();
                 return promo;
             },
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPromoCode>> {
-                return paginate(Array.from(data.promoCodes.values()), options);
+            async list(
+                options: QZPayListOptions<QZPayPromoCodeFilters, QZPayPromoCodeOrderBy>
+            ): Promise<QZPayPaginatedResult<QZPayPromoCode>> {
+                const filtered = Array.from(data.promoCodes.values()).filter((promo) => promoCodeMatchesFilters(promo, options.filters));
+                const sorted = sortItems(filtered, options.orderBy, options.orderDirection);
+                return paginateList(sorted, options);
+            },
+            async listAll(options?: QZPayListAllOptions<QZPayPromoCodeFilters, QZPayPromoCodeOrderBy>): Promise<QZPayPromoCode[]> {
+                const filtered = Array.from(data.promoCodes.values()).filter((promo) => promoCodeMatchesFilters(promo, options?.filters));
+                const sorted = sortItems(filtered, options?.orderBy, options?.orderDirection);
+                return collectAllItems({ entity: 'promoCodes', items: sorted, batchSize: options?.batchSize, maxItems: options?.maxItems });
             }
         },
 
@@ -821,6 +1180,9 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                     name: input.name,
                     email: input.email,
                     status: 'pending',
+                    // Matches the Drizzle adapter: a freshly created vendor has
+                    // not completed onboarding, so it cannot be paid yet.
+                    canReceivePayments: false,
                     commissionRate: input.commissionRate ?? 10,
                     payoutSchedule: input.payoutSchedule ?? { interval: 'monthly', dayOfMonth: 1 },
                     providerAccountIds: {},
@@ -856,8 +1218,15 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
                 }
                 return null;
             },
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayVendor>> {
-                return paginate(Array.from(data.vendors.values()), options);
+            async list(options: QZPayListOptions<QZPayVendorFilters, QZPayVendorOrderBy>): Promise<QZPayPaginatedResult<QZPayVendor>> {
+                const filtered = Array.from(data.vendors.values()).filter((vendor) => vendorMatchesFilters(vendor, options.filters));
+                const sorted = sortItems(filtered, options.orderBy, options.orderDirection);
+                return paginateList(sorted, options);
+            },
+            async listAll(options?: QZPayListAllOptions<QZPayVendorFilters, QZPayVendorOrderBy>): Promise<QZPayVendor[]> {
+                const filtered = Array.from(data.vendors.values()).filter((vendor) => vendorMatchesFilters(vendor, options?.filters));
+                const sorted = sortItems(filtered, options?.orderBy, options?.orderDirection);
+                return collectAllItems({ entity: 'vendors', items: sorted, batchSize: options?.batchSize, maxItems: options?.maxItems });
             },
             async createPayout(payout: QZPayVendorPayout): Promise<QZPayVendorPayout> {
                 data.vendorPayouts.set(payout.id, payout);
@@ -1021,8 +1390,15 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
             async findByPlanId(planId: string): Promise<QZPayAddOn[]> {
                 return Array.from(data.addons.values()).filter((a) => a.compatiblePlanIds.includes(planId));
             },
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayAddOn>> {
-                return paginate(Array.from(data.addons.values()), options);
+            async list(options: QZPayListOptions<QZPayAddOnFilters, QZPayAddOnOrderBy>): Promise<QZPayPaginatedResult<QZPayAddOn>> {
+                const filtered = Array.from(data.addons.values()).filter((addon) => addOnMatchesFilters(addon, options.filters));
+                const sorted = sortItems(filtered, options.orderBy, options.orderDirection);
+                return paginateList(sorted, options);
+            },
+            async listAll(options?: QZPayListAllOptions<QZPayAddOnFilters, QZPayAddOnOrderBy>): Promise<QZPayAddOn[]> {
+                const filtered = Array.from(data.addons.values()).filter((addon) => addOnMatchesFilters(addon, options?.filters));
+                const sorted = sortItems(filtered, options?.orderBy, options?.orderDirection);
+                return collectAllItems({ entity: 'addons', items: sorted, batchSize: options?.batchSize, maxItems: options?.maxItems });
             },
             async addToSubscription(input: {
                 id: string;
@@ -1109,8 +1485,21 @@ export function createMemoryStorageAdapter(config?: MemoryStorageAdapterConfig):
             async findByCustomerId(customerId: string): Promise<QZPayCheckoutSession[]> {
                 return Array.from(data.checkouts.values()).filter((c) => c.customerId === customerId);
             },
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayCheckoutSession>> {
-                return paginate(Array.from(data.checkouts.values()), options);
+            async list(
+                options: QZPayListOptions<QZPayCheckoutFilters, QZPayCheckoutOrderBy>
+            ): Promise<QZPayPaginatedResult<QZPayCheckoutSession>> {
+                const filtered = Array.from(data.checkouts.values()).filter((checkout) =>
+                    checkoutMatchesFilters(checkout, options.filters)
+                );
+                const sorted = sortItems(filtered, options.orderBy, options.orderDirection);
+                return paginateList(sorted, options);
+            },
+            async listAll(options?: QZPayListAllOptions<QZPayCheckoutFilters, QZPayCheckoutOrderBy>): Promise<QZPayCheckoutSession[]> {
+                const filtered = Array.from(data.checkouts.values()).filter((checkout) =>
+                    checkoutMatchesFilters(checkout, options?.filters)
+                );
+                const sorted = sortItems(filtered, options?.orderBy, options?.orderDirection);
+                return collectAllItems({ entity: 'checkouts', items: sorted, batchSize: options?.batchSize, maxItems: options?.maxItems });
             }
         },
 

@@ -55,7 +55,10 @@ export function usePlans(activeOnly = true): UsePlansReturn {
         }
 
         try {
-            const plans = activeOnly ? await billing.plans.getActive() : (await billing.plans.list()).data;
+            // `listAll` rather than `list`: this hook feeds a plan picker, so a
+            // page size would silently cap what the user can choose from — the
+            // previous `list()` took the storage default of 20.
+            const plans = activeOnly ? await billing.plans.getActive() : await billing.plans.listAll();
 
             // Only update if this is still the most recent request
             if (isMountedRef.current && currentRequestId === requestIdRef.current) {

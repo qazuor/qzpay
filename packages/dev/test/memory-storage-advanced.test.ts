@@ -116,7 +116,7 @@ describe('adapter.addons - advanced operations', () => {
                 billingInterval: 'month'
             });
 
-            const result = await adapter.addons.list();
+            const result = await adapter.addons.list({ limit: 100 });
 
             expect(result.data).toHaveLength(1);
         });
@@ -296,7 +296,7 @@ describe('adapter.vendors - advanced operations', () => {
                 email: 'vendor1@example.com'
             });
 
-            const result = await adapter.vendors.list();
+            const result = await adapter.vendors.list({ limit: 100 });
 
             expect(result.data).toHaveLength(1);
         });
@@ -705,7 +705,7 @@ describe('adapter.promoCodes - advanced operations', () => {
                 discountValue: 20
             });
 
-            const result = await adapter.promoCodes.list();
+            const result = await adapter.promoCodes.list({ limit: 100 });
 
             expect(result.data).toHaveLength(1);
         });
@@ -794,7 +794,7 @@ describe('adapter - additional operations', () => {
                 updatedAt: now
             });
 
-            const result = await adapter.payments.list();
+            const result = await adapter.payments.list({ limit: 100 });
 
             expect(result.data).toHaveLength(1);
         });
@@ -823,7 +823,7 @@ describe('adapter - additional operations', () => {
         });
 
         it('should list payment methods', async () => {
-            const result = await adapter.paymentMethods.list();
+            const result = await adapter.paymentMethods.list({ limit: 100 });
 
             expect(result.data).toHaveLength(0);
         });
@@ -841,7 +841,7 @@ describe('adapter - additional operations', () => {
         });
 
         it('should list invoices', async () => {
-            const result = await adapter.invoices.list();
+            const result = await adapter.invoices.list({ limit: 100 });
 
             expect(result.data).toHaveLength(0);
         });
@@ -859,7 +859,7 @@ describe('adapter - additional operations', () => {
         });
 
         it('should list plans', async () => {
-            const result = await adapter.plans.list();
+            const result = await adapter.plans.list({ limit: 100 });
 
             expect(result.data).toHaveLength(0);
         });
@@ -877,7 +877,7 @@ describe('adapter - additional operations', () => {
         });
 
         it('should list prices', async () => {
-            const result = await adapter.prices.list();
+            const result = await adapter.prices.list({ limit: 100 });
 
             expect(result.data).toHaveLength(0);
         });

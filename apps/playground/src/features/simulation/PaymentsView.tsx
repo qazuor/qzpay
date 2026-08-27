@@ -37,9 +37,9 @@ export function PaymentsView() {
         if (!billing) return;
         setIsLoading(true);
         try {
-            const [paymentsResult, custResult] = await Promise.all([billing.payments.list(), billing.customers.list()]);
-            setPayments(paymentsResult.data);
-            setCustomers(custResult.data);
+            const [paymentsResult, custResult] = await Promise.all([billing.payments.listAll(), billing.customers.listAll()]);
+            setPayments(paymentsResult);
+            setCustomers(custResult);
         } finally {
             setIsLoading(false);
         }

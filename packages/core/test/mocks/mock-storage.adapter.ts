@@ -93,7 +93,8 @@ export function createMockStorageAdapter(data?: QZPayMockStorageData): QZPayStor
             list: vi.fn(async () => ({
                 data: Array.from(stores.customers.values()),
                 total: stores.customers.size
-            }))
+            })),
+            listAll: vi.fn(async () => Array.from(stores.customers.values()))
         },
         subscriptions: {
             create: vi.fn(async (input) => {
@@ -139,7 +140,8 @@ export function createMockStorageAdapter(data?: QZPayMockStorageData): QZPayStor
             list: vi.fn(async () => ({
                 data: Array.from(stores.subscriptions.values()),
                 total: stores.subscriptions.size
-            }))
+            })),
+            listAll: vi.fn(async () => Array.from(stores.subscriptions.values()))
         },
         invoices: {
             create: vi.fn(async (input) => {
@@ -188,7 +190,8 @@ export function createMockStorageAdapter(data?: QZPayMockStorageData): QZPayStor
             list: vi.fn(async () => ({
                 data: Array.from(stores.invoices.values()),
                 total: stores.invoices.size
-            }))
+            })),
+            listAll: vi.fn(async () => Array.from(stores.invoices.values()))
         },
         payments: {
             create: vi.fn(async (input) => {
@@ -233,7 +236,8 @@ export function createMockStorageAdapter(data?: QZPayMockStorageData): QZPayStor
             list: vi.fn(async () => ({
                 data: Array.from(stores.payments.values()),
                 total: stores.payments.size
-            }))
+            })),
+            listAll: vi.fn(async () => Array.from(stores.payments.values()))
         },
         promoCodes: {
             create: vi.fn(async (input) => {
@@ -268,7 +272,8 @@ export function createMockStorageAdapter(data?: QZPayMockStorageData): QZPayStor
             list: vi.fn(async () => ({
                 data: Array.from(stores.promoCodes.values()),
                 total: stores.promoCodes.size
-            }))
+            })),
+            listAll: vi.fn(async () => Array.from(stores.promoCodes.values()))
         },
         plans: {
             create: vi.fn(async (input) => {
@@ -294,7 +299,8 @@ export function createMockStorageAdapter(data?: QZPayMockStorageData): QZPayStor
             list: vi.fn(async () => ({
                 data: Array.from(stores.plans.values()),
                 total: stores.plans.size
-            }))
+            })),
+            listAll: vi.fn(async () => Array.from(stores.plans.values()))
         },
         usageRecords: {
             create: vi.fn(async () => ({})),
@@ -326,12 +332,14 @@ export function createMockStorageAdapter(data?: QZPayMockStorageData): QZPayStor
             list: vi.fn(async () => ({
                 data: Array.from(stores.vendors.values()),
                 total: stores.vendors.size
-            }))
+            })),
+            listAll: vi.fn(async () => Array.from(stores.vendors.values()))
         },
         events: {
             create: vi.fn(async () => ({})),
             findById: vi.fn(async () => null),
-            list: vi.fn(async () => ({ data: [], total: 0 }))
+            list: vi.fn(async () => ({ data: [], total: 0 })),
+            listAll: vi.fn(async () => [])
         }
     };
 }

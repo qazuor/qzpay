@@ -6,6 +6,7 @@
 import { and, count, eq, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { type QZPayBillingPrice, type QZPayBillingPriceInsert, billingPrices } from '../schema/index.js';
+import { resolveOrderBy } from '../utils/order-by.js';
 import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
 
 /**
@@ -19,6 +20,8 @@ export interface QZPayPriceSearchOptions {
     livemode?: boolean;
     limit?: number;
     offset?: number;
+    orderBy?: string | undefined;
+    orderDirection?: 'asc' | 'desc' | undefined;
 }
 
 /**
@@ -179,7 +182,7 @@ export class QZPayPricesRepository {
      * Search prices
      */
     async search(options: QZPayPriceSearchOptions): Promise<QZPayPaginatedResult<QZPayBillingPrice>> {
-        const { planId, currency, billingInterval, active, livemode, limit = 100, offset = 0 } = options;
+        const { planId, currency, billingInterval, active, livemode, limit = 100, offset = 0, orderBy, orderDirection } = options;
 
         const conditions: ReturnType<typeof eq>[] = [];
 
@@ -213,9 +216,10 @@ export class QZPayPricesRepository {
 
         // Get data
         const dataQuery = this.db.select().from(billingPrices);
+        const priceOrderBy = resolveOrderBy({ table: billingPrices, entity: 'prices', orderBy, orderDirection });
         const data = whereClause
-            ? await dataQuery.where(whereClause).orderBy(sql`${billingPrices.createdAt} DESC`).limit(limit).offset(offset)
-            : await dataQuery.orderBy(sql`${billingPrices.createdAt} DESC`).limit(limit).offset(offset);
+            ? await dataQuery.where(whereClause).orderBy(priceOrderBy).limit(limit).offset(offset)
+            : await dataQuery.orderBy(priceOrderBy).limit(limit).offset(offset);
 
         return { data, total };
     }

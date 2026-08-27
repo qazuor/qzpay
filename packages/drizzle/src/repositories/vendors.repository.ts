@@ -3,7 +3,7 @@
  *
  * Provides marketplace vendor and payout database operations.
  */
-import { and, count, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
+import { and, count, eq, gte, ilike, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import {
     type QZPayBillingVendor,
@@ -13,6 +13,7 @@ import {
     billingVendorPayouts,
     billingVendors
 } from '../schema/index.js';
+import { resolveOrderBy } from '../utils/order-by.js';
 import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
 
 /**
@@ -234,8 +235,10 @@ export class QZPayVendorsRepository {
         livemode?: boolean;
         limit?: number;
         offset?: number;
+        orderBy?: string | undefined;
+        orderDirection?: 'asc' | 'desc' | undefined;
     }): Promise<QZPayPaginatedResult<QZPayBillingVendor>> {
-        const { onboardingStatus, canReceivePayments, livemode, limit = 100, offset = 0 } = options;
+        const { query, onboardingStatus, canReceivePayments, livemode, limit = 100, offset = 0, orderBy, orderDirection } = options;
 
         const conditions = [isNull(billingVendors.deletedAt)];
 
@@ -251,6 +254,14 @@ export class QZPayVendorsRepository {
             conditions.push(eq(billingVendors.livemode, livemode));
         }
 
+        if (query) {
+            const searchPattern = `%${query}%`;
+            const searchCondition = or(ilike(billingVendors.name, searchPattern), ilike(billingVendors.externalId, searchPattern));
+            if (searchCondition) {
+                conditions.push(searchCondition);
+            }
+        }
+
         const countResult = await this.db
             .select({ count: count() })
             .from(billingVendors)
@@ -262,7 +273,7 @@ export class QZPayVendorsRepository {
             .select()
             .from(billingVendors)
             .where(and(...conditions))
-            .orderBy(sql`${billingVendors.createdAt} DESC`)
+            .orderBy(resolveOrderBy({ table: billingVendors, entity: 'vendors', orderBy, orderDirection }))
             .limit(limit)
             .offset(offset);
 

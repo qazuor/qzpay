@@ -4,7 +4,16 @@
  * Administrative routes for managing billing operations.
  * These routes should be protected with admin-level authentication.
  */
-import type { QZPayBilling, QZPayInvoice, QZPayLogger, QZPayPayment, QZPaySubscription } from '@qazuor/qzpay-core';
+import type {
+    QZPayBilling,
+    QZPayInvoice,
+    QZPayLogger,
+    QZPayPayment,
+    QZPayPaymentStatus,
+    QZPaySubscription,
+    QZPaySubscriptionStatus
+} from '@qazuor/qzpay-core';
+import { QZPAY_PAYMENT_STATUS_VALUES, QZPAY_SUBSCRIPTION_STATUS_VALUES } from '@qazuor/qzpay-core';
 import type { Context, MiddlewareHandler } from 'hono';
 import { Hono } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
@@ -15,6 +24,23 @@ import { GrantEntitlementSchema } from '../schemas/entitlement.schema.js';
 import { AdminSetLimitSchema } from '../schemas/limit.schema.js';
 import type { QZPayApiListResponse, QZPayApiResponse, QZPayHonoEnv } from '../types.js';
 import { zValidator } from '../validators/zod-validator.js';
+
+/**
+ * Narrows a raw `?status=` query value to a real subscription status.
+ *
+ * Returns `undefined` for anything unrecognised, which drops the filter instead
+ * of forwarding a value that can never match. A bogus status previously reached
+ * storage untouched and produced an empty list — indistinguishable, from the
+ * caller's side, from "there are none in that state".
+ */
+function asSubscriptionStatus(raw: string | undefined): QZPaySubscriptionStatus | undefined {
+    return QZPAY_SUBSCRIPTION_STATUS_VALUES.find((value) => value === raw);
+}
+
+/** Narrows a raw `?status=` query value to a real payment status. */
+function asPaymentStatus(raw: string | undefined): QZPayPaymentStatus | undefined {
+    return QZPAY_PAYMENT_STATUS_VALUES.find((value) => value === raw);
+}
 
 /**
  * Outcome of a "before" lifecycle hook: either `ok: true` to let the
@@ -416,7 +442,11 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
         try {
             const limit = Number(c.req.query('limit')) || 50;
             const offset = Number(c.req.query('offset')) || 0;
-            const status = c.req.query('status');
+            // The raw query string is narrowed against the real status values
+            // rather than cast: an unrecognised `?status=` used to be forwarded
+            // as-is and matched nothing, which reads to the caller exactly like
+            // "no subscriptions in that state".
+            const status = asSubscriptionStatus(c.req.query('status'));
             const planId = c.req.query('planId');
 
             const result = await billing.subscriptions.list({
@@ -691,7 +721,7 @@ export function createAdminRoutes(config: QZPayAdminRoutesConfig): Hono<QZPayHon
         try {
             const limit = Number(c.req.query('limit')) || 50;
             const offset = Number(c.req.query('offset')) || 0;
-            const status = c.req.query('status');
+            const status = asPaymentStatus(c.req.query('status'));
             const minAmount = c.req.query('minAmount');
             const maxAmount = c.req.query('maxAmount');
 

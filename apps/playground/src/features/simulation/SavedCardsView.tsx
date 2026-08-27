@@ -26,10 +26,10 @@ export function SavedCardsView() {
         if (!billing) return;
         setIsLoadingCustomers(true);
         try {
-            const result = await billing.customers.list();
-            setCustomers(result.data);
-            if (result.data.length > 0 && !selectedCustomerId) {
-                setSelectedCustomerId(result.data[0].id);
+            const result = await billing.customers.listAll();
+            setCustomers(result);
+            if (result.length > 0 && !selectedCustomerId) {
+                setSelectedCustomerId(result[0].id);
             }
         } finally {
             setIsLoadingCustomers(false);

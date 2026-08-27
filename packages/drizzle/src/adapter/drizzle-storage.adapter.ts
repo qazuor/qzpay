@@ -1,6 +1,10 @@
 import type {
     QZPayAddOn,
+    QZPayAddOnFilters,
+    QZPayAddOnOrderBy,
     QZPayAddOnStorage,
+    QZPayCheckoutFilters,
+    QZPayCheckoutOrderBy,
     QZPayCheckoutSession,
     QZPayCheckoutStorage,
     QZPayCreateAddOnInput,
@@ -15,27 +19,42 @@ import type {
     QZPayCreateVendorInput,
     QZPayCustomer,
     QZPayCustomerEntitlement,
+    QZPayCustomerFilters,
     QZPayCustomerLimit,
+    QZPayCustomerOrderBy,
     QZPayCustomerStorage,
     QZPayEntitlement,
     QZPayEntitlementStorage,
     QZPayGrantEntitlementInput,
     QZPayIncrementLimitInput,
     QZPayInvoice,
+    QZPayInvoiceFilters,
+    QZPayInvoiceOrderBy,
     QZPayInvoiceStorage,
     QZPayLimit,
     QZPayLimitStorage,
+    QZPayListAllOptions,
     QZPayListOptions,
     QZPayPaginatedResult,
     QZPayPayment,
+    QZPayPaymentFilters,
     QZPayPaymentMethod,
+    QZPayPaymentMethodFilters,
+    QZPayPaymentMethodOrderBy,
     QZPayPaymentMethodStorage,
+    QZPayPaymentOrderBy,
     QZPayPaymentStorage,
     QZPayPlan,
+    QZPayPlanFilters,
+    QZPayPlanOrderBy,
     QZPayPlanStorage,
     QZPayPrice,
+    QZPayPriceFilters,
+    QZPayPriceOrderBy,
     QZPayPriceStorage,
     QZPayPromoCode,
+    QZPayPromoCodeFilters,
+    QZPayPromoCodeOrderBy,
     QZPayPromoCodeStorage,
     QZPaySchedulePollingInput,
     QZPaySetLimitInput,
@@ -43,6 +62,8 @@ import type {
     QZPayStorageAdapter,
     QZPaySubscription,
     QZPaySubscriptionAddOn,
+    QZPaySubscriptionFilters,
+    QZPaySubscriptionOrderBy,
     QZPaySubscriptionPollingJob,
     QZPaySubscriptionPollingJobStorage,
     QZPaySubscriptionStorage,
@@ -54,6 +75,8 @@ import type {
     QZPayUpdateVendorInput,
     QZPayUsageRecord,
     QZPayVendor,
+    QZPayVendorFilters,
+    QZPayVendorOrderBy,
     QZPayVendorPayout,
     QZPayVendorStorage
 } from '@qazuor/qzpay-core';
@@ -131,6 +154,7 @@ import {
     QZPayUsageRecordsRepository,
     QZPayVendorsRepository
 } from '../repositories/index.js';
+import { collectAllPages } from '../utils/collect-all.js';
 import type { QZPayDatabase } from '../utils/connection.js';
 
 /**
@@ -290,11 +314,42 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 return results[0] ? mapDrizzleCustomerToCore(results[0]) : null;
             },
 
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayCustomer>> {
-                const limit = options?.limit ?? 20;
-                const offset = options?.offset ?? 0;
-                const result = await repo.search({ livemode, limit, offset });
+            async list(
+                options: QZPayListOptions<QZPayCustomerFilters, QZPayCustomerOrderBy>
+            ): Promise<QZPayPaginatedResult<QZPayCustomer>> {
+                const { limit, offset = 0, filters, orderBy, orderDirection } = options;
+                const result = await repo.search({
+                    livemode,
+                    limit,
+                    offset,
+                    orderBy,
+                    orderDirection,
+                    ...filters
+                });
                 return toPaginatedResult(result, mapDrizzleCustomerToCore, limit, offset);
+            },
+
+            async listAll(options?: QZPayListAllOptions<QZPayCustomerFilters, QZPayCustomerOrderBy>): Promise<QZPayCustomer[]> {
+                return collectAllPages({
+                    entity: 'customers',
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems,
+                    fetchPage: async ({ limit, offset }) => {
+                        const page = await repo.search({
+                            livemode,
+                            limit,
+                            offset,
+                            orderBy: options?.orderBy,
+                            orderDirection: options?.orderDirection,
+                            ...options?.filters
+                        });
+                        return {
+                            data: page.data.map(mapDrizzleCustomerToCore),
+                            total: page.total,
+                            hasMore: offset + page.data.length < page.total
+                        };
+                    }
+                });
             }
         };
     }
@@ -328,11 +383,42 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 return result.data.map(mapDrizzleCheckoutToCore);
             },
 
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayCheckoutSession>> {
-                const limit = options?.limit ?? 20;
-                const offset = options?.offset ?? 0;
-                const result = await repo.search({ livemode, limit, offset });
+            async list(
+                options: QZPayListOptions<QZPayCheckoutFilters, QZPayCheckoutOrderBy>
+            ): Promise<QZPayPaginatedResult<QZPayCheckoutSession>> {
+                const { limit, offset = 0, filters, orderBy, orderDirection } = options;
+                const result = await repo.search({
+                    livemode,
+                    limit,
+                    offset,
+                    orderBy,
+                    orderDirection,
+                    ...filters
+                });
                 return toPaginatedResult(result, mapDrizzleCheckoutToCore, limit, offset);
+            },
+
+            async listAll(options?: QZPayListAllOptions<QZPayCheckoutFilters, QZPayCheckoutOrderBy>): Promise<QZPayCheckoutSession[]> {
+                return collectAllPages({
+                    entity: 'checkouts',
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems,
+                    fetchPage: async ({ limit, offset }) => {
+                        const page = await repo.search({
+                            livemode,
+                            limit,
+                            offset,
+                            orderBy: options?.orderBy,
+                            orderDirection: options?.orderDirection,
+                            ...options?.filters
+                        });
+                        return {
+                            data: page.data.map(mapDrizzleCheckoutToCore),
+                            total: page.total,
+                            hasMore: offset + page.data.length < page.total
+                        };
+                    }
+                });
             }
         };
     }
@@ -399,11 +485,42 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 return result.data.map(mapDrizzleSubscriptionToCore);
             },
 
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPaySubscription>> {
-                const limit = options?.limit ?? 20;
-                const offset = options?.offset ?? 0;
-                const result = await repo.search({ livemode, limit, offset });
+            async list(
+                options: QZPayListOptions<QZPaySubscriptionFilters, QZPaySubscriptionOrderBy>
+            ): Promise<QZPayPaginatedResult<QZPaySubscription>> {
+                const { limit, offset = 0, filters, orderBy, orderDirection } = options;
+                const result = await repo.search({
+                    livemode,
+                    limit,
+                    offset,
+                    orderBy,
+                    orderDirection,
+                    ...filters
+                });
                 return toPaginatedResult(result, mapDrizzleSubscriptionToCore, limit, offset);
+            },
+
+            async listAll(options?: QZPayListAllOptions<QZPaySubscriptionFilters, QZPaySubscriptionOrderBy>): Promise<QZPaySubscription[]> {
+                return collectAllPages({
+                    entity: 'subscriptions',
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems,
+                    fetchPage: async ({ limit, offset }) => {
+                        const page = await repo.search({
+                            livemode,
+                            limit,
+                            offset,
+                            orderBy: options?.orderBy,
+                            orderDirection: options?.orderDirection,
+                            ...options?.filters
+                        });
+                        return {
+                            data: page.data.map(mapDrizzleSubscriptionToCore),
+                            total: page.total,
+                            hasMore: offset + page.data.length < page.total
+                        };
+                    }
+                });
             }
         };
     }
@@ -499,11 +616,40 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 return result.data.map(mapDrizzlePaymentToCore);
             },
 
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPayment>> {
-                const limit = options?.limit ?? 20;
-                const offset = options?.offset ?? 0;
-                const result = await repo.search({ livemode, limit, offset });
+            async list(options: QZPayListOptions<QZPayPaymentFilters, QZPayPaymentOrderBy>): Promise<QZPayPaginatedResult<QZPayPayment>> {
+                const { limit, offset = 0, filters, orderBy, orderDirection } = options;
+                const result = await repo.search({
+                    livemode,
+                    limit,
+                    offset,
+                    orderBy,
+                    orderDirection,
+                    ...filters
+                });
                 return toPaginatedResult(result, mapDrizzlePaymentToCore, limit, offset);
+            },
+
+            async listAll(options?: QZPayListAllOptions<QZPayPaymentFilters, QZPayPaymentOrderBy>): Promise<QZPayPayment[]> {
+                return collectAllPages({
+                    entity: 'payments',
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems,
+                    fetchPage: async ({ limit, offset }) => {
+                        const page = await repo.search({
+                            livemode,
+                            limit,
+                            offset,
+                            orderBy: options?.orderBy,
+                            orderDirection: options?.orderDirection,
+                            ...options?.filters
+                        });
+                        return {
+                            data: page.data.map(mapDrizzlePaymentToCore),
+                            total: page.total,
+                            hasMore: offset + page.data.length < page.total
+                        };
+                    }
+                });
             },
 
             async createRefund(input: QZPayCreateRefundInput): Promise<void> {
@@ -572,11 +718,44 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 await repo.setDefault(customerId, paymentMethodId);
             },
 
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPaymentMethod>> {
-                const limit = options?.limit ?? 20;
-                const offset = options?.offset ?? 0;
-                const result = await repo.search({ livemode, limit, offset });
+            async list(
+                options: QZPayListOptions<QZPayPaymentMethodFilters, QZPayPaymentMethodOrderBy>
+            ): Promise<QZPayPaginatedResult<QZPayPaymentMethod>> {
+                const { limit, offset = 0, filters, orderBy, orderDirection } = options;
+                const result = await repo.search({
+                    livemode,
+                    limit,
+                    offset,
+                    orderBy,
+                    orderDirection,
+                    ...filters
+                });
                 return toPaginatedResult(result, mapDrizzlePaymentMethodToCore, limit, offset);
+            },
+
+            async listAll(
+                options?: QZPayListAllOptions<QZPayPaymentMethodFilters, QZPayPaymentMethodOrderBy>
+            ): Promise<QZPayPaymentMethod[]> {
+                return collectAllPages({
+                    entity: 'paymentMethods',
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems,
+                    fetchPage: async ({ limit, offset }) => {
+                        const page = await repo.search({
+                            livemode,
+                            limit,
+                            offset,
+                            orderBy: options?.orderBy,
+                            orderDirection: options?.orderDirection,
+                            ...options?.filters
+                        });
+                        return {
+                            data: page.data.map(mapDrizzlePaymentMethodToCore),
+                            total: page.total,
+                            hasMore: offset + page.data.length < page.total
+                        };
+                    }
+                });
             }
         };
     }
@@ -586,6 +765,15 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
     private createInvoiceStorage(): QZPayInvoiceStorage {
         const repo = this.invoicesRepo;
         const livemode = this.livemode;
+
+        /**
+         * Loads each invoice's lines and maps the rows to core invoices.
+         *
+         * Shared by `list` and `listAll` so the two cannot drift — the same
+         * duplicated-branch mistake that made a dry-run count lie elsewhere.
+         */
+        const attachInvoiceLines = async (rows: Awaited<ReturnType<typeof repo.search>>['data']): Promise<QZPayInvoice[]> =>
+            Promise.all(rows.map(async (invoice) => mapDrizzleInvoiceToCore(invoice, await repo.findLinesByInvoiceId(invoice.id))));
 
         return {
             async create(input: QZPayCreateInvoiceInput & { id: string }): Promise<QZPayInvoice> {
@@ -645,23 +833,46 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 );
             },
 
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayInvoice>> {
-                const limit = options?.limit ?? 20;
-                const offset = options?.offset ?? 0;
-                const result = await repo.search({ livemode, limit, offset });
-                const invoicesWithLines = await Promise.all(
-                    result.data.map(async (invoice) => {
-                        const lines = await repo.findLinesByInvoiceId(invoice.id);
-                        return mapDrizzleInvoiceToCore(invoice, lines);
-                    })
-                );
+            async list(options: QZPayListOptions<QZPayInvoiceFilters, QZPayInvoiceOrderBy>): Promise<QZPayPaginatedResult<QZPayInvoice>> {
+                const { limit, offset = 0, filters, orderBy, orderDirection } = options;
+                const result = await repo.search({
+                    livemode,
+                    limit,
+                    offset,
+                    orderBy,
+                    orderDirection,
+                    ...filters
+                });
                 return {
-                    data: invoicesWithLines,
+                    data: await attachInvoiceLines(result.data),
                     total: result.total,
                     limit,
                     offset,
                     hasMore: offset + result.data.length < result.total
                 };
+            },
+
+            async listAll(options?: QZPayListAllOptions<QZPayInvoiceFilters, QZPayInvoiceOrderBy>): Promise<QZPayInvoice[]> {
+                return collectAllPages({
+                    entity: 'invoices',
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems,
+                    fetchPage: async ({ limit, offset }) => {
+                        const page = await repo.search({
+                            livemode,
+                            limit,
+                            offset,
+                            orderBy: options?.orderBy,
+                            orderDirection: options?.orderDirection,
+                            ...options?.filters
+                        });
+                        return {
+                            data: await attachInvoiceLines(page.data),
+                            total: page.total,
+                            hasMore: offset + page.data.length < page.total
+                        };
+                    }
+                });
             }
         };
     }
@@ -672,6 +883,14 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
         const repo = this.plansRepo;
         const pricesRepo = this.pricesRepo;
         const livemode = this.livemode;
+
+        /**
+         * Loads each plan's prices and maps the rows to core plans.
+         *
+         * Shared by `list` and `listAll` so the two cannot drift.
+         */
+        const attachPlanPrices = async (rows: Awaited<ReturnType<typeof repo.search>>['data']): Promise<QZPayPlan[]> =>
+            Promise.all(rows.map(async (plan) => mapDrizzlePlanToCore(plan, await pricesRepo.findByPlanId(plan.id))));
 
         return {
             async create(input: QZPayCreatePlanInput & { id: string }): Promise<QZPayPlan> {
@@ -698,23 +917,46 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 return mapDrizzlePlanToCore(result, prices);
             },
 
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPlan>> {
-                const limit = options?.limit ?? 20;
-                const offset = options?.offset ?? 0;
-                const result = await repo.search({ livemode, limit, offset });
-                const plansWithPrices = await Promise.all(
-                    result.data.map(async (plan) => {
-                        const prices = await pricesRepo.findByPlanId(plan.id);
-                        return mapDrizzlePlanToCore(plan, prices);
-                    })
-                );
+            async list(options: QZPayListOptions<QZPayPlanFilters, QZPayPlanOrderBy>): Promise<QZPayPaginatedResult<QZPayPlan>> {
+                const { limit, offset = 0, filters, orderBy, orderDirection } = options;
+                const result = await repo.search({
+                    livemode,
+                    limit,
+                    offset,
+                    orderBy,
+                    orderDirection,
+                    ...filters
+                });
                 return {
-                    data: plansWithPrices,
+                    data: await attachPlanPrices(result.data),
                     total: result.total,
                     limit,
                     offset,
                     hasMore: offset + result.data.length < result.total
                 };
+            },
+
+            async listAll(options?: QZPayListAllOptions<QZPayPlanFilters, QZPayPlanOrderBy>): Promise<QZPayPlan[]> {
+                return collectAllPages({
+                    entity: 'plans',
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems,
+                    fetchPage: async ({ limit, offset }) => {
+                        const page = await repo.search({
+                            livemode,
+                            limit,
+                            offset,
+                            orderBy: options?.orderBy,
+                            orderDirection: options?.orderDirection,
+                            ...options?.filters
+                        });
+                        return {
+                            data: await attachPlanPrices(page.data),
+                            total: page.total,
+                            hasMore: offset + page.data.length < page.total
+                        };
+                    }
+                });
             }
         };
     }
@@ -752,11 +994,40 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 return result.map(mapDrizzlePriceToCore);
             },
 
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPrice>> {
-                const limit = options?.limit ?? 20;
-                const offset = options?.offset ?? 0;
-                const result = await repo.search({ livemode, limit, offset });
+            async list(options: QZPayListOptions<QZPayPriceFilters, QZPayPriceOrderBy>): Promise<QZPayPaginatedResult<QZPayPrice>> {
+                const { limit, offset = 0, filters, orderBy, orderDirection } = options;
+                const result = await repo.search({
+                    livemode,
+                    limit,
+                    offset,
+                    orderBy,
+                    orderDirection,
+                    ...filters
+                });
                 return toPaginatedResult(result, mapDrizzlePriceToCore, limit, offset);
+            },
+
+            async listAll(options?: QZPayListAllOptions<QZPayPriceFilters, QZPayPriceOrderBy>): Promise<QZPayPrice[]> {
+                return collectAllPages({
+                    entity: 'prices',
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems,
+                    fetchPage: async ({ limit, offset }) => {
+                        const page = await repo.search({
+                            livemode,
+                            limit,
+                            offset,
+                            orderBy: options?.orderBy,
+                            orderDirection: options?.orderDirection,
+                            ...options?.filters
+                        });
+                        return {
+                            data: page.data.map(mapDrizzlePriceToCore),
+                            total: page.total,
+                            hasMore: offset + page.data.length < page.total
+                        };
+                    }
+                });
             }
         };
     }
@@ -803,11 +1074,42 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 return result ? mapDrizzlePromoCodeToCore(result) : null;
             },
 
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayPromoCode>> {
-                const limit = options?.limit ?? 20;
-                const offset = options?.offset ?? 0;
-                const result = await repo.search({ livemode, limit, offset });
+            async list(
+                options: QZPayListOptions<QZPayPromoCodeFilters, QZPayPromoCodeOrderBy>
+            ): Promise<QZPayPaginatedResult<QZPayPromoCode>> {
+                const { limit, offset = 0, filters, orderBy, orderDirection } = options;
+                const result = await repo.search({
+                    livemode,
+                    limit,
+                    offset,
+                    orderBy,
+                    orderDirection,
+                    ...filters
+                });
                 return toPaginatedResult(result, mapDrizzlePromoCodeToCore, limit, offset);
+            },
+
+            async listAll(options?: QZPayListAllOptions<QZPayPromoCodeFilters, QZPayPromoCodeOrderBy>): Promise<QZPayPromoCode[]> {
+                return collectAllPages({
+                    entity: 'promoCodes',
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems,
+                    fetchPage: async ({ limit, offset }) => {
+                        const page = await repo.search({
+                            livemode,
+                            limit,
+                            offset,
+                            orderBy: options?.orderBy,
+                            orderDirection: options?.orderDirection,
+                            ...options?.filters
+                        });
+                        return {
+                            data: page.data.map(mapDrizzlePromoCodeToCore),
+                            total: page.total,
+                            hasMore: offset + page.data.length < page.total
+                        };
+                    }
+                });
             }
         };
     }
@@ -845,11 +1147,40 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 return result ? mapDrizzleVendorToCore(result) : null;
             },
 
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayVendor>> {
-                const limit = options?.limit ?? 20;
-                const offset = options?.offset ?? 0;
-                const result = await repo.search({ livemode, limit, offset });
+            async list(options: QZPayListOptions<QZPayVendorFilters, QZPayVendorOrderBy>): Promise<QZPayPaginatedResult<QZPayVendor>> {
+                const { limit, offset = 0, filters, orderBy, orderDirection } = options;
+                const result = await repo.search({
+                    livemode,
+                    limit,
+                    offset,
+                    orderBy,
+                    orderDirection,
+                    ...filters
+                });
                 return toPaginatedResult(result, mapDrizzleVendorToCore, limit, offset);
+            },
+
+            async listAll(options?: QZPayListAllOptions<QZPayVendorFilters, QZPayVendorOrderBy>): Promise<QZPayVendor[]> {
+                return collectAllPages({
+                    entity: 'vendors',
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems,
+                    fetchPage: async ({ limit, offset }) => {
+                        const page = await repo.search({
+                            livemode,
+                            limit,
+                            offset,
+                            orderBy: options?.orderBy,
+                            orderDirection: options?.orderDirection,
+                            ...options?.filters
+                        });
+                        return {
+                            data: page.data.map(mapDrizzleVendorToCore),
+                            total: page.total,
+                            hasMore: offset + page.data.length < page.total
+                        };
+                    }
+                });
             },
 
             async createPayout(payout: QZPayVendorPayout): Promise<QZPayVendorPayout> {
@@ -1015,11 +1346,40 @@ export class QZPayDrizzleStorageAdapter implements QZPayStorageAdapter {
                 return result.map(mapDrizzleAddonToCore);
             },
 
-            async list(options?: QZPayListOptions): Promise<QZPayPaginatedResult<QZPayAddOn>> {
-                const limit = options?.limit ?? 20;
-                const offset = options?.offset ?? 0;
-                const result = await repo.search({ livemode, limit, offset });
+            async list(options: QZPayListOptions<QZPayAddOnFilters, QZPayAddOnOrderBy>): Promise<QZPayPaginatedResult<QZPayAddOn>> {
+                const { limit, offset = 0, filters, orderBy, orderDirection } = options;
+                const result = await repo.search({
+                    livemode,
+                    limit,
+                    offset,
+                    orderBy,
+                    orderDirection,
+                    ...filters
+                });
                 return toPaginatedResult(result, mapDrizzleAddonToCore, limit, offset);
+            },
+
+            async listAll(options?: QZPayListAllOptions<QZPayAddOnFilters, QZPayAddOnOrderBy>): Promise<QZPayAddOn[]> {
+                return collectAllPages({
+                    entity: 'addons',
+                    batchSize: options?.batchSize,
+                    maxItems: options?.maxItems,
+                    fetchPage: async ({ limit, offset }) => {
+                        const page = await repo.search({
+                            livemode,
+                            limit,
+                            offset,
+                            orderBy: options?.orderBy,
+                            orderDirection: options?.orderDirection,
+                            ...options?.filters
+                        });
+                        return {
+                            data: page.data.map(mapDrizzleAddonToCore),
+                            total: page.total,
+                            hasMore: offset + page.data.length < page.total
+                        };
+                    }
+                });
             },
 
             async addToSubscription(input: {

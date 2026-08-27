@@ -106,7 +106,7 @@ export async function processSubscriptionLifecycle(
 
     try {
         // Get all subscriptions
-        const { data: subscriptions } = await billing.subscriptions.list();
+        const subscriptions = await billing.subscriptions.listAll();
 
         for (const subscription of subscriptions) {
             const subEvents = await processSubscription(billing, subscription, currentTime, config);

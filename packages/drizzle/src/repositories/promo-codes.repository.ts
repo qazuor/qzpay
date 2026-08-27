@@ -13,6 +13,7 @@ import {
     billingPromoCodeUsage,
     billingPromoCodes
 } from '../schema/index.js';
+import { resolveOrderBy } from '../utils/order-by.js';
 import { type QZPayPaginatedResult, firstOrNull, firstOrThrow } from './base.repository.js';
 
 /**
@@ -229,8 +230,10 @@ export class QZPayPromoCodesRepository {
         livemode?: boolean;
         limit?: number;
         offset?: number;
+        orderBy?: string | undefined;
+        orderDirection?: 'asc' | 'desc' | undefined;
     }): Promise<QZPayPaginatedResult<QZPayBillingPromoCode>> {
-        const { active, type, livemode, limit = 100, offset = 0 } = options;
+        const { active, type, livemode, limit = 100, offset = 0, orderBy, orderDirection } = options;
 
         const conditions: ReturnType<typeof eq>[] = [];
 
@@ -256,7 +259,7 @@ export class QZPayPromoCodesRepository {
             .select()
             .from(billingPromoCodes)
             .where(whereClause)
-            .orderBy(sql`${billingPromoCodes.createdAt} DESC`)
+            .orderBy(resolveOrderBy({ table: billingPromoCodes, entity: 'promoCodes', orderBy, orderDirection }))
             .limit(limit)
             .offset(offset);
 

@@ -11,6 +11,7 @@ export {
 
 export {
     createMemoryStorageAdapter,
+    QZPayListAllLimitExceededError,
     type MemoryStorageAdapterConfig,
     type MemoryStorageSnapshot,
     type MemoryStorageData

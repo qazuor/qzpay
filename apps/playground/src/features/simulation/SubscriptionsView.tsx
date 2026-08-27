@@ -121,9 +121,9 @@ export function SubscriptionsView() {
         if (!billing) return;
         setIsLoading(true);
         try {
-            const [subsResult, custResult] = await Promise.all([billing.subscriptions.list(), billing.customers.list()]);
-            setSubscriptions(subsResult.data);
-            setCustomers(custResult.data);
+            const [subsResult, custResult] = await Promise.all([billing.subscriptions.listAll(), billing.customers.listAll()]);
+            setSubscriptions(subsResult);
+            setCustomers(custResult);
             loadCatalog();
         } finally {
             setIsLoading(false);

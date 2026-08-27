@@ -285,7 +285,7 @@ describe('adapter.customers', () => {
                 email: 'test2@example.com'
             });
 
-            const result = await adapter.customers.list();
+            const result = await adapter.customers.list({ limit: 100 });
 
             expect(result.data).toHaveLength(2);
             expect(result.total).toBe(2);
@@ -313,7 +313,7 @@ describe('adapter.customers', () => {
             expect(page2.offset).toBe(5);
         });
 
-        it('should use default limit of 100', async () => {
+        it('should cap results at the requested limit', async () => {
             for (let i = 0; i < 150; i++) {
                 await adapter.customers.create({
                     externalId: `user_${i}`,
@@ -321,7 +321,7 @@ describe('adapter.customers', () => {
                 });
             }
 
-            const result = await adapter.customers.list();
+            const result = await adapter.customers.list({ limit: 100 });
 
             expect(result.data).toHaveLength(100);
             expect(result.total).toBe(150);
@@ -330,7 +330,7 @@ describe('adapter.customers', () => {
         });
 
         it('should handle empty results', async () => {
-            const result = await adapter.customers.list();
+            const result = await adapter.customers.list({ limit: 100 });
 
             expect(result.data).toHaveLength(0);
             expect(result.total).toBe(0);

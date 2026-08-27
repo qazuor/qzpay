@@ -421,8 +421,8 @@ class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleService {
      * Get subscriptions that need renewal
      */
     private async getSubscriptionsToRenew(): Promise<QZPaySubscription[]> {
-        const allSubscriptions = await this.storage.subscriptions.list({ limit: 10000 });
-        return qzpayGetOverdueSubscriptions(allSubscriptions.data).filter(
+        const allSubscriptions = await this.storage.subscriptions.listAll();
+        return qzpayGetOverdueSubscriptions(allSubscriptions).filter(
             (sub) => sub.status === QZPAY_SUBSCRIPTION_STATUS.ACTIVE && !sub.cancelAtPeriodEnd
         );
     }
@@ -539,8 +539,8 @@ class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleService {
      * Get subscriptions ready for trial conversion
      */
     private async getSubscriptionsToConvert(now: Date): Promise<QZPaySubscription[]> {
-        const allSubscriptions = await this.storage.subscriptions.list({ limit: 10000 });
-        return allSubscriptions.data.filter((sub) => {
+        const allSubscriptions = await this.storage.subscriptions.listAll();
+        return allSubscriptions.filter((sub) => {
             if (sub.status !== QZPAY_SUBSCRIPTION_STATUS.TRIALING || !sub.trialEnd) {
                 return false;
             }
@@ -670,8 +670,8 @@ class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleService {
      * Get subscriptions ready for payment retry
      */
     private async getSubscriptionsToRetry(now: Date): Promise<QZPaySubscription[]> {
-        const allSubscriptions = await this.storage.subscriptions.list({ limit: 10000 });
-        const pastDueSubscriptions = allSubscriptions.data.filter((sub) => qzpayIsSubscriptionPastDue(sub));
+        const allSubscriptions = await this.storage.subscriptions.listAll();
+        const pastDueSubscriptions = allSubscriptions.filter((sub) => qzpayIsSubscriptionPastDue(sub));
 
         return pastDueSubscriptions.filter((subscription) => {
             const metadata = this.getRetryMetadata(subscription);
@@ -827,8 +827,8 @@ class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleService {
         };
 
         // Get all past_due subscriptions
-        const allSubscriptions = await this.storage.subscriptions.list({ limit: 10000 });
-        const pastDueSubscriptions = allSubscriptions.data.filter((sub) => qzpayIsSubscriptionPastDue(sub));
+        const allSubscriptions = await this.storage.subscriptions.listAll();
+        const pastDueSubscriptions = allSubscriptions.filter((sub) => qzpayIsSubscriptionPastDue(sub));
 
         for (const subscription of pastDueSubscriptions) {
             const metadata = subscription.metadata as {

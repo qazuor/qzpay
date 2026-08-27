@@ -17,9 +17,9 @@ export function InvoicesView() {
         if (!billing) return;
         setIsLoading(true);
         try {
-            const [invoicesResult, custResult] = await Promise.all([billing.invoices.list(), billing.customers.list()]);
-            setInvoices(invoicesResult.data);
-            setCustomers(custResult.data);
+            const [invoicesResult, custResult] = await Promise.all([billing.invoices.listAll(), billing.customers.listAll()]);
+            setInvoices(invoicesResult);
+            setCustomers(custResult);
         } finally {
             setIsLoading(false);
         }
