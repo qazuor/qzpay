@@ -1,5 +1,16 @@
 # @qazuor/qzpay-playground
 
+## 1.1.28
+
+### Patch Changes
+
+- Updated dependencies [c38da0e]
+  - @qazuor/qzpay-core@5.0.0
+  - @qazuor/qzpay-dev@1.4.1
+  - @qazuor/qzpay-mercadopago@2.9.2
+  - @qazuor/qzpay-react@1.1.26
+  - @qazuor/qzpay-stripe@1.3.5
+
 ## 1.1.27
 
 ### Patch Changes
