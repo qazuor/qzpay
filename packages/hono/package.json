@@ -1,6 +1,6 @@
 {
     "name": "@qazuor/qzpay-hono",
-    "version": "1.6.10",
+    "version": "1.6.11",
     "description": "Hono middleware and handlers for QZPay billing library",
     "type": "module",
     "main": "./dist/index.cjs",

@@ -1,5 +1,12 @@
 # @qazuor/qzpay-hono
 
+## 1.6.11
+
+### Patch Changes
+
+- Updated dependencies [c38da0e]
+  - @qazuor/qzpay-core@5.0.0
+
 ## 1.6.10
 
 ### Patch Changes
