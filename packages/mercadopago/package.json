@@ -1,6 +1,6 @@
 {
     "name": "@qazuor/qzpay-mercadopago",
-    "version": "2.9.2",
+    "version": "2.9.3",
     "description": "MercadoPago payment adapter for QZPay billing library",
     "type": "module",
     "main": "./dist/index.cjs",
