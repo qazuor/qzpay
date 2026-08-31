@@ -143,6 +143,16 @@ export interface QZPayCreateSubscriptionServiceInput {
      * {@link QZPayCreateSubscriptionInput.providerPriceId}.
      */
     providerPriceId?: string;
+    /**
+     * Email of the PAYER declared to the provider for this subscription's
+     * recurring charge (e.g. MercadoPago preapproval `payer_email`), when it
+     * differs from the customer's contact email. Takes precedence over
+     * `customer.email` for the provider-facing payer identity ONLY — it
+     * never overwrites the stored customer record. Omit to fall back to
+     * `customer.email` exactly as before (backwards compatible). See
+     * {@link QZPayCreateSubscriptionInput.payerEmail}.
+     */
+    payerEmail?: string;
 }
 
 export interface QZPayUpdateSubscriptionServiceInput {
@@ -1497,11 +1507,16 @@ class QZPayBillingImpl implements QZPayBilling {
                     // by trial-eligibility at checkout). Falls back to the price map
                     // when the caller passes nothing — backwards compatible.
                     const providerPriceId = input.providerPriceId ?? price.providerPriceIds?.[paymentAdapter.provider];
+                    // `input.payerEmail` overrides the provider-facing payer identity
+                    // only — it never touches the stored customer record. Falls back
+                    // to `customer.email` exactly as before when omitted (backwards
+                    // compatible). See `QZPayCreateSubscriptionInput.payerEmail` JSDoc.
+                    const payerEmail = input.payerEmail ?? customer.email;
                     const providerInput: QZPayProviderCreateSubscriptionInput = {
                         ...(providerCustomerId ? { providerCustomerId } : {}),
                         input,
                         customer: {
-                            email: customer.email,
+                            email: payerEmail,
                             ...(firstName ? { firstName } : {}),
                             ...(rest.length > 0 ? { lastName: rest.join(' ') } : {})
                         },
