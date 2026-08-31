@@ -176,6 +176,26 @@ export interface QZPayCreateSubscriptionInput {
      * holds the provider ID (e.g. backfills, manual reconciliation).
      */
     providerSubscriptionIds?: Record<string, string>;
+    /**
+     * Email of the PAYER declared to the provider for this subscription's
+     * recurring charge (e.g. MercadoPago preapproval `payer_email`), when it
+     * differs from the customer's contact email (`customer.email`).
+     *
+     * Some providers bind the charge to whichever account holds this exact
+     * email — MercadoPago's `/preapproval` only authorizes payment from the
+     * MP account matching `payer_email` verbatim. A user's registration
+     * email and the MercadoPago account they actually want to pay with
+     * (e.g. the one holding a balance) are frequently different people's
+     * emails in practice, and overwriting `customer.email` to fix that would
+     * also redirect that customer's transactional email — the column is the
+     * real contact address, not a payment-provider knob.
+     *
+     * When present, this takes precedence over `customer.email` for the
+     * provider-facing payer identity ONLY; it never touches the stored
+     * customer record. When omitted, resolution falls back to
+     * `customer.email` exactly as before — fully backwards compatible.
+     */
+    payerEmail?: string;
 }
 
 export interface QZPayUpdateSubscriptionInput {
