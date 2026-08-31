@@ -1592,6 +1592,92 @@ describe('billing.subscriptions', () => {
             expect(adapterCall.providerPriceId).toBe('mp_plan_notrial_explicit');
         });
 
+        describe('payerEmail override (HOS-937)', () => {
+            function createHappyPathAdapter(): MockSubscriptionAdapter {
+                return {
+                    create: vi.fn(async () => ({
+                        id: 'preapproval_mp_new',
+                        status: 'pending',
+                        currentPeriodStart: new Date(),
+                        currentPeriodEnd: new Date(),
+                        cancelAtPeriodEnd: false,
+                        canceledAt: null,
+                        trialStart: null,
+                        trialEnd: null,
+                        metadata: {},
+                        initPoint: 'https://mp.example.com/preapproval?id=abc',
+                        sandboxInitPoint: 'https://sandbox.mp.example.com/preapproval?id=abc'
+                    })),
+                    update: vi.fn(),
+                    cancel: vi.fn(),
+                    pause: vi.fn(),
+                    resume: vi.fn(),
+                    retrieve: vi.fn()
+                };
+            }
+
+            it('BACKWARDS COMPAT: without payerEmail, the adapter receives customer.email unchanged', async () => {
+                const storage = createMockStorage();
+                const subscriptionAdapter = createHappyPathAdapter();
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' });
+
+                const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+                expect(adapterCall.customer.email).toBe('jane.doe@example.com');
+            });
+
+            it('with payerEmail, the adapter receives it instead of customer.email', async () => {
+                const storage = createMockStorage();
+                const subscriptionAdapter = createHappyPathAdapter();
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await billing.subscriptions.create({
+                    customerId: customer.id,
+                    planId: 'pro-paid',
+                    mode: 'paid',
+                    payerEmail: 'payer-account@example.com'
+                });
+
+                const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+                expect(adapterCall.customer.email).toBe('payer-account@example.com');
+                // firstName/lastName still come from the customer record, not the payer.
+                expect(adapterCall.customer.firstName).toBe('Jane');
+                expect(adapterCall.customer.lastName).toBe('Doe');
+            });
+
+            it('never mutates the stored customer email — only the provider-facing payload', async () => {
+                const storage = createMockStorage();
+                const subscriptionAdapter = createHappyPathAdapter();
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await billing.subscriptions.create({
+                    customerId: customer.id,
+                    planId: 'pro-paid',
+                    mode: 'paid',
+                    payerEmail: 'payer-account@example.com'
+                });
+
+                const storedCustomer = await storage.customers.findById(customer.id);
+                expect(storedCustomer?.email).toBe('jane.doe@example.com');
+            });
+        });
+
         it('strategy=throw: rolls back the local subscription when adapter throws', async () => {
             const storage = createMockStorage();
             const subscriptionAdapter: MockSubscriptionAdapter = {
