@@ -117,7 +117,17 @@ export interface QZPayProviderCreateSubscriptionInput {
     readonly providerPriceId?: string;
     /** Original `billing.subscriptions.create()` input, forwarded for metadata/quantity/mode-specific fields. */
     readonly input: QZPayCreateSubscriptionInput;
-    /** Resolved customer record — pre-fetched by core so the adapter does not re-query storage. */
+    /**
+     * Resolved customer record — pre-fetched by core so the adapter does not
+     * re-query storage.
+     *
+     * `email` is the provider-facing PAYER email, not necessarily the
+     * customer's stored contact email: core resolves it as
+     * `input.payerEmail ?? customer.email` before building this object (see
+     * {@link QZPayCreateSubscriptionInput.payerEmail}). Adapters that bind
+     * the charge to a specific email (MercadoPago `payer_email`) should
+     * always read it from here rather than re-fetching the customer record.
+     */
     readonly customer: {
         readonly email: string;
         readonly firstName?: string | null;
