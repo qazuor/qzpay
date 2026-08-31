@@ -216,6 +216,37 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
 
             expect(result.status).toBe('active');
         });
+
+        // HOS-937: `providerInput.customer.email` is already the resolved payer
+        // identity by the time it reaches this adapter — core resolves
+        // `input.payerEmail ?? customer.email` before calling `subscriptions.create()`
+        // (see `packages/core/src/billing.ts`). The adapter itself is unaware of the
+        // override; it just sanitizes/validates whatever email lands in
+        // `customer.email`, exactly as before. These tests pin that the SAME
+        // normalization and validation path applies regardless of which email won.
+        describe('payerEmail override (HOS-937) — same sanitization path as customer.email', () => {
+            it('normalizes an overridden payer email (mixed case/whitespace) the same way as customer.email', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({
+                    customer: { email: '  Payer-Account@Example.COM  ', firstName: 'Ada', lastName: 'Lovelace' }
+                });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.payer_email).toBe('payer-account@example.com');
+                expect(body?.payer?.email).toBe('payer-account@example.com');
+            });
+
+            it('rejects an overridden payer email with invalid format, same as an invalid customer.email', async () => {
+                const providerInput = buildCreateInput({
+                    customer: { email: 'not-an-email', firstName: 'Ada', lastName: 'Lovelace' }
+                });
+
+                await expect(adapter.create(providerInput)).rejects.toThrow('Invalid email format');
+                expect(mockPreApprovalApi.create).not.toHaveBeenCalled();
+            });
+        });
     });
 
     describe('create (plan-based, preapproval_plan_id)', () => {
