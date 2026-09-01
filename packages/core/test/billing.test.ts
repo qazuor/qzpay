@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { QZPayStorageAdapter } from '../src/adapters/storage.adapter.js';
 import { QZPAY_ENV_VARS, createQZPayBillingFromEnv, qzpayDetectEnvConfig, qzpayGetDetectedProviders } from '../src/billing-from-env.js';
 import { createQZPayBilling } from '../src/billing.js';
+import { QZPayProviderSyncError } from '../src/errors/index.js';
 import type { QZPayCustomer } from '../src/types/customer.types.js';
 import type { QZPayCustomerEntitlement, QZPayEntitlementDefinition } from '../src/types/entitlements.types.js';
 import type { QZPayInvoice } from '../src/types/invoice.types.js';
@@ -1735,6 +1736,183 @@ describe('billing.subscriptions', () => {
             // Returned the locally-persisted subscription, no rollback
             expect(result.id).toBeDefined();
             expect(storage.subscriptions.delete).not.toHaveBeenCalled();
+        });
+
+        /**
+         * HOS-987 — the provider object outliving the id that names it.
+         *
+         * `create` does three things in sequence and cannot be atomic (a SQL
+         * transaction around it would hold locks across an HTTP round-trip):
+         * insert the local row, create the real object at the provider, write
+         * the provider id back. When the THIRD step fails, the local row is
+         * rolled back — and the id the provider just returned used to be
+         * declared inside the `try`, so it went out of scope with it. The
+         * result was a live, chargeable subscription that no consumer could
+         * cancel or link, because its id no longer existed anywhere.
+         */
+        describe('orphaned provider subscription when the local link write fails (HOS-987)', () => {
+            /** An adapter whose `create` succeeds — the provider object is REAL. */
+            function createLinkFailureAdapter(cancelBehaviour: 'ok' | 'throws'): MockSubscriptionAdapter {
+                return {
+                    create: vi.fn(async () => ({
+                        id: 'mp-preapproval-live-123',
+                        status: 'pending',
+                        currentPeriodStart: new Date(),
+                        currentPeriodEnd: new Date(),
+                        cancelAtPeriodEnd: false,
+                        canceledAt: null,
+                        trialStart: null,
+                        trialEnd: null,
+                        metadata: {}
+                    })),
+                    update: vi.fn(),
+                    cancel:
+                        cancelBehaviour === 'ok'
+                            ? vi.fn(async () => undefined)
+                            : vi.fn(async () => {
+                                  throw new Error('MP cancel unavailable');
+                              }),
+                    pause: vi.fn(),
+                    resume: vi.fn(),
+                    retrieve: vi.fn()
+                } as unknown as MockSubscriptionAdapter;
+            }
+
+            /** Storage whose `subscriptions.update` (the link write) fails. */
+            function storageWithFailingLink() {
+                const storage = createMockStorage();
+                storage.subscriptions.update = vi.fn(async () => {
+                    throw new Error('DB blip on link write');
+                });
+                return storage;
+            }
+
+            it('cancels the just-created provider subscription so it cannot keep charging', async () => {
+                const storage = storageWithFailingLink();
+                const subscriptionAdapter = createLinkFailureAdapter('ok');
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter),
+                    providerSyncErrorStrategy: 'throw'
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await expect(billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' })).rejects.toThrow();
+
+                expect(subscriptionAdapter.cancel).toHaveBeenCalledWith('mp-preapproval-live-123', false);
+            });
+
+            it('when the cancel ALSO fails, the provider id survives in the thrown error', async () => {
+                // This is the whole point: at that moment the id exists nowhere
+                // else — the local row has been deleted and the cancel did not
+                // take. If the error does not carry it, the object is
+                // unrecoverable.
+                const storage = storageWithFailingLink();
+                const subscriptionAdapter = createLinkFailureAdapter('throws');
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter),
+                    providerSyncErrorStrategy: 'throw'
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                const error = await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' }).then(
+                    () => null,
+                    (e: unknown) => e
+                );
+
+                expect(error).toBeInstanceOf(QZPayProviderSyncError);
+                const syncError = error as QZPayProviderSyncError;
+                expect(syncError.message).toContain('mp-preapproval-live-123');
+                expect(syncError.metadata?.providerSubscriptionId).toBe('mp-preapproval-live-123');
+                expect(syncError.metadata?.orphaned).toBe(true);
+                // The original failure is preserved, not swallowed by the wrapper.
+                expect(syncError.cause?.message).toContain('DB blip');
+            });
+
+            it('still rolls the local row back', async () => {
+                const storage = storageWithFailingLink();
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(createLinkFailureAdapter('ok')),
+                    providerSyncErrorStrategy: 'throw'
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await expect(billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' })).rejects.toThrow();
+
+                expect(storage.subscriptions.delete).toHaveBeenCalled();
+            });
+
+            it('does NOT cancel when the provider call itself failed — there is nothing to cancel', async () => {
+                // Regression guard for the obvious over-correction: cancelling
+                // an id that was never created.
+                const storage = createMockStorage();
+                const subscriptionAdapter: MockSubscriptionAdapter = {
+                    create: vi.fn(async () => {
+                        throw new Error('MP refused the preapproval');
+                    }),
+                    update: vi.fn(),
+                    cancel: vi.fn(),
+                    pause: vi.fn(),
+                    resume: vi.fn(),
+                    retrieve: vi.fn()
+                };
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter),
+                    providerSyncErrorStrategy: 'throw'
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await expect(billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' })).rejects.toThrow(
+                    'MP refused'
+                );
+
+                expect(subscriptionAdapter.cancel).not.toHaveBeenCalled();
+            });
+
+            it('a listener that throws neither fails the create nor cancels anything', async () => {
+                // This pins the invariant the `providerIdLinked` guard rests on.
+                //
+                // That guard exists so a failure AFTER the link can never cancel
+                // a healthy, already-linked subscription. Today that path is
+                // UNREACHABLE, and this was established by mutation rather than
+                // assumed: removing the guard breaks no test, because nothing
+                // after the link can throw. `emitter.emit` runs listeners through
+                // `safeExecuteAsync` and swallows their errors, and
+                // `wrapWithHelpers` tolerates even an `undefined` subscription
+                // (it returns the helper object regardless).
+                //
+                // The guard is therefore deliberate defensive code, kept because
+                // the day someone adds an awaited call after the link — or makes
+                // `emit` rethrow — its absence would silently turn an unrelated
+                // failure into "cancel the customer's live subscription". If this
+                // test ever fails, that day has arrived and the guard has become
+                // load-bearing.
+                const storage = createMockStorage();
+                const subscriptionAdapter = createLinkFailureAdapter('ok');
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter),
+                    providerSyncErrorStrategy: 'throw'
+                });
+                billing.on('subscription.created', () => {
+                    throw new Error('a listener blew up');
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await expect(
+                    billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' })
+                ).resolves.toBeDefined();
+
+                expect(subscriptionAdapter.cancel).not.toHaveBeenCalled();
+            });
         });
 
         it('passes undefined providerCustomerId to the adapter when customer has no provider ID (no longer throws — see Finding #4 / hospeda smoke 2026-05-21)', async () => {

@@ -1534,26 +1534,109 @@ class QZPayBillingImpl implements QZPayBilling {
                         ...(input.notificationUrl ? { notificationUrl: input.notificationUrl } : {})
                     };
 
+                    // Declared OUTSIDE the `try` on purpose. The provider call
+                    // creates a REAL, chargeable object; the local write that
+                    // records its id happens afterwards and can fail on its own
+                    // (a database blip, a timeout). When that happens the catch
+                    // below rolls the local record back — and before this was
+                    // hoisted, the id the provider had just returned went out of
+                    // scope with it, leaving a live subscription nobody could
+                    // cancel or link because its id no longer existed anywhere
+                    // (HOS-987). The sequence cannot be made atomic: wrapping it
+                    // in a SQL transaction would hold locks across an HTTP
+                    // round-trip.
+                    let providerResult: Awaited<ReturnType<typeof paymentAdapter.subscriptions.create>> | undefined;
+                    // Whether the id was successfully written to the local row.
+                    // Separates "the provider object is orphaned" from "the
+                    // provider object is fine and something later threw" — a
+                    // failure after the link must NEVER cancel a subscription
+                    // that was created and linked correctly.
+                    //
+                    // Today that second case is UNREACHABLE, and that was
+                    // established by mutation, not assumed: removing this guard
+                    // breaks no test. `emitter.emit` runs listeners through
+                    // `safeExecuteAsync` and swallows their errors, and
+                    // `wrapWithHelpers` throws for no input. The guard is kept
+                    // deliberately because the day an awaited call is added after
+                    // the link — or `emit` starts rethrowing — its absence turns
+                    // an unrelated failure into "cancel the customer's live
+                    // subscription". The test
+                    // "a listener that throws neither fails the create nor
+                    // cancels anything" pins the invariant this rests on.
+                    let providerIdLinked = false;
+
                     try {
-                        const providerResult = await paymentAdapter.subscriptions.create(providerInput);
+                        providerResult = await paymentAdapter.subscriptions.create(providerInput);
                         const linked = await storage.subscriptions.update(subscription.id, {
                             providerSubscriptionIds: { [paymentAdapter.provider]: providerResult.id }
                         });
+                        providerIdLinked = true;
                         await emitter.emit('subscription.created', linked);
                         return wrapWithHelpers(linked, {
                             ...(providerResult.initPoint ? { providerInitPoint: providerResult.initPoint } : {}),
                             ...(providerResult.sandboxInitPoint ? { providerSandboxInitPoint: providerResult.sandboxInitPoint } : {})
                         });
                     } catch (error) {
+                        // Only an id that was created but never linked is at risk
+                        // of being orphaned. `undefined` here covers both the
+                        // provider call itself failing (nothing was created) and
+                        // a post-link failure (the object is linked and healthy).
+                        const orphanedProviderId = providerIdLinked ? undefined : providerResult?.id;
+                        let orphanCancelled = false;
+
+                        if (orphanedProviderId) {
+                            try {
+                                // Best-effort: a subscription the consumer can
+                                // never reach must not keep charging. `false` =
+                                // cancel now, not at period end — there is no
+                                // period worth honouring on an object that was
+                                // never handed to anyone.
+                                await paymentAdapter.subscriptions.cancel(orphanedProviderId, false);
+                                orphanCancelled = true;
+                            } catch (cancelError) {
+                                logger.error(
+                                    'Failed to cancel the orphaned provider subscription after a local write failure — it may still be live and chargeable',
+                                    {
+                                        error: cancelError instanceof Error ? cancelError.message : String(cancelError),
+                                        subscriptionId: subscription.id,
+                                        providerSubscriptionId: orphanedProviderId,
+                                        provider: paymentAdapter.provider
+                                    }
+                                );
+                            }
+                        }
+
                         if (providerSyncErrorStrategy === 'throw') {
                             // Roll back the local record so the user can retry cleanly.
                             await storage.subscriptions.delete(subscription.id);
+
+                            // The local row is gone and the cancel did not take:
+                            // the provider id exists ONLY in this error. Throwing
+                            // the raw error here is what made the object
+                            // unrecoverable, so it is replaced by a typed one that
+                            // carries the id for manual reconciliation.
+                            if (orphanedProviderId && !orphanCancelled) {
+                                throw new QZPayProviderSyncError(
+                                    `Subscription was created at ${paymentAdapter.provider} but could not be linked locally, and cancelling it failed. Provider subscription ${orphanedProviderId} may still be live and must be reconciled by hand.`,
+                                    paymentAdapter.provider,
+                                    'create_subscription',
+                                    {
+                                        subscriptionId: subscription.id,
+                                        providerSubscriptionId: orphanedProviderId,
+                                        orphaned: true
+                                    },
+                                    error instanceof Error ? error : undefined
+                                );
+                            }
                             throw error;
                         }
                         logger.warn('Failed to create provider subscription, keeping local record (providerSyncErrorStrategy=log)', {
                             error: error instanceof Error ? error.message : String(error),
                             subscriptionId: subscription.id,
-                            provider: paymentAdapter.provider
+                            provider: paymentAdapter.provider,
+                            // Surfaced so a `log`-strategy consumer can still find
+                            // the object: the local row it keeps has no id on it.
+                            ...(orphanedProviderId ? { providerSubscriptionId: orphanedProviderId, orphanCancelled } : {})
                         });
                     }
                 }
