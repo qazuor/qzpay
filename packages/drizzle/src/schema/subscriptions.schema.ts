@@ -74,6 +74,30 @@ export const billingSubscriptions = pgTable(
          * after each confirmed charge; QZPay provides storage only.
          */
         promoEffectRemainingCycles: integer('promo_effect_remaining_cycles'),
+        /**
+         * Start of a complimentary ("courtesy") window granted to a
+         * subscriber who is already paying — the point the gift begins,
+         * which is normally the end of the period they already paid for
+         * rather than the instant it was granted. Null when no gift was
+         * given. QZPay provides storage only; the consuming application
+         * decides when a window opens and what it entitles.
+         */
+        courtesyStartsAt: timestamp('courtesy_starts_at', { withTimezone: true }),
+        /**
+         * End of the complimentary window opened by
+         * {@link billingSubscriptions.courtesyStartsAt}. Null when no gift
+         * was given. The three courtesy columns are written together: a
+         * window with an end but no start (or vice versa) is a half-written
+         * record, and a consumer that treats it as live would hand out free
+         * entitlements.
+         */
+        courtesyEndsAt: timestamp('courtesy_ends_at', { withTimezone: true }),
+        /**
+         * How many billing cycles the complimentary window covers, kept for
+         * display and audit — the window's authority is the start/end pair
+         * above, not this count. Null when no gift was given.
+         */
+        courtesyCyclesGranted: integer('courtesy_cycles_granted'),
         livemode: boolean('livemode').notNull().default(true),
         metadata: jsonb('metadata').default({}),
         version: uuid('version').notNull().defaultRandom(),
@@ -113,7 +137,14 @@ export const billingSubscriptions = pgTable(
         // where k = #pending changes (NOT O(n) full table scan).
         lifecyclePendingPlanChangeIdx: index('idx_subscriptions_pending_plan_change')
             .on(table.scheduledPlanChange)
-            .where(sql`scheduled_plan_change IS NOT NULL AND (scheduled_plan_change->>'status') = 'pending'`)
+            .where(sql`scheduled_plan_change IS NOT NULL AND (scheduled_plan_change->>'status') = 'pending'`),
+        // Partial index for the courtesy-expiry cron query — only rows
+        // inside a complimentary window can expire, and they are a small
+        // minority of the table, so indexing just those keeps the per-tick
+        // cost proportional to #open gifts rather than #subscriptions.
+        lifecycleCourtesyExpiryIdx: index('idx_subscriptions_courtesy_expiry')
+            .on(table.courtesyEndsAt)
+            .where(sql`courtesy_ends_at IS NOT NULL`)
     })
 );
 
