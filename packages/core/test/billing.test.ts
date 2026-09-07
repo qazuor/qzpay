@@ -1765,6 +1765,99 @@ describe('billing.subscriptions', () => {
             });
         });
 
+        describe('planDisplayName (buyer-visible plan name override)', () => {
+            function createHappyPathAdapter(): MockSubscriptionAdapter {
+                return {
+                    create: vi.fn(async () => ({
+                        id: 'preapproval_mp_new',
+                        status: 'pending',
+                        currentPeriodStart: new Date(),
+                        currentPeriodEnd: new Date(),
+                        cancelAtPeriodEnd: false,
+                        canceledAt: null,
+                        trialStart: null,
+                        trialEnd: null,
+                        metadata: {},
+                        initPoint: 'https://mp.example.com/preapproval?id=abc',
+                        sandboxInitPoint: 'https://sandbox.mp.example.com/preapproval?id=abc'
+                    })),
+                    update: vi.fn(),
+                    cancel: vi.fn(),
+                    pause: vi.fn(),
+                    resume: vi.fn(),
+                    retrieve: vi.fn()
+                };
+            }
+
+            it('BACKWARDS COMPAT: without planDisplayName, the adapter input carries no such property', async () => {
+                const storage = createMockStorage();
+                const subscriptionAdapter = createHappyPathAdapter();
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' });
+
+                const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+                expect(adapterCall).not.toHaveProperty('planDisplayName');
+            });
+
+            it('with planDisplayName, the adapter receives it verbatim', async () => {
+                const storage = createMockStorage();
+                const subscriptionAdapter = createHappyPathAdapter();
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await billing.subscriptions.create({
+                    customerId: customer.id,
+                    planId: 'pro-paid',
+                    mode: 'paid',
+                    // `plan.name` for this fixture is the slug 'Pro Plan' —
+                    // a caller resolving a nicer presentable label passes it here.
+                    planDisplayName: 'Plan Pro'
+                });
+
+                const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+                expect(adapterCall.planDisplayName).toBe('Plan Pro');
+            });
+
+            // An empty string is falsy, so it is dropped by the same
+            // truthy-check hoist `providerPriceId` already uses — this is
+            // core's half of "blank is not a valid override"; the OTHER
+            // half (a non-empty but whitespace-only string, which IS truthy
+            // and so DOES get hoisted) is a MercadoPago adapter concern —
+            // the adapter trims before checking, exactly like it already
+            // does for `providerPriceId`. See
+            // `subscription.adapter.test.ts` for that half of the coverage.
+            it('REGRESSION: an empty-string planDisplayName is dropped, not forwarded', async () => {
+                const storage = createMockStorage();
+                const subscriptionAdapter = createHappyPathAdapter();
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await billing.subscriptions.create({
+                    customerId: customer.id,
+                    planId: 'pro-paid',
+                    mode: 'paid',
+                    planDisplayName: ''
+                });
+
+                const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+                expect(adapterCall).not.toHaveProperty('planDisplayName');
+            });
+        });
+
         it('strategy=throw: rolls back the local subscription when adapter throws', async () => {
             const storage = createMockStorage();
             const subscriptionAdapter: MockSubscriptionAdapter = {
