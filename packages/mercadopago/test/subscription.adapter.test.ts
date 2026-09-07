@@ -73,6 +73,7 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
                 reason: 'Pro Plan - Mensual',
                 back_url: 'https://app.example.com/billing/return',
                 notification_url: 'https://app.example.com/webhooks/mp',
+                status: 'pending',
                 auto_recurring: {
                     frequency: 1,
                     frequency_type: 'months',
@@ -80,6 +81,24 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
                     currency_id: 'ARS'
                 }
             });
+        });
+
+        // Regression: without an explicit `status: 'pending'`, MP's "subscription
+        // with no associated plan" endpoint defaults to the `authorized` flow and
+        // rejects the request with HTTP 400 "card_token_id is required" — this
+        // adapter never has a card token for this path (no hosted checkout
+        // collects one here). MP docs ("Subscription with no associated plan /
+        // With pending payment") require `status: 'pending'` explicitly to select
+        // the no-card variant instead.
+        it('sends status: "pending" in the ad-hoc fallback body, and no preapproval_plan_id', async () => {
+            mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+
+            await adapter.create(buildCreateInput());
+
+            const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+            expect(body?.status).toBe('pending');
+            expect(body).not.toHaveProperty('preapproval_plan_id');
+            expect(body?.auto_recurring).toBeDefined();
         });
 
         it('appends free_trial to auto_recurring when freeTrialDays is provided', async () => {
@@ -269,6 +288,21 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
             });
             expect(body?.auto_recurring).toBeUndefined();
             expect(body?.payer).toBeUndefined();
+        });
+
+        // Regression: `status: 'pending'` is scoped to the ad-hoc fallback only
+        // (see the `create` describe block above). The plan-based flow is MP's
+        // hosted-checkout "subscribe to existing plan" variant, documented as
+        // requiring `card_token_id` + `status: 'authorized'` — out of scope here
+        // and NOT to be touched; this pins that this branch keeps sending no
+        // `status` at all today, so a future change to either branch trips it.
+        it('does not send status on the plan-based flow', async () => {
+            mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+
+            await adapter.create(buildCreateInput({ providerPriceId: 'plan_mp_abc' }));
+
+            const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+            expect(body).not.toHaveProperty('status');
         });
 
         it('ignores inline freeTrialDays in the plan-based flow (trial lives in the plan)', async () => {
