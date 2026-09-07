@@ -1679,6 +1679,92 @@ describe('billing.subscriptions', () => {
             });
         });
 
+        describe('providerUnitAmountOverride (discounted-signup ad-hoc charge)', () => {
+            function createHappyPathAdapter(): MockSubscriptionAdapter {
+                return {
+                    create: vi.fn(async () => ({
+                        id: 'preapproval_mp_new',
+                        status: 'pending',
+                        currentPeriodStart: new Date(),
+                        currentPeriodEnd: new Date(),
+                        cancelAtPeriodEnd: false,
+                        canceledAt: null,
+                        trialStart: null,
+                        trialEnd: null,
+                        metadata: {},
+                        initPoint: 'https://mp.example.com/preapproval?id=abc',
+                        sandboxInitPoint: 'https://sandbox.mp.example.com/preapproval?id=abc'
+                    })),
+                    update: vi.fn(),
+                    cancel: vi.fn(),
+                    pause: vi.fn(),
+                    resume: vi.fn(),
+                    retrieve: vi.fn()
+                };
+            }
+
+            it('BACKWARDS COMPAT: without providerUnitAmountOverride, the adapter input carries no such property', async () => {
+                const storage = createMockStorage();
+                const subscriptionAdapter = createHappyPathAdapter();
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' });
+
+                const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+                expect(adapterCall).not.toHaveProperty('providerUnitAmountOverride');
+            });
+
+            it('with providerUnitAmountOverride, the adapter receives it verbatim (in cents)', async () => {
+                const storage = createMockStorage();
+                const subscriptionAdapter = createHappyPathAdapter();
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await billing.subscriptions.create({
+                    customerId: customer.id,
+                    planId: 'pro-paid',
+                    mode: 'paid',
+                    // Discounted-signup amount, in cents — below the plan's
+                    // full price (2999.99 major units == 299999 cents).
+                    providerUnitAmountOverride: 100000
+                });
+
+                const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+                expect(adapterCall.providerUnitAmountOverride).toBe(100000);
+            });
+
+            it('REGRESSION: an explicit 0 override is forwarded as 0, not treated as absent', async () => {
+                const storage = createMockStorage();
+                const subscriptionAdapter = createHappyPathAdapter();
+                const billing = createQZPayBilling({
+                    storage,
+                    plans: [proPlanWithPrice],
+                    paymentAdapter: createMockPaymentAdapter(subscriptionAdapter)
+                });
+                const customer = await seedCustomerWithProviderId(storage);
+
+                await billing.subscriptions.create({
+                    customerId: customer.id,
+                    planId: 'pro-paid',
+                    mode: 'paid',
+                    providerUnitAmountOverride: 0
+                });
+
+                const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
+                expect(adapterCall).toHaveProperty('providerUnitAmountOverride');
+                expect(adapterCall.providerUnitAmountOverride).toBe(0);
+            });
+        });
+
         it('strategy=throw: rolls back the local subscription when adapter throws', async () => {
             const storage = createMockStorage();
             const subscriptionAdapter: MockSubscriptionAdapter = {
