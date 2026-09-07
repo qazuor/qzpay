@@ -115,6 +115,25 @@ export interface QZPayProviderCreateSubscriptionInput {
     readonly providerCustomerId?: string;
     /** Provider-side price identifier — set for Stripe-style providers. Optional for ad-hoc preapprovals (MP). */
     readonly providerPriceId?: string;
+    /**
+     * Explicit provider-side transaction amount override, resolved from
+     * `input.providerUnitAmountOverride` when present (see
+     * {@link QZPayCreateSubscriptionInput.providerUnitAmountOverride} for the
+     * full rationale — discounted-signup checkouts that no longer provision a
+     * provider-side plan need a way to seed the recurring charge below the
+     * price row's amount).
+     *
+     * In the SAME unit as {@link price}.amount — cents (smallest currency
+     * unit) — never the update flow's major-unit `transactionAmount`.
+     *
+     * `undefined` means "no override was given"; `0` is a valid, distinct
+     * override value that adapters MUST NOT treat as absent. Check
+     * `!== undefined`, never truthiness. Applies only to flows that build an
+     * ad-hoc recurring charge (no `providerPriceId`); adapters that resolve
+     * the amount from a provider-side plan ignore this field, as there is no
+     * amount on that request for it to override.
+     */
+    readonly providerUnitAmountOverride?: number;
     /** Original `billing.subscriptions.create()` input, forwarded for metadata/quantity/mode-specific fields. */
     readonly input: QZPayCreateSubscriptionInput;
     /**

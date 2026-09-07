@@ -144,6 +144,17 @@ export interface QZPayCreateSubscriptionServiceInput {
      */
     providerPriceId?: string;
     /**
+     * Explicit provider-side transaction amount override (cents — same
+     * convention as the resolved price row's amount), seeding the recurring
+     * charge at this amount instead. For ad-hoc provider flows only (no
+     * provider-side plan); ignored by plan-based flows, which derive the
+     * amount from the plan itself. `0` is a valid, distinct override value —
+     * NOT equivalent to omitting this field. Omit to fall back to the price
+     * row's amount (backwards compatible). See
+     * {@link QZPayCreateSubscriptionInput.providerUnitAmountOverride}.
+     */
+    providerUnitAmountOverride?: number;
+    /**
      * Email of the PAYER declared to the provider for this subscription's
      * recurring charge (e.g. MercadoPago preapproval `payer_email`), when it
      * differs from the customer's contact email. Takes precedence over
@@ -1507,6 +1518,16 @@ class QZPayBillingImpl implements QZPayBilling {
                     // by trial-eligibility at checkout). Falls back to the price map
                     // when the caller passes nothing — backwards compatible.
                     const providerPriceId = input.providerPriceId ?? price.providerPriceIds?.[paymentAdapter.provider];
+                    // `input.providerUnitAmountOverride` seeds the ad-hoc recurring
+                    // charge at an explicit amount instead of the price row's
+                    // `unitAmount` — the mechanism a discounted-signup checkout needs
+                    // once the provider-side plan (which used to carry the discount)
+                    // is no longer in play. `0` is a valid, distinct override value,
+                    // so presence is checked with `!== undefined`, NOT truthiness —
+                    // the same rule as everywhere else in this codebase where `0`
+                    // must not collapse into "absent". See
+                    // `QZPayCreateSubscriptionInput.providerUnitAmountOverride` JSDoc.
+                    const providerUnitAmountOverride = input.providerUnitAmountOverride;
                     // `input.payerEmail` overrides the provider-facing payer identity
                     // only — it never touches the stored customer record. Falls back
                     // to `customer.email` exactly as before when omitted (backwards
@@ -1530,6 +1551,7 @@ class QZPayBillingImpl implements QZPayBilling {
                         externalReference: subscription.id,
                         idempotencyKey: subscription.id,
                         ...(providerPriceId ? { providerPriceId } : {}),
+                        ...(providerUnitAmountOverride !== undefined ? { providerUnitAmountOverride } : {}),
                         ...(input.paymentMethodReturnUrl ? { backUrl: input.paymentMethodReturnUrl } : {}),
                         ...(input.notificationUrl ? { notificationUrl: input.notificationUrl } : {})
                     };

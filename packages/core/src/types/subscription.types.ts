@@ -168,6 +168,51 @@ export interface QZPayCreateSubscriptionInput {
      */
     providerPriceId?: string;
     /**
+     * Explicit provider-side transaction amount to seed the recurring charge
+     * with, overriding the amount that would otherwise be derived from the
+     * selected price row (`price.unitAmount`).
+     *
+     * This exists for ad-hoc provider flows that build a direct recurring
+     * charge with no provider-side plan behind it (e.g. MercadoPago's
+     * `/preapproval` ad-hoc fallback, used when the caller does not pass
+     * {@link providerPriceId}). Previously, a discounted-signup checkout
+     * relied on provisioning the provider plan itself at the already-discounted
+     * amount — the plan's own `transaction_amount` WAS the discount. Without a
+     * plan, that mechanism does not exist, so a discounted signup needs a way
+     * to say "start this recurring charge at this amount" directly. This is
+     * that mechanism, and nothing more: it sets the amount the subscription is
+     * BORN with, at every cycle, exactly like provisioning the plan at the
+     * discounted amount did. It carries no cycle-count or promo semantics —
+     * if the caller's discount only applies to the first N cycles, restoring
+     * the full amount afterward (e.g. by later updating
+     * `transactionAmount` via `subscriptions.update()`) is the caller's job,
+     * not this field's.
+     *
+     * In **cents** (smallest currency unit) — the SAME convention as
+     * `price.amount` on the resolved provider input, NOT the major-unit
+     * `transactionAmount` accepted by {@link QZPayUpdateSubscriptionInput}'s
+     * update flow. Adapters that talk to providers expecting major units
+     * (e.g. MercadoPago) MUST divide by 100 at the provider boundary, exactly
+     * as they already do for `price.amount`.
+     *
+     * `0` is a valid, distinct override value — it is NOT equivalent to
+     * omitting this field. Only `undefined` (the field absent, or explicitly
+     * set to `undefined`) falls back to the price row's amount; a `0`
+     * override is passed through as-is. Whether `0` is an amount a given
+     * provider actually accepts (MercadoPago enforces a minimum charge) is
+     * the caller's concern, not this field's — core and the adapter must not
+     * silently reinterpret it as "no override".
+     *
+     * When present, it takes precedence over `price.unitAmount` in flows that
+     * build an ad-hoc recurring charge without a provider-side plan. Ignored
+     * by flows that resolve the amount from a provider-side plan instead
+     * (e.g. MercadoPago's plan-based flow, where MP derives the amount from
+     * the referenced `preapproval_plan` — there is no amount field on that
+     * request for this to override). When omitted, resolution falls back to
+     * `price.unitAmount` exactly as before — fully backwards compatible.
+     */
+    providerUnitAmountOverride?: number;
+    /**
      * Provider-side identifiers to persist alongside the new local
      * subscription. Keys are provider names (`'mercadopago'`, `'stripe'`,
      * etc.), values are the provider's subscription ID. Usually undefined
