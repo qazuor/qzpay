@@ -19,7 +19,27 @@ import type {
  *    (HOS-191).
  * 2. **Ad-hoc fallback.** With no plan id, it builds a direct preapproval with
  *    inline `auto_recurring` (the legacy path, kept for non-plan providers and
- *    for callers that intentionally opt out of plans).
+ *    for callers that intentionally opt out of plans). This branch explicitly
+ *    sends `status: 'pending'` — MP's "subscription with no associated plan"
+ *    endpoint variant defaults to the `authorized` flow (which requires a
+ *    `card_token_id` this adapter never has, since no hosted checkout
+ *    collects one for this path) and answers HTTP 400 "card_token_id is
+ *    required" without it. `status: 'pending'` selects MP's documented
+ *    no-card variant instead. `auto_recurring.transaction_amount` here also
+ *    honors `providerInput.providerUnitAmountOverride` when present, falling
+ *    back to `providerInput.price.amount` otherwise — the way a
+ *    discounted-signup checkout seeds this flow's charge at a discounted
+ *    amount, now that there is no provider-side plan to provision at that
+ *    amount instead. `providerUnitAmountOverride` has no effect on the
+ *    plan-based flow above: MP derives the amount from the referenced plan,
+ *    and there is no amount field on that request for it to override.
+ *    `reason` (the buyer-visible subscription title, shown on MP's
+ *    authorization screen) here also honors `providerInput.planDisplayName`
+ *    when present, replacing the plan-name portion of `reason` — needed
+ *    because a caller's `plan.name` is frequently a machine-facing slug, not
+ *    a human label. A blank/whitespace value is not treated as an override.
+ *    `planDisplayName` has no effect on the plan-based flow above, which
+ *    keeps sending the same `reason` it always has.
  *
  * In both flows the preapproval is "pending" until the user authorizes on
  * `initPoint`; the caller persists `id` (as `mp_subscription_id`) and redirects.
@@ -32,9 +52,19 @@ import { sanitizeEmail } from '../utils/sanitize.utils.js';
 /**
  * Local type for the MercadoPago Preapproval create body. The official SDK
  * types under-specify the request (no `payer`, no `notification_url`, no
- * `back_url`, no `free_trial`), even though the API documents and accepts
- * them. We mirror the documented shape here and feed the SDK via an
- * `as unknown as` cast at the call site — typed boundary, no `any`.
+ * `back_url`, no `free_trial`, no `status`), even though the API documents
+ * and accepts `notification_url`, `back_url`, `free_trial` and `status`. We
+ * mirror the documented shape here and feed the SDK via an `as unknown as`
+ * cast at the call site — typed boundary, no `any`.
+ *
+ * `payer` is the one field in this type that is NOT confirmed in MP's
+ * `/preapproval` documentation: both official "subscription with no
+ * associated plan" cURL examples (pending and authorized) send only the flat
+ * `payer_email` string, never a `payer` object — that object shape only
+ * appears in unrelated endpoints (`/v1/payments`, Checkout Bricks, Orders
+ * API). MP is not known to reject unrecognized fields, so sending it is
+ * likely harmless, but its presence here should not be read as verified
+ * against `/preapproval`'s own docs.
  */
 type PreApprovalCreateBody = {
     payer_email: string;
@@ -227,7 +257,8 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
     private buildCreateBody(providerInput: QZPayProviderCreateSubscriptionInput): PreApprovalCreateBody {
         const payerEmail = sanitizeEmail(providerInput.customer.email);
         const billingInterval = providerInput.input.billingInterval ?? 'monthly';
-        const reason = `${providerInput.plan.name} - ${billingInterval === 'annual' ? 'Anual' : 'Mensual'}`;
+        const intervalLabel = billingInterval === 'annual' ? 'Anual' : 'Mensual';
+        const reason = `${providerInput.plan.name} - ${intervalLabel}`;
 
         const body: PreApprovalCreateBody = {
             payer_email: payerEmail,
@@ -255,12 +286,42 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
         }
 
         // Ad-hoc fallback: no plan id resolved → build a direct preapproval with
-        // inline auto_recurring (legacy path).
+        // inline auto_recurring (legacy path). MP's "subscription with no
+        // associated plan" endpoint variant defaults to the `authorized` flow,
+        // which requires a `card_token_id` we do not have here (no hosted
+        // checkout collects one for this path) — MP replies 400 "card_token_id
+        // is required" without an explicit status. The documented way to get
+        // the no-card, pending-payment variant instead is to set
+        // `status: 'pending'` explicitly (MP docs, "Subscription with no
+        // associated plan / With pending payment"). Hardcoded here because this
+        // branch is the only flow this adapter builds without a plan id — there
+        // is no other status this fallback should ever request.
         const payerFirstName = this.resolveFirstName(providerInput);
         const payerLastName = providerInput.customer.lastName?.trim() || DEFAULT_LAST_NAME;
         const { intervalFrequency, intervalType } = this.toMercadoPagoInterval(providerInput.price);
         const freeTrial = this.buildFreeTrial(providerInput.input.freeTrialDays);
+        // `providerUnitAmountOverride` seeds the preapproval at an explicit
+        // amount instead of the resolved price row — the mechanism a
+        // discounted-signup checkout needs now that the discount can no
+        // longer be baked into a provider-side plan (see
+        // `QZPayCreateSubscriptionInput.providerUnitAmountOverride` JSDoc in
+        // qzpay-core). `0` is a valid, distinct override value, so presence
+        // is checked with `!== undefined`, NOT truthiness.
+        const unitAmount =
+            providerInput.providerUnitAmountOverride !== undefined ? providerInput.providerUnitAmountOverride : providerInput.price.amount;
+        // `planDisplayName` replaces the plan-name portion of `reason` — the
+        // text MP shows the buyer as the subscription title on its
+        // authorization screen. `plan.name` is frequently a machine-facing
+        // slug (many callers resolve plans by matching it), so without this
+        // override the buyer would see the slug verbatim. A blank/whitespace
+        // value is NOT an override (same rule as `providerPriceId` above) and
+        // falls back to the default `reason` already set on `body`.
+        const planDisplayName = providerInput.planDisplayName?.trim();
+        if (planDisplayName) {
+            body.reason = `${planDisplayName} - ${intervalLabel}`;
+        }
 
+        body.status = 'pending';
         body.payer = { email: payerEmail, first_name: payerFirstName, last_name: payerLastName };
         body.auto_recurring = {
             frequency: intervalFrequency,
@@ -269,8 +330,10 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
             // not the smallest currency unit. Internally qzpay carries
             // `unitAmount` in cents (per `price.types.ts:27` and the
             // sibling adapters at `payment.adapter.ts:76` and
-            // `price.adapter.ts:24`); divide by 100 to convert.
-            transaction_amount: providerInput.price.amount / 100,
+            // `price.adapter.ts:24`); divide by 100 to convert. Same
+            // conversion applies whether `unitAmount` came from the price row
+            // or from `providerUnitAmountOverride` — both are cents.
+            transaction_amount: unitAmount / 100,
             currency_id: providerInput.price.currency,
             ...(freeTrial !== undefined ? { free_trial: freeTrial } : {})
         };

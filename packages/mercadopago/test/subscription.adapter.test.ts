@@ -73,12 +73,153 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
                 reason: 'Pro Plan - Mensual',
                 back_url: 'https://app.example.com/billing/return',
                 notification_url: 'https://app.example.com/webhooks/mp',
+                status: 'pending',
                 auto_recurring: {
                     frequency: 1,
                     frequency_type: 'months',
                     transaction_amount: 1999.99,
                     currency_id: 'ARS'
                 }
+            });
+        });
+
+        // Regression: without an explicit `status: 'pending'`, MP's "subscription
+        // with no associated plan" endpoint defaults to the `authorized` flow and
+        // rejects the request with HTTP 400 "card_token_id is required" — this
+        // adapter never has a card token for this path (no hosted checkout
+        // collects one here). MP docs ("Subscription with no associated plan /
+        // With pending payment") require `status: 'pending'` explicitly to select
+        // the no-card variant instead.
+        it('sends status: "pending" in the ad-hoc fallback body, and no preapproval_plan_id', async () => {
+            mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+
+            await adapter.create(buildCreateInput());
+
+            const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+            expect(body?.status).toBe('pending');
+            expect(body).not.toHaveProperty('preapproval_plan_id');
+            expect(body?.auto_recurring).toBeDefined();
+        });
+
+        // A discounted-signup checkout needs to seed the ad-hoc preapproval at a
+        // discounted amount now that the discount can no longer be baked into a
+        // provider-side plan. `providerUnitAmountOverride` (cents, same
+        // convention as `price.amount`) is that mechanism.
+        describe('providerUnitAmountOverride (discounted-signup ad-hoc charge)', () => {
+            it('uses providerUnitAmountOverride for transaction_amount, converted from cents', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({
+                    // Full price is 199999 cents ($1999.99); the discounted
+                    // signup amount is 100000 cents ($1000.00).
+                    providerUnitAmountOverride: 100000
+                });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.auto_recurring.transaction_amount).toBe(1000);
+            });
+
+            it('REGRESSION: without providerUnitAmountOverride, falls back to price.amount (unchanged)', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+
+                await adapter.create(buildCreateInput());
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.auto_recurring.transaction_amount).toBe(1999.99);
+            });
+
+            it('a providerUnitAmountOverride of 0 is sent as 0, not confused with "absent"', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({ providerUnitAmountOverride: 0 });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.auto_recurring.transaction_amount).toBe(0);
+            });
+
+            it('has no effect on the plan-based flow: no auto_recurring at all, override or not', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({
+                    providerPriceId: 'plan_mp_abc',
+                    providerUnitAmountOverride: 100000
+                });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.preapproval_plan_id).toBe('plan_mp_abc');
+                expect(body?.auto_recurring).toBeUndefined();
+            });
+        });
+
+        // `plan.name` in this fixture ('Pro Plan') stands in for what is, in
+        // production, frequently a slug (e.g. 'owner-basico') — the buyer
+        // must never see that verbatim on MP's authorization screen.
+        // `planDisplayName` replaces just the plan-name portion of `reason`.
+        describe('planDisplayName (buyer-visible plan name override)', () => {
+            it('replaces the plan-name portion of reason, keeping the interval suffix', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({ planDisplayName: 'Plan Pro' });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.reason).toBe('Plan Pro - Mensual');
+            });
+
+            it('uses the Anual suffix with planDisplayName when billingInterval=annual', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({
+                    planDisplayName: 'Plan Pro',
+                    input: { customerId: 'c', planId: 'p', billingInterval: 'annual' }
+                });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.reason).toBe('Plan Pro - Anual');
+            });
+
+            it('REGRESSION: without planDisplayName, reason is built from plan.name (unchanged)', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+
+                await adapter.create(buildCreateInput());
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.reason).toBe('Pro Plan - Mensual');
+            });
+
+            // Core hoists planDisplayName with a plain truthy check (same as
+            // providerPriceId), so a whitespace-only string DOES reach this
+            // adapter — trimming it to "not an override" is this adapter's
+            // job, exactly like it already trims providerPriceId.
+            it('REGRESSION: a whitespace-only planDisplayName is not an override — falls back to plan.name', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({ planDisplayName: '   ' });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.reason).toBe('Pro Plan - Mensual');
+                // Never empty, and never starting with the bare suffix.
+                expect(body?.reason).not.toBe('');
+                expect(body?.reason?.startsWith(' - ')).toBe(false);
+            });
+
+            it('has no effect on the plan-based flow: reason keeps coming from plan.name', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({
+                    providerPriceId: 'plan_mp_abc',
+                    planDisplayName: 'Plan Pro'
+                });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.preapproval_plan_id).toBe('plan_mp_abc');
+                expect(body?.reason).toBe('Pro Plan - Mensual');
             });
         });
 
@@ -269,6 +410,21 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
             });
             expect(body?.auto_recurring).toBeUndefined();
             expect(body?.payer).toBeUndefined();
+        });
+
+        // Regression: `status: 'pending'` is scoped to the ad-hoc fallback only
+        // (see the `create` describe block above). The plan-based flow is MP's
+        // hosted-checkout "subscribe to existing plan" variant, documented as
+        // requiring `card_token_id` + `status: 'authorized'` — out of scope here
+        // and NOT to be touched; this pins that this branch keeps sending no
+        // `status` at all today, so a future change to either branch trips it.
+        it('does not send status on the plan-based flow', async () => {
+            mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+
+            await adapter.create(buildCreateInput({ providerPriceId: 'plan_mp_abc' }));
+
+            const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+            expect(body).not.toHaveProperty('status');
         });
 
         it('ignores inline freeTrialDays in the plan-based flow (trial lives in the plan)', async () => {
