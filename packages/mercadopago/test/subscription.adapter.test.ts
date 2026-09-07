@@ -154,6 +154,75 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
             });
         });
 
+        // `plan.name` in this fixture ('Pro Plan') stands in for what is, in
+        // production, frequently a slug (e.g. 'owner-basico') — the buyer
+        // must never see that verbatim on MP's authorization screen.
+        // `planDisplayName` replaces just the plan-name portion of `reason`.
+        describe('planDisplayName (buyer-visible plan name override)', () => {
+            it('replaces the plan-name portion of reason, keeping the interval suffix', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({ planDisplayName: 'Plan Pro' });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.reason).toBe('Plan Pro - Mensual');
+            });
+
+            it('uses the Anual suffix with planDisplayName when billingInterval=annual', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({
+                    planDisplayName: 'Plan Pro',
+                    input: { customerId: 'c', planId: 'p', billingInterval: 'annual' }
+                });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.reason).toBe('Plan Pro - Anual');
+            });
+
+            it('REGRESSION: without planDisplayName, reason is built from plan.name (unchanged)', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+
+                await adapter.create(buildCreateInput());
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.reason).toBe('Pro Plan - Mensual');
+            });
+
+            // Core hoists planDisplayName with a plain truthy check (same as
+            // providerPriceId), so a whitespace-only string DOES reach this
+            // adapter — trimming it to "not an override" is this adapter's
+            // job, exactly like it already trims providerPriceId.
+            it('REGRESSION: a whitespace-only planDisplayName is not an override — falls back to plan.name', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({ planDisplayName: '   ' });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.reason).toBe('Pro Plan - Mensual');
+                // Never empty, and never starting with the bare suffix.
+                expect(body?.reason).not.toBe('');
+                expect(body?.reason?.startsWith(' - ')).toBe(false);
+            });
+
+            it('has no effect on the plan-based flow: reason keeps coming from plan.name', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({
+                    providerPriceId: 'plan_mp_abc',
+                    planDisplayName: 'Plan Pro'
+                });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.preapproval_plan_id).toBe('plan_mp_abc');
+                expect(body?.reason).toBe('Pro Plan - Mensual');
+            });
+        });
+
         it('appends free_trial to auto_recurring when freeTrialDays is provided', async () => {
             mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
             const providerInput = buildCreateInput({
