@@ -19,7 +19,13 @@ import type {
  *    (HOS-191).
  * 2. **Ad-hoc fallback.** With no plan id, it builds a direct preapproval with
  *    inline `auto_recurring` (the legacy path, kept for non-plan providers and
- *    for callers that intentionally opt out of plans).
+ *    for callers that intentionally opt out of plans). This branch explicitly
+ *    sends `status: 'pending'` — MP's "subscription with no associated plan"
+ *    endpoint variant defaults to the `authorized` flow (which requires a
+ *    `card_token_id` this adapter never has, since no hosted checkout
+ *    collects one for this path) and answers HTTP 400 "card_token_id is
+ *    required" without it. `status: 'pending'` selects MP's documented
+ *    no-card variant instead.
  *
  * In both flows the preapproval is "pending" until the user authorizes on
  * `initPoint`; the caller persists `id` (as `mp_subscription_id`) and redirects.
@@ -32,9 +38,19 @@ import { sanitizeEmail } from '../utils/sanitize.utils.js';
 /**
  * Local type for the MercadoPago Preapproval create body. The official SDK
  * types under-specify the request (no `payer`, no `notification_url`, no
- * `back_url`, no `free_trial`), even though the API documents and accepts
- * them. We mirror the documented shape here and feed the SDK via an
- * `as unknown as` cast at the call site — typed boundary, no `any`.
+ * `back_url`, no `free_trial`, no `status`), even though the API documents
+ * and accepts `notification_url`, `back_url`, `free_trial` and `status`. We
+ * mirror the documented shape here and feed the SDK via an `as unknown as`
+ * cast at the call site — typed boundary, no `any`.
+ *
+ * `payer` is the one field in this type that is NOT confirmed in MP's
+ * `/preapproval` documentation: both official "subscription with no
+ * associated plan" cURL examples (pending and authorized) send only the flat
+ * `payer_email` string, never a `payer` object — that object shape only
+ * appears in unrelated endpoints (`/v1/payments`, Checkout Bricks, Orders
+ * API). MP is not known to reject unrecognized fields, so sending it is
+ * likely harmless, but its presence here should not be read as verified
+ * against `/preapproval`'s own docs.
  */
 type PreApprovalCreateBody = {
     payer_email: string;
@@ -255,12 +271,22 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
         }
 
         // Ad-hoc fallback: no plan id resolved → build a direct preapproval with
-        // inline auto_recurring (legacy path).
+        // inline auto_recurring (legacy path). MP's "subscription with no
+        // associated plan" endpoint variant defaults to the `authorized` flow,
+        // which requires a `card_token_id` we do not have here (no hosted
+        // checkout collects one for this path) — MP replies 400 "card_token_id
+        // is required" without an explicit status. The documented way to get
+        // the no-card, pending-payment variant instead is to set
+        // `status: 'pending'` explicitly (MP docs, "Subscription with no
+        // associated plan / With pending payment"). Hardcoded here because this
+        // branch is the only flow this adapter builds without a plan id — there
+        // is no other status this fallback should ever request.
         const payerFirstName = this.resolveFirstName(providerInput);
         const payerLastName = providerInput.customer.lastName?.trim() || DEFAULT_LAST_NAME;
         const { intervalFrequency, intervalType } = this.toMercadoPagoInterval(providerInput.price);
         const freeTrial = this.buildFreeTrial(providerInput.input.freeTrialDays);
 
+        body.status = 'pending';
         body.payer = { email: payerEmail, first_name: payerFirstName, last_name: payerLastName };
         body.auto_recurring = {
             frequency: intervalFrequency,
