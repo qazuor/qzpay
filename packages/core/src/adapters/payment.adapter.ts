@@ -134,6 +134,25 @@ export interface QZPayProviderCreateSubscriptionInput {
      * amount on that request for it to override.
      */
     readonly providerUnitAmountOverride?: number;
+    /**
+     * Presentable plan name override, resolved from `input.planDisplayName`
+     * when present (see
+     * {@link QZPayCreateSubscriptionInput.planDisplayName} for the full
+     * rationale — `plan.name` is frequently a machine-facing slug, and an
+     * adapter that builds a buyer-visible description straight from it
+     * (e.g. MercadoPago's `reason`) would otherwise show that slug verbatim
+     * to the person paying).
+     *
+     * This is TEXT THE BUYER SEES in the provider's own payment UI — treat
+     * it accordingly (no slugs, no internal identifiers).
+     *
+     * A blank/whitespace-only value is NOT an override; adapters MUST trim
+     * and check for a non-empty result before using it, exactly as they
+     * already do for {@link providerPriceId}. Applies only to flows that
+     * build their own presentation string (no provider-side plan); ignored
+     * by plan-based flows.
+     */
+    readonly planDisplayName?: string;
     /** Original `billing.subscriptions.create()` input, forwarded for metadata/quantity/mode-specific fields. */
     readonly input: QZPayCreateSubscriptionInput;
     /**

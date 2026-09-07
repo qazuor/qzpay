@@ -155,6 +155,17 @@ export interface QZPayCreateSubscriptionServiceInput {
      */
     providerUnitAmountOverride?: number;
     /**
+     * Presentable plan name to show the payer in the provider's own payment
+     * UI, overriding the plan-name portion of a buyer-visible description an
+     * adapter builds from `plan.name` (which is frequently a machine-facing
+     * slug). Text the buyer sees — no slugs, no internal identifiers. Applies
+     * only to ad-hoc provider flows; ignored by plan-based flows. A
+     * blank/whitespace value is not an override. Omit to fall back to
+     * `plan.name` exactly as before (backwards compatible). See
+     * {@link QZPayCreateSubscriptionInput.planDisplayName}.
+     */
+    planDisplayName?: string;
+    /**
      * Email of the PAYER declared to the provider for this subscription's
      * recurring charge (e.g. MercadoPago preapproval `payer_email`), when it
      * differs from the customer's contact email. Takes precedence over
@@ -1528,6 +1539,14 @@ class QZPayBillingImpl implements QZPayBilling {
                     // must not collapse into "absent". See
                     // `QZPayCreateSubscriptionInput.providerUnitAmountOverride` JSDoc.
                     const providerUnitAmountOverride = input.providerUnitAmountOverride;
+                    // `input.planDisplayName` overrides the plan-name portion of
+                    // whatever buyer-visible description an ad-hoc flow builds
+                    // (`plan.name` is frequently a machine-facing slug, not a
+                    // human label). A blank/whitespace value is treated as
+                    // absent — same truthy-check rule as `providerPriceId`
+                    // above — and falls back to `plan.name` exactly as before.
+                    // See `QZPayCreateSubscriptionInput.planDisplayName` JSDoc.
+                    const planDisplayName = input.planDisplayName;
                     // `input.payerEmail` overrides the provider-facing payer identity
                     // only — it never touches the stored customer record. Falls back
                     // to `customer.email` exactly as before when omitted (backwards
@@ -1552,6 +1571,7 @@ class QZPayBillingImpl implements QZPayBilling {
                         idempotencyKey: subscription.id,
                         ...(providerPriceId ? { providerPriceId } : {}),
                         ...(providerUnitAmountOverride !== undefined ? { providerUnitAmountOverride } : {}),
+                        ...(planDisplayName ? { planDisplayName } : {}),
                         ...(input.paymentMethodReturnUrl ? { backUrl: input.paymentMethodReturnUrl } : {}),
                         ...(input.notificationUrl ? { notificationUrl: input.notificationUrl } : {})
                     };

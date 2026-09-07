@@ -213,6 +213,39 @@ export interface QZPayCreateSubscriptionInput {
      */
     providerUnitAmountOverride?: number;
     /**
+     * Presentable plan name to show the payer in the provider's own payment
+     * UI (e.g. MercadoPago's preapproval authorization screen, where it
+     * appears as the subscription's title), overriding the plan-name portion
+     * of whatever buyer-facing description an adapter builds from
+     * `plan.name`.
+     *
+     * This exists because `plan.name` is frequently a machine-facing slug —
+     * many callers already resolve plans by matching it — not a human label.
+     * An adapter that builds a buyer-visible description straight from
+     * `plan.name` (e.g. MercadoPago's `reason` field) would otherwise show
+     * that slug verbatim to the person paying. The caller resolves its own
+     * presentable name (e.g. from a `displayName` field on its plan record,
+     * with whatever fallback it prefers) and passes it here.
+     *
+     * This overrides ONLY the plan-name portion of the presentation string —
+     * any additional formatting an adapter applies around it (e.g.
+     * MercadoPago's own "<name> - Mensual"/"- Anual" suffix) is unaffected
+     * and stays the adapter's responsibility, not something this field
+     * replaces wholesale.
+     *
+     * A blank or whitespace-only string is NOT an override and falls back to
+     * `plan.name`, exactly like {@link providerPriceId} already does for the
+     * same reason — this field must never produce a buyer-facing string that
+     * is empty or starts with the interval suffix.
+     *
+     * Applies only to ad-hoc provider flows that build their own
+     * presentation string (no provider-side plan); ignored by plan-based
+     * flows, which keep sending whatever description they already send.
+     * When omitted, resolution falls back to `plan.name` exactly as before —
+     * fully backwards compatible.
+     */
+    planDisplayName?: string;
+    /**
      * Provider-side identifiers to persist alongside the new local
      * subscription. Keys are provider names (`'mercadopago'`, `'stripe'`,
      * etc.), values are the provider's subscription ID. Usually undefined
