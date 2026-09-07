@@ -25,7 +25,14 @@ import type {
  *    `card_token_id` this adapter never has, since no hosted checkout
  *    collects one for this path) and answers HTTP 400 "card_token_id is
  *    required" without it. `status: 'pending'` selects MP's documented
- *    no-card variant instead.
+ *    no-card variant instead. `auto_recurring.transaction_amount` here also
+ *    honors `providerInput.providerUnitAmountOverride` when present, falling
+ *    back to `providerInput.price.amount` otherwise — the way a
+ *    discounted-signup checkout seeds this flow's charge at a discounted
+ *    amount, now that there is no provider-side plan to provision at that
+ *    amount instead. `providerUnitAmountOverride` has no effect on the
+ *    plan-based flow above: MP derives the amount from the referenced plan,
+ *    and there is no amount field on that request for it to override.
  *
  * In both flows the preapproval is "pending" until the user authorizes on
  * `initPoint`; the caller persists `id` (as `mp_subscription_id`) and redirects.
@@ -285,6 +292,15 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
         const payerLastName = providerInput.customer.lastName?.trim() || DEFAULT_LAST_NAME;
         const { intervalFrequency, intervalType } = this.toMercadoPagoInterval(providerInput.price);
         const freeTrial = this.buildFreeTrial(providerInput.input.freeTrialDays);
+        // `providerUnitAmountOverride` seeds the preapproval at an explicit
+        // amount instead of the resolved price row — the mechanism a
+        // discounted-signup checkout needs now that the discount can no
+        // longer be baked into a provider-side plan (see
+        // `QZPayCreateSubscriptionInput.providerUnitAmountOverride` JSDoc in
+        // qzpay-core). `0` is a valid, distinct override value, so presence
+        // is checked with `!== undefined`, NOT truthiness.
+        const unitAmount =
+            providerInput.providerUnitAmountOverride !== undefined ? providerInput.providerUnitAmountOverride : providerInput.price.amount;
 
         body.status = 'pending';
         body.payer = { email: payerEmail, first_name: payerFirstName, last_name: payerLastName };
@@ -295,8 +311,10 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
             // not the smallest currency unit. Internally qzpay carries
             // `unitAmount` in cents (per `price.types.ts:27` and the
             // sibling adapters at `payment.adapter.ts:76` and
-            // `price.adapter.ts:24`); divide by 100 to convert.
-            transaction_amount: providerInput.price.amount / 100,
+            // `price.adapter.ts:24`); divide by 100 to convert. Same
+            // conversion applies whether `unitAmount` came from the price row
+            // or from `providerUnitAmountOverride` — both are cents.
+            transaction_amount: unitAmount / 100,
             currency_id: providerInput.price.currency,
             ...(freeTrial !== undefined ? { free_trial: freeTrial } : {})
         };
