@@ -101,6 +101,59 @@ describe('QZPayMercadoPagoSubscriptionAdapter', () => {
             expect(body?.auto_recurring).toBeDefined();
         });
 
+        // A discounted-signup checkout needs to seed the ad-hoc preapproval at a
+        // discounted amount now that the discount can no longer be baked into a
+        // provider-side plan. `providerUnitAmountOverride` (cents, same
+        // convention as `price.amount`) is that mechanism.
+        describe('providerUnitAmountOverride (discounted-signup ad-hoc charge)', () => {
+            it('uses providerUnitAmountOverride for transaction_amount, converted from cents', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({
+                    // Full price is 199999 cents ($1999.99); the discounted
+                    // signup amount is 100000 cents ($1000.00).
+                    providerUnitAmountOverride: 100000
+                });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.auto_recurring.transaction_amount).toBe(1000);
+            });
+
+            it('REGRESSION: without providerUnitAmountOverride, falls back to price.amount (unchanged)', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+
+                await adapter.create(buildCreateInput());
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.auto_recurring.transaction_amount).toBe(1999.99);
+            });
+
+            it('a providerUnitAmountOverride of 0 is sent as 0, not confused with "absent"', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({ providerUnitAmountOverride: 0 });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.auto_recurring.transaction_amount).toBe(0);
+            });
+
+            it('has no effect on the plan-based flow: no auto_recurring at all, override or not', async () => {
+                mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
+                const providerInput = buildCreateInput({
+                    providerPriceId: 'plan_mp_abc',
+                    providerUnitAmountOverride: 100000
+                });
+
+                await adapter.create(providerInput);
+
+                const body = mockPreApprovalApi.create.mock.calls[0]?.[0]?.body;
+                expect(body?.preapproval_plan_id).toBe('plan_mp_abc');
+                expect(body?.auto_recurring).toBeUndefined();
+            });
+        });
+
         it('appends free_trial to auto_recurring when freeTrialDays is provided', async () => {
             mockPreApprovalApi.create.mockResolvedValue(createMockMPPreapproval());
             const providerInput = buildCreateInput({
