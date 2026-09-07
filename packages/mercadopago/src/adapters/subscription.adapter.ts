@@ -33,6 +33,13 @@ import type {
  *    amount instead. `providerUnitAmountOverride` has no effect on the
  *    plan-based flow above: MP derives the amount from the referenced plan,
  *    and there is no amount field on that request for it to override.
+ *    `reason` (the buyer-visible subscription title, shown on MP's
+ *    authorization screen) here also honors `providerInput.planDisplayName`
+ *    when present, replacing the plan-name portion of `reason` — needed
+ *    because a caller's `plan.name` is frequently a machine-facing slug, not
+ *    a human label. A blank/whitespace value is not treated as an override.
+ *    `planDisplayName` has no effect on the plan-based flow above, which
+ *    keeps sending the same `reason` it always has.
  *
  * In both flows the preapproval is "pending" until the user authorizes on
  * `initPoint`; the caller persists `id` (as `mp_subscription_id`) and redirects.
@@ -250,7 +257,8 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
     private buildCreateBody(providerInput: QZPayProviderCreateSubscriptionInput): PreApprovalCreateBody {
         const payerEmail = sanitizeEmail(providerInput.customer.email);
         const billingInterval = providerInput.input.billingInterval ?? 'monthly';
-        const reason = `${providerInput.plan.name} - ${billingInterval === 'annual' ? 'Anual' : 'Mensual'}`;
+        const intervalLabel = billingInterval === 'annual' ? 'Anual' : 'Mensual';
+        const reason = `${providerInput.plan.name} - ${intervalLabel}`;
 
         const body: PreApprovalCreateBody = {
             payer_email: payerEmail,
@@ -301,6 +309,17 @@ export class QZPayMercadoPagoSubscriptionAdapter implements QZPayPaymentSubscrip
         // is checked with `!== undefined`, NOT truthiness.
         const unitAmount =
             providerInput.providerUnitAmountOverride !== undefined ? providerInput.providerUnitAmountOverride : providerInput.price.amount;
+        // `planDisplayName` replaces the plan-name portion of `reason` — the
+        // text MP shows the buyer as the subscription title on its
+        // authorization screen. `plan.name` is frequently a machine-facing
+        // slug (many callers resolve plans by matching it), so without this
+        // override the buyer would see the slug verbatim. A blank/whitespace
+        // value is NOT an override (same rule as `providerPriceId` above) and
+        // falls back to the default `reason` already set on `body`.
+        const planDisplayName = providerInput.planDisplayName?.trim();
+        if (planDisplayName) {
+            body.reason = `${planDisplayName} - ${intervalLabel}`;
+        }
 
         body.status = 'pending';
         body.payer = { email: payerEmail, first_name: payerFirstName, last_name: payerLastName };
