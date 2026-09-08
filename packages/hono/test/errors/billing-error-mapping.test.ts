@@ -154,7 +154,7 @@ describe('Billing Routes Error Mapping', () => {
             const response = await routes.request('/billing/subscriptions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ customerId: 'cus_123', planId: 'plan_123' })
+                body: JSON.stringify({ customerId: 'cus_123', planId: 'plan_123', productDomain: 'test-domain' })
             });
             const data = await response.json();
 

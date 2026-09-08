@@ -43,6 +43,10 @@ export async function registerOwner(data: {
         subscription = await billing.subscriptions.create({
             customerId: customer.id,
             planId: planIds[data.planTier],
+            // The product line this subscription belongs to. Required, and
+            // distinct from the add-on domain below, so a read scoped to
+            // host plans never counts an add-on as one.
+            productDomain: 'accommodation',
             priceId,
             metadata: {
                 tier: data.planTier,
@@ -114,6 +118,7 @@ export async function changePlan(
     return billing.subscriptions.create({
         customerId,
         planId: planIds[newTier],
+        productDomain: 'accommodation',
         priceId: newPriceId,
         metadata: { tier: newTier, billingCycle }
     });
@@ -180,6 +185,10 @@ export async function subscribeToAddOn(customerId: string, addOn: HospedaAddOn):
     return billing.subscriptions.create({
         customerId,
         planId: '', // Will use price's plan
+        // An add-on is its own product line, not the plan's: filing it under
+        // `accommodation` would make it compete with the customer's real
+        // plan in any read scoped to that domain.
+        productDomain: 'addon',
         priceId,
         metadata: { type: 'addon', addonKey: addOn }
     });

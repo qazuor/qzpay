@@ -228,7 +228,8 @@ describe('Query Performance Benchmarks', () => {
                     });
                     await billing.subscriptions.create({
                         customerId: customer.id,
-                        planId
+                        planId,
+                        productDomain: 'test-domain'
                     });
                 },
                 30
@@ -249,7 +250,8 @@ describe('Query Performance Benchmarks', () => {
                 });
                 const subscription = await billing.subscriptions.create({
                     customerId: customer.id,
-                    planId
+                    planId,
+                    productDomain: 'test-domain'
                 });
                 subscriptionIds.push(subscription.id);
             }
@@ -271,7 +273,8 @@ describe('Query Performance Benchmarks', () => {
         it('should benchmark subscription status change', async () => {
             const subscription = await billing.subscriptions.create({
                 customerId,
-                planId
+                planId,
+                productDomain: 'test-domain'
             });
 
             let isPaused = false;
@@ -563,7 +566,8 @@ describe('Query Performance Benchmarks', () => {
                     // Create subscription
                     await billing.subscriptions.create({
                         customerId: customer.id,
-                        planId: plan.id
+                        planId: plan.id,
+                        productDomain: 'test-domain'
                     });
 
                     // Process payment

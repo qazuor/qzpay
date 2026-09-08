@@ -189,6 +189,7 @@ describe('E2E: Billing Flow', () => {
             const subscription = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'plan_basic',
+                productDomain: 'test-domain',
                 priceId: 'price_basic_monthly',
                 trialDays: 7
             });
@@ -207,7 +208,8 @@ describe('E2E: Billing Flow', () => {
 
             const subscription = await billing.subscriptions.create({
                 customerId: customer.id,
-                planId: 'plan_pro'
+                planId: 'plan_pro',
+                productDomain: 'test-domain'
             });
 
             // Pause
@@ -227,7 +229,8 @@ describe('E2E: Billing Flow', () => {
 
             const subscription = await billing.subscriptions.create({
                 customerId: customer.id,
-                planId: 'plan_basic'
+                planId: 'plan_basic',
+                productDomain: 'test-domain'
             });
 
             const canceled = await billing.subscriptions.cancel(subscription.id, {
@@ -246,12 +249,14 @@ describe('E2E: Billing Flow', () => {
 
             await billing.subscriptions.create({
                 customerId: customer.id,
-                planId: 'plan_basic'
+                planId: 'plan_basic',
+                productDomain: 'test-domain'
             });
 
             await billing.subscriptions.create({
                 customerId: customer.id,
-                planId: 'plan_pro'
+                planId: 'plan_pro',
+                productDomain: 'test-domain'
             });
 
             const subscriptions = await billing.subscriptions.getByCustomerId(customer.id);
@@ -418,7 +423,8 @@ describe('E2E: Billing Flow', () => {
 
             const subscription = await billing.subscriptions.create({
                 customerId: customer.id,
-                planId: 'plan_basic'
+                planId: 'plan_basic',
+                productDomain: 'test-domain'
             });
 
             await billing.subscriptions.cancel(subscription.id);
