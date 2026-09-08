@@ -338,6 +338,27 @@ export class QZPayMercadoPagoPaymentAdapter implements QZPayPaymentPaymentAdapte
         };
     }
 
+    /**
+     * Map the full `paymentApi.get()` shape to {@link QZPayProviderPayment}.
+     *
+     * `payerEmail` is mapped here and NOWHERE else on a read path, because a
+     * payment is the only MercadoPago object that reports it truthfully.
+     * `GET /preapproval/{id}` answers with the `payer_email` key **present and
+     * empty** — measured 2026-09-08 against the live sandbox on an `authorized`
+     * preapproval whose checkout had supplied a valid address, and whose own
+     * `payer_id` came back populated. So a consumer that needs to know which
+     * email actually paid has to read it off the payment; there is no other
+     * source.
+     *
+     * The `|| null` is deliberate and load-bearing. It collapses BOTH of
+     * MercadoPago's ways of saying "no email" — the key missing, and the key
+     * present as `''` — into one explicit `null`, and it always declares the
+     * key. An empty string forwarded verbatim is the dangerous shape: it is
+     * falsy, so it slips past every `if (payment.payerEmail)` guard silently
+     * (exactly how the sibling preapproval mapping loses it today), yet it is a
+     * `string`, so anything that type-checks first and persists later would
+     * store an address that is not one.
+     */
     private mapToProviderPayment(payment: Awaited<ReturnType<Payment['get']>>): QZPayProviderPayment {
         const status = this.mapStatus(payment.status ?? 'pending');
         const transactionAmount = payment.transaction_amount ?? 0;
@@ -348,7 +369,8 @@ export class QZPayMercadoPagoPaymentAdapter implements QZPayPaymentPaymentAdapte
             amount: Math.round(transactionAmount * 100), // Convert to cents
             ...mapRefundedAmount(payment.transaction_amount_refunded),
             currency: (payment.currency_id ?? 'USD').toUpperCase(),
-            metadata: this.extractMetadata(payment.metadata)
+            metadata: this.extractMetadata(payment.metadata),
+            payerEmail: payment.payer?.email || null
         };
     }
 

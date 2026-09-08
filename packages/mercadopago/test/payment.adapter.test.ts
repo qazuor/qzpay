@@ -279,7 +279,65 @@ describe('QZPayMercadoPagoPaymentAdapter', () => {
                 status: 'succeeded',
                 amount: 7550, // Rounded to cents
                 currency: 'ARS',
-                metadata: { order: '123' }
+                metadata: { order: '123' },
+                // `createMockMPPayment` supplies `payer.email` by default, and a
+                // payment is the ONLY MercadoPago object that reports it
+                // truthfully — see the `payerEmail` block below.
+                payerEmail: 'test@example.com'
+            });
+        });
+
+        // A payment is the only place MercadoPago tells us which email actually
+        // paid. `GET /preapproval/{id}` answers with the `payer_email` KEY
+        // PRESENT and set to an empty string, even on an authorized preapproval
+        // whose checkout supplied a perfectly good address (measured against the
+        // live sandbox, 2026-09-08). Dropping `payer.email` here therefore left
+        // consumers with no source at all for a confirmed payer email.
+        describe('payerEmail', () => {
+            it('maps payer.email so a consumer can record who actually paid', async () => {
+                mockPaymentApi.get.mockResolvedValue(
+                    createMockMPPayment({
+                        id: 12345,
+                        payer: { id: 'cus_mp_123', email: 'quien.pago@example.com' }
+                    })
+                );
+
+                const result = await adapter.retrieve('12345');
+
+                expect(result.payerEmail).toBe('quien.pago@example.com');
+            });
+
+            it('normalizes an empty payer.email to null rather than passing "" through', async () => {
+                // The whole point of the field. MercadoPago hands back `""`, not
+                // a missing key, so a consumer writing `if (payment.payerEmail)`
+                // must not be handed a falsy STRING it may later persist as if
+                // it were an address.
+                mockPaymentApi.get.mockResolvedValue(
+                    createMockMPPayment({
+                        id: 12345,
+                        payer: { id: 'cus_mp_123', email: '' }
+                    })
+                );
+
+                const result = await adapter.retrieve('12345');
+
+                expect(result.payerEmail).toBeNull();
+            });
+
+            it('reports null when the payment carries no payer at all', async () => {
+                mockPaymentApi.get.mockResolvedValue(createMockMPPayment({ id: 12345, payer: undefined }));
+
+                const result = await adapter.retrieve('12345');
+
+                expect(result.payerEmail).toBeNull();
+            });
+
+            it('always declares the key, so "absent" and "empty" are distinguishable in a log', async () => {
+                mockPaymentApi.get.mockResolvedValue(createMockMPPayment({ id: 12345, payer: undefined }));
+
+                const result = await adapter.retrieve('12345');
+
+                expect(Object.hasOwn(result, 'payerEmail')).toBe(true);
             });
         });
 
