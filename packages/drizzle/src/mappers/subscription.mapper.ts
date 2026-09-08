@@ -89,6 +89,11 @@ export function mapCoreSubscriptionCreateToDrizzle(
         trialEnd: defaults.trialEnd ?? null,
         promoCodeId: input.promoCodeId ?? null,
         metadata: input.metadata ?? {},
+        // Written unconditionally, with no `??` fallback: the column still
+        // carries a default today, and a fallback here would keep that default
+        // answering for callers instead of the caller answering for itself.
+        // Core rejects a blank value before this point.
+        productDomain: input.productDomain,
         livemode: defaults.livemode
     };
 

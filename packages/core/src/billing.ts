@@ -118,6 +118,15 @@ function buildRefundMetadata(params: {
 export interface QZPayCreateSubscriptionServiceInput {
     customerId: string;
     planId: string;
+    /**
+     * Product/business line this subscription belongs to. Free-form — QZPay
+     * defines no vocabulary — and REQUIRED, so that no product line can be
+     * filed under another by simply never being named. Blank and
+     * whitespace-only values are rejected rather than stored. See
+     * {@link QZPayCreateSubscriptionInput.productDomain} for the full
+     * rationale.
+     */
+    productDomain: string;
     priceId?: string;
     quantity?: number;
     trialDays?: number;
@@ -1456,6 +1465,17 @@ class QZPayBillingImpl implements QZPayBilling {
 
         return {
             create: async (input) => {
+                // A blank domain is an unstated one wearing a value. Reject it
+                // here rather than let the storage layer persist a row nothing
+                // can be scoped by — see `QZPayCreateSubscriptionInput
+                // .productDomain` for why the field is required at all.
+                if (typeof input.productDomain !== 'string' || input.productDomain.trim() === '') {
+                    throw new QZPayValidationError(
+                        'Cannot create subscription: `productDomain` is required and must be a non-empty string',
+                        'productDomain'
+                    );
+                }
+
                 // Plan/price lookup: check the in-memory config first, then fall back
                 // to storage when the plan is managed at runtime (admin tools, dynamic
                 // catalogs) instead of declared in the `config.plans` array. Mirrors
@@ -1482,7 +1502,12 @@ class QZPayBillingImpl implements QZPayBilling {
                 const createInput: Parameters<typeof storage.subscriptions.create>[0] = {
                     id: crypto.randomUUID(),
                     customerId: input.customerId,
-                    planId: input.planId
+                    planId: input.planId,
+                    // Never conditional, unlike the optional fields below: the
+                    // domain is the one value that must reach storage on every
+                    // creation, because there is nothing sane for storage to
+                    // infer when it is absent.
+                    productDomain: input.productDomain.trim()
                 };
                 if (input.quantity !== undefined) createInput.quantity = input.quantity;
                 if (input.metadata !== undefined) createInput.metadata = input.metadata;

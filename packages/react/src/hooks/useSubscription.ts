@@ -108,6 +108,14 @@ export function useSubscription(options: UseSubscriptionOptions = {}): UseSubscr
         async (input: {
             customerId: string;
             planId: string;
+            /**
+             * Product/business line the subscription belongs to. Required by
+             * `billing.subscriptions.create()` and forwarded verbatim — the
+             * hook does not pick a value on the caller's behalf, because a
+             * default here would be one product line answering for all of
+             * them.
+             */
+            productDomain: string;
             priceId?: string | undefined;
             quantity?: number | undefined;
             trialDays?: number | undefined;
@@ -122,6 +130,7 @@ export function useSubscription(options: UseSubscriptionOptions = {}): UseSubscr
                 const createInput = {
                     customerId: input.customerId,
                     planId: input.planId,
+                    productDomain: input.productDomain,
                     ...(input.priceId !== undefined && { priceId: input.priceId }),
                     ...(input.quantity !== undefined && { quantity: input.quantity }),
                     ...(input.trialDays !== undefined && { trialDays: input.trialDays }),

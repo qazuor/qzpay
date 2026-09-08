@@ -19,6 +19,16 @@ export class CreateSubscriptionDto {
     planId!: string;
 
     /**
+     * Product/business line this subscription belongs to. Free-form — QZPay
+     * defines no vocabulary — and required: a subscription that names no
+     * product line ends up filed under whichever one the storage layer
+     * defaults to.
+     */
+    @IsString()
+    @IsNotEmpty()
+    productDomain!: string;
+
+    /**
      * Specific price ID (optional, defaults to plan's default price)
      */
     @IsOptional()

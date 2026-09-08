@@ -103,6 +103,32 @@ export interface QZPayCreateSubscriptionInput {
     customerId: string;
     planId: string;
     /**
+     * Product/business line this subscription belongs to, persisted on the
+     * subscription record so the consuming application can scope its reads
+     * to one of its offerings.
+     *
+     * QZPay has no opinion on the value set: it is a free-form discriminator
+     * the consuming application defines and interprets. Storage adapters
+     * persist it verbatim (the drizzle adapter's column caps it at 32
+     * characters).
+     *
+     * **Required, and deliberately so.** An optional field here would be
+     * satisfied by omission, and an omitted domain has to become *some*
+     * value at the storage layer — which means one product line silently
+     * answering for every other. That is not hypothetical: it is the exact
+     * failure this field was made required to end, where an entire product
+     * line spent its whole existence filed under a neighbouring one because
+     * no caller ever named a domain and a column default answered for them
+     * all. A caller that genuinely has one product line states it once;
+     * a caller that has several can no longer forget which one it meant.
+     *
+     * Blank and whitespace-only strings are rejected at
+     * `billing.subscriptions.create()` rather than stored, since they would
+     * reintroduce exactly the unstated-domain row the requirement exists to
+     * prevent.
+     */
+    productDomain: string;
+    /**
      * Specific price within the plan to subscribe to. When omitted, the first
      * price of the plan is used. Required when the plan exposes multiple prices
      * (e.g. monthly + annual) and the caller wants to disambiguate.

@@ -33,6 +33,12 @@ export const CustomerBaseSchema = z.object({
 export const SubscriptionBaseSchema = z.object({
     customerId: z.string().min(1, 'Customer ID is required'),
     planId: z.string().min(1, 'Plan ID is required'),
+    // Free-form product/business line the subscription belongs to. Required
+    // here for the same reason it is required on the core input: an omitted
+    // domain does not stay omitted, it becomes whatever the storage layer
+    // defaults to. `UpdateSubscriptionSchema` derives from this schema via
+    // `.partial()`, so updates stay unaffected.
+    productDomain: z.string().min(1, 'Product domain is required'),
     priceId: z.string().optional(),
     quantity: z.number().int().positive().default(1),
     trialDays: z.number().int().nonnegative().optional(),
