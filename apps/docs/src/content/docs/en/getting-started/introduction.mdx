@@ -51,6 +51,7 @@ Every operation is fully typed with TypeScript:
 const subscription = await billing.subscriptions.create({
   customerId: customer.id,
   planId: 'pro-monthly',
+  productDomain: 'saas',
   metadata: {
     campaign: 'launch-2024'
   }

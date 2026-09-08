@@ -89,6 +89,7 @@ describe('SubscriptionService', () => {
     const subscription = await billing.subscriptions.create({
       customerId: customer.id,
       planId: 'price_test',
+      productDomain: 'saas',
       trialDays: 14
     });
 
@@ -119,7 +120,8 @@ describe('Event Handlers', () => {
 
     await billing.subscriptions.create({
       customerId: 'cus_test',
-      planId: 'price_test'
+      planId: 'price_test',
+      productDomain: 'saas'
     });
 
     expect(handler).toHaveBeenCalledWith(

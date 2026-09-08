@@ -177,7 +177,7 @@ export async function getCustomer(customerId: string) {
 
 // Subscription management
 export async function subscribeToPlan(customerId: string, planId: string) {
-  return billing.subscriptions.create({ customerId, planId });
+  return billing.subscriptions.create({ customerId, planId, productDomain: 'saas' });
 }
 
 export async function changePlan(subscriptionId: string, newPlanId: string) {

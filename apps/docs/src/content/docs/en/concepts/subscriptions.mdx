@@ -34,7 +34,8 @@ Subscriptions represent recurring billing relationships between customers and pl
 ```typescript
 const subscription = await billing.subscriptions.create({
   customerId: 'cus_123',
-  planId: 'price_pro_monthly'
+  planId: 'price_pro_monthly',
+  productDomain: 'saas'
 });
 ```
 
@@ -44,6 +45,7 @@ const subscription = await billing.subscriptions.create({
 const subscription = await billing.subscriptions.create({
   customerId: 'cus_123',
   planId: 'price_pro_monthly',
+  productDomain: 'saas',
   trialDays: 14
 });
 ```
@@ -54,6 +56,7 @@ const subscription = await billing.subscriptions.create({
 const subscription = await billing.subscriptions.create({
   customerId: 'cus_123',
   planId: 'price_pro_monthly',
+  productDomain: 'saas',
   promoCodeId: 'promo_launch50'
 });
 ```

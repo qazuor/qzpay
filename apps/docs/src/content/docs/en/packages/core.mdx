@@ -101,7 +101,8 @@ const result = await billing.customers.list({ limit: 10, offset: 0 });
 // Create subscription
 const subscription = await billing.subscriptions.create({
   customerId: customer.id,
-  planId: 'plan_pro'
+  planId: 'plan_pro',
+  productDomain: 'saas'
 });
 
 // Get subscription (returns QZPaySubscriptionWithHelpers)

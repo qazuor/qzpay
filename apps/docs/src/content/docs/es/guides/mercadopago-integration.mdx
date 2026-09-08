@@ -190,6 +190,7 @@ export async function subscribeCustomer(
   const subscription = await billing.subscriptions.create({
     customerId,
     planId,
+    productDomain: 'saas',
     paymentMethodToken: cardToken
   });
 

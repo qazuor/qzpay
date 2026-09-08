@@ -68,6 +68,7 @@ const customer = await billing.customers.create({
 // Crear una suscripción
 const subscription = await billing.subscriptions.create({
   customerId: customer.id,
-  planId: 'pro-monthly'
+  planId: 'pro-monthly',
+  productDomain: 'saas'
 });
 ```

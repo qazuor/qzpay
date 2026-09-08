@@ -356,7 +356,8 @@ for (const subscription of legacySubscriptions) {
   const newCustomerId = idMapping.get(subscription.customer_id);
   await billing.subscriptions.create({
     customerId: newCustomerId!,
-    planId: mapPlanId(subscription.plan_id)
+    planId: mapPlanId(subscription.plan_id),
+    productDomain: 'saas'
   });
 }
 ```

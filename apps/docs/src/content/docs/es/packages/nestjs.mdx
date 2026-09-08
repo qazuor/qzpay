@@ -94,7 +94,8 @@ export class SubscriptionService {
 
     return this.qzpay.subscriptions.create({
       customerId: customer.id,
-      planId
+      planId,
+      productDomain: 'saas'
     });
   }
 }
