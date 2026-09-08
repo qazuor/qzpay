@@ -335,6 +335,28 @@ export interface QZPayProviderPayment {
      */
     refundedAmount?: number;
     metadata: Record<string, string>;
+    /**
+     * The email of the account that actually paid, as the provider reports it
+     * on the payment itself.
+     *
+     * `null` means the provider did not give one — either it omitted the field
+     * or it returned it empty. Adapters MUST collapse both of those into `null`
+     * and MUST NOT forward an empty string: `''` is falsy, so it slips past a
+     * consumer's `if (payment.payerEmail)` unnoticed, yet it is still a
+     * `string`, so code that type-checks before it validates would happily
+     * persist a non-address as if it were one.
+     *
+     * Why a consumer would want it: on a subscription, the email that
+     * authorized the recurring charge is not necessarily the account's own
+     * signup address, and the payment is often the ONLY place the provider
+     * states it. MercadoPago is the motivating case — `GET /preapproval/{id}`
+     * returns `payer_email` present and empty even for an authorized
+     * preapproval created with a valid address, so the preapproval cannot be
+     * used as a source and the payment must be.
+     *
+     * Adapters whose provider does not expose it at all leave it `undefined`.
+     */
+    payerEmail?: string | null;
     clientSecret?: string;
     nextAction?: {
         type: string;
