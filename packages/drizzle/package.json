@@ -1,6 +1,6 @@
 {
     "name": "@qazuor/qzpay-drizzle",
-    "version": "2.1.2",
+    "version": "3.0.0",
     "description": "Drizzle ORM storage adapter for QZPay billing library",
     "type": "module",
     "main": "./dist/index.cjs",
