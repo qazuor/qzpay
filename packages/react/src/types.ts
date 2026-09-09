@@ -128,6 +128,12 @@ export interface UseSubscriptionReturn extends QZPayAsyncState<QZPaySubscription
     create: (input: {
         customerId: string;
         planId: string;
+        /**
+         * Product/business line the subscription belongs to. Required and
+         * forwarded verbatim; the hook picks no default, since a default is
+         * one product line answering for every other.
+         */
+        productDomain: string;
         priceId?: string | undefined;
         quantity?: number | undefined;
         trialDays?: number | undefined;

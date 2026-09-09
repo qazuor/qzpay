@@ -763,7 +763,8 @@ describe('billing.subscriptions', () => {
 
         const subscription = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'pro'
+            planId: 'pro',
+            productDomain: 'test-domain'
         });
 
         expect(subscription.id).toBeDefined();
@@ -780,7 +781,8 @@ describe('billing.subscriptions', () => {
         billing.on('subscription.created', handler);
         await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'pro'
+            planId: 'pro',
+            productDomain: 'test-domain'
         });
 
         expect(handler).toHaveBeenCalledWith(
@@ -797,7 +799,8 @@ describe('billing.subscriptions', () => {
 
         const created = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'pro'
+            planId: 'pro',
+            productDomain: 'test-domain'
         });
         const subscription = await billing.subscriptions.get(created.id);
 
@@ -809,8 +812,8 @@ describe('billing.subscriptions', () => {
         const storage = createMockStorage();
         const billing = createQZPayBilling({ storage, plans: mockPlans });
 
-        await billing.subscriptions.create({ customerId: 'cus_123', planId: 'pro' });
-        await billing.subscriptions.create({ customerId: 'cus_123', planId: 'free' });
+        await billing.subscriptions.create({ customerId: 'cus_123', planId: 'pro', productDomain: 'test-domain' });
+        await billing.subscriptions.create({ customerId: 'cus_123', planId: 'free', productDomain: 'test-domain' });
 
         const subscriptions = await billing.subscriptions.getByCustomerId('cus_123');
         expect(subscriptions).toHaveLength(2);
@@ -823,7 +826,8 @@ describe('billing.subscriptions', () => {
 
         const created = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'free'
+            planId: 'free',
+            productDomain: 'test-domain'
         });
 
         billing.on('subscription.updated', handler);
@@ -842,7 +846,8 @@ describe('billing.subscriptions', () => {
 
         const created = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'pro'
+            planId: 'pro',
+            productDomain: 'test-domain'
         });
 
         billing.on('subscription.canceled', handler);
@@ -859,7 +864,8 @@ describe('billing.subscriptions', () => {
 
         const created = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'pro'
+            planId: 'pro',
+            productDomain: 'test-domain'
         });
 
         const canceled = await billing.subscriptions.cancel(created.id, {
@@ -877,7 +883,8 @@ describe('billing.subscriptions', () => {
 
         const created = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'pro'
+            planId: 'pro',
+            productDomain: 'test-domain'
         });
 
         billing.on('subscription.paused', handler);
@@ -894,7 +901,8 @@ describe('billing.subscriptions', () => {
 
         const created = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'pro'
+            planId: 'pro',
+            productDomain: 'test-domain'
         });
         await billing.subscriptions.pause(created.id);
 
@@ -940,7 +948,7 @@ describe('billing.subscriptions', () => {
         billing: any,
         storage: QZPayStorageAdapter
     ) {
-        const created = await billing.subscriptions.create({ customerId: 'cus_123', planId: 'pro' });
+        const created = await billing.subscriptions.create({ customerId: 'cus_123', planId: 'pro', productDomain: 'test-domain' });
         await storage.subscriptions.update(created.id, {
             providerSubscriptionIds: { mercadopago: 'mp_pre_1' }
             // biome-ignore lint/suspicious/noExplicitAny: mock storage update accepts the extra field
@@ -956,7 +964,8 @@ describe('billing.subscriptions', () => {
 
         const created = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'pro'
+            planId: 'pro',
+            productDomain: 'test-domain'
         });
         // Soft-cancel: status stays active, canceledAt is stamped.
         const canceled = await billing.subscriptions.cancel(created.id, {
@@ -980,7 +989,8 @@ describe('billing.subscriptions', () => {
 
         const created = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'pro'
+            planId: 'pro',
+            productDomain: 'test-domain'
         });
         // Force a trialing status, then soft-cancel it.
         await billing.subscriptions.update(created.id, { status: 'trialing' });
@@ -1004,7 +1014,7 @@ describe('billing.subscriptions', () => {
         const { paymentAdapter, subscriptions } = makeUncancelAdapter();
         const billing = createQZPayBilling({ storage, plans: mockPlans, paymentAdapter });
 
-        const created = await billing.subscriptions.create({ customerId: 'cus_123', planId: 'pro' });
+        const created = await billing.subscriptions.create({ customerId: 'cus_123', planId: 'pro', productDomain: 'test-domain' });
         // Hard-cancel → status 'canceled'.
         await billing.subscriptions.cancel(created.id);
 
@@ -1024,7 +1034,7 @@ describe('billing.subscriptions', () => {
         const { paymentAdapter, subscriptions } = makeUncancelAdapter();
         const billing = createQZPayBilling({ storage, plans: mockPlans, paymentAdapter });
 
-        const created = await billing.subscriptions.create({ customerId: 'cus_123', planId: 'pro' });
+        const created = await billing.subscriptions.create({ customerId: 'cus_123', planId: 'pro', productDomain: 'test-domain' });
         await storage.subscriptions.update(created.id, {
             providerSubscriptionIds: { mercadopago: 'mp_pre_1' }
             // biome-ignore lint/suspicious/noExplicitAny: mock storage update accepts the extra field
@@ -1046,7 +1056,7 @@ describe('billing.subscriptions', () => {
         const { paymentAdapter, subscriptions } = makeUncancelAdapter();
         const billing = createQZPayBilling({ storage, plans: mockPlans, paymentAdapter });
 
-        const created = await billing.subscriptions.create({ customerId: 'cus_123', planId: 'pro' });
+        const created = await billing.subscriptions.create({ customerId: 'cus_123', planId: 'pro', productDomain: 'test-domain' });
         await storage.subscriptions.update(created.id, {
             providerSubscriptionIds: { mercadopago: 'mp_pre_1' }
             // biome-ignore lint/suspicious/noExplicitAny: mock storage update accepts the extra field
@@ -1114,8 +1124,8 @@ describe('billing.subscriptions', () => {
         const storage = createMockStorage();
         const billing = createQZPayBilling({ storage, plans: mockPlans });
 
-        await billing.subscriptions.create({ customerId: 'cus_1', planId: 'pro' });
-        await billing.subscriptions.create({ customerId: 'cus_2', planId: 'free' });
+        await billing.subscriptions.create({ customerId: 'cus_1', planId: 'pro', productDomain: 'test-domain' });
+        await billing.subscriptions.create({ customerId: 'cus_2', planId: 'free', productDomain: 'test-domain' });
 
         const result = await billing.subscriptions.list();
         expect(result.data).toHaveLength(2);
@@ -1176,7 +1186,8 @@ describe('billing.subscriptions', () => {
 
         const created = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'free'
+            planId: 'free',
+            productDomain: 'test-domain'
         });
 
         const result = await billing.subscriptions.changePlan(created.id, {
@@ -1246,7 +1257,8 @@ describe('billing.subscriptions', () => {
 
         const created = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'free'
+            planId: 'free',
+            productDomain: 'test-domain'
         });
 
         const result = await billing.subscriptions.changePlan(created.id, {
@@ -1303,7 +1315,8 @@ describe('billing.subscriptions', () => {
 
         const created = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'free'
+            planId: 'free',
+            productDomain: 'test-domain'
         });
 
         await expect(
@@ -1368,7 +1381,8 @@ describe('billing.subscriptions', () => {
 
         const created = await billing.subscriptions.create({
             customerId: 'cus_123',
-            planId: 'free'
+            planId: 'free',
+            productDomain: 'test-domain'
         });
 
         const result = await billing.subscriptions.changePlan(created.id, {
@@ -1467,7 +1481,7 @@ describe('billing.subscriptions', () => {
             });
             const customer = await seedCustomerWithProviderId(storage);
 
-            await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid' });
+            await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', productDomain: 'test-domain' });
 
             expect(subscriptionAdapter.create).not.toHaveBeenCalled();
         });
@@ -1489,7 +1503,12 @@ describe('billing.subscriptions', () => {
             });
             const customer = await seedCustomerWithProviderId(storage);
 
-            await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'trial' });
+            await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                productDomain: 'test-domain',
+                mode: 'trial'
+            });
 
             expect(subscriptionAdapter.create).not.toHaveBeenCalled();
         });
@@ -1526,6 +1545,7 @@ describe('billing.subscriptions', () => {
             const result = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid',
                 paymentMethodReturnUrl: 'https://app.example.com/return',
                 notificationUrl: 'https://app.example.com/wh'
@@ -1583,6 +1603,7 @@ describe('billing.subscriptions', () => {
             await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid',
                 // The runtime-resolved variant (e.g. MP no-trial preapproval_plan)
                 // must win over the price row's static 'mp_price_xyz'.
@@ -1627,7 +1648,12 @@ describe('billing.subscriptions', () => {
                 });
                 const customer = await seedCustomerWithProviderId(storage);
 
-                await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' });
+                await billing.subscriptions.create({
+                    customerId: customer.id,
+                    planId: 'pro-paid',
+                    productDomain: 'test-domain',
+                    mode: 'paid'
+                });
 
                 const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
                 expect(adapterCall.customer.email).toBe('jane.doe@example.com');
@@ -1646,6 +1672,7 @@ describe('billing.subscriptions', () => {
                 await billing.subscriptions.create({
                     customerId: customer.id,
                     planId: 'pro-paid',
+                    productDomain: 'test-domain',
                     mode: 'paid',
                     payerEmail: 'payer-account@example.com'
                 });
@@ -1670,6 +1697,7 @@ describe('billing.subscriptions', () => {
                 await billing.subscriptions.create({
                     customerId: customer.id,
                     planId: 'pro-paid',
+                    productDomain: 'test-domain',
                     mode: 'paid',
                     payerEmail: 'payer-account@example.com'
                 });
@@ -1713,7 +1741,12 @@ describe('billing.subscriptions', () => {
                 });
                 const customer = await seedCustomerWithProviderId(storage);
 
-                await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' });
+                await billing.subscriptions.create({
+                    customerId: customer.id,
+                    planId: 'pro-paid',
+                    productDomain: 'test-domain',
+                    mode: 'paid'
+                });
 
                 const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
                 expect(adapterCall).not.toHaveProperty('providerUnitAmountOverride');
@@ -1732,6 +1765,7 @@ describe('billing.subscriptions', () => {
                 await billing.subscriptions.create({
                     customerId: customer.id,
                     planId: 'pro-paid',
+                    productDomain: 'test-domain',
                     mode: 'paid',
                     // Discounted-signup amount, in cents — below the plan's
                     // full price (2999.99 major units == 299999 cents).
@@ -1755,6 +1789,7 @@ describe('billing.subscriptions', () => {
                 await billing.subscriptions.create({
                     customerId: customer.id,
                     planId: 'pro-paid',
+                    productDomain: 'test-domain',
                     mode: 'paid',
                     providerUnitAmountOverride: 0
                 });
@@ -1799,7 +1834,12 @@ describe('billing.subscriptions', () => {
                 });
                 const customer = await seedCustomerWithProviderId(storage);
 
-                await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' });
+                await billing.subscriptions.create({
+                    customerId: customer.id,
+                    planId: 'pro-paid',
+                    productDomain: 'test-domain',
+                    mode: 'paid'
+                });
 
                 const adapterCall = subscriptionAdapter.create.mock.calls[0]?.[0];
                 expect(adapterCall).not.toHaveProperty('planDisplayName');
@@ -1818,6 +1858,7 @@ describe('billing.subscriptions', () => {
                 await billing.subscriptions.create({
                     customerId: customer.id,
                     planId: 'pro-paid',
+                    productDomain: 'test-domain',
                     mode: 'paid',
                     // `plan.name` for this fixture is the slug 'Pro Plan' —
                     // a caller resolving a nicer presentable label passes it here.
@@ -1849,6 +1890,7 @@ describe('billing.subscriptions', () => {
                 await billing.subscriptions.create({
                     customerId: customer.id,
                     planId: 'pro-paid',
+                    productDomain: 'test-domain',
                     mode: 'paid',
                     planDisplayName: ''
                 });
@@ -1878,9 +1920,9 @@ describe('billing.subscriptions', () => {
             });
             const customer = await seedCustomerWithProviderId(storage);
 
-            await expect(billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' })).rejects.toThrow(
-                'MP refused'
-            );
+            await expect(
+                billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', productDomain: 'test-domain', mode: 'paid' })
+            ).rejects.toThrow('MP refused');
 
             // storage.subscriptions.delete called with the rolled-back ID
             expect(storage.subscriptions.delete).toHaveBeenCalled();
@@ -1909,6 +1951,7 @@ describe('billing.subscriptions', () => {
             const result = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid'
             });
 
@@ -1977,7 +2020,14 @@ describe('billing.subscriptions', () => {
                 });
                 const customer = await seedCustomerWithProviderId(storage);
 
-                await expect(billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' })).rejects.toThrow();
+                await expect(
+                    billing.subscriptions.create({
+                        customerId: customer.id,
+                        planId: 'pro-paid',
+                        productDomain: 'test-domain',
+                        mode: 'paid'
+                    })
+                ).rejects.toThrow();
 
                 expect(subscriptionAdapter.cancel).toHaveBeenCalledWith('mp-preapproval-live-123', false);
             });
@@ -1997,10 +2047,12 @@ describe('billing.subscriptions', () => {
                 });
                 const customer = await seedCustomerWithProviderId(storage);
 
-                const error = await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' }).then(
-                    () => null,
-                    (e: unknown) => e
-                );
+                const error = await billing.subscriptions
+                    .create({ customerId: customer.id, planId: 'pro-paid', productDomain: 'test-domain', mode: 'paid' })
+                    .then(
+                        () => null,
+                        (e: unknown) => e
+                    );
 
                 expect(error).toBeInstanceOf(QZPayProviderSyncError);
                 const syncError = error as QZPayProviderSyncError;
@@ -2021,7 +2073,14 @@ describe('billing.subscriptions', () => {
                 });
                 const customer = await seedCustomerWithProviderId(storage);
 
-                await expect(billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' })).rejects.toThrow();
+                await expect(
+                    billing.subscriptions.create({
+                        customerId: customer.id,
+                        planId: 'pro-paid',
+                        productDomain: 'test-domain',
+                        mode: 'paid'
+                    })
+                ).rejects.toThrow();
 
                 expect(storage.subscriptions.delete).toHaveBeenCalled();
             });
@@ -2048,9 +2107,14 @@ describe('billing.subscriptions', () => {
                 });
                 const customer = await seedCustomerWithProviderId(storage);
 
-                await expect(billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' })).rejects.toThrow(
-                    'MP refused'
-                );
+                await expect(
+                    billing.subscriptions.create({
+                        customerId: customer.id,
+                        planId: 'pro-paid',
+                        productDomain: 'test-domain',
+                        mode: 'paid'
+                    })
+                ).rejects.toThrow('MP refused');
 
                 expect(subscriptionAdapter.cancel).not.toHaveBeenCalled();
             });
@@ -2087,7 +2151,12 @@ describe('billing.subscriptions', () => {
                 const customer = await seedCustomerWithProviderId(storage);
 
                 await expect(
-                    billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' })
+                    billing.subscriptions.create({
+                        customerId: customer.id,
+                        planId: 'pro-paid',
+                        productDomain: 'test-domain',
+                        mode: 'paid'
+                    })
                 ).resolves.toBeDefined();
 
                 expect(subscriptionAdapter.cancel).not.toHaveBeenCalled();
@@ -2132,6 +2201,7 @@ describe('billing.subscriptions', () => {
             const result = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid'
             });
 
@@ -2169,9 +2239,9 @@ describe('billing.subscriptions', () => {
             });
             const customer = await seedCustomerWithProviderId(storage);
 
-            await expect(billing.subscriptions.create({ customerId: customer.id, planId: 'no-price', mode: 'paid' })).rejects.toThrow(
-                'plan'
-            );
+            await expect(
+                billing.subscriptions.create({ customerId: customer.id, planId: 'no-price', productDomain: 'test-domain', mode: 'paid' })
+            ).rejects.toThrow('plan');
             expect(subscriptionAdapter.create).not.toHaveBeenCalled();
         });
 
@@ -2249,6 +2319,7 @@ describe('billing.subscriptions', () => {
             const result = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'storage-plan',
+                productDomain: 'test-domain',
                 mode: 'paid'
             });
 
@@ -2321,6 +2392,7 @@ describe('billing.subscriptions', () => {
             await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid'
             });
 
@@ -2367,6 +2439,7 @@ describe('billing.subscriptions', () => {
             const result = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid'
             });
 
@@ -2410,8 +2483,18 @@ describe('billing.subscriptions', () => {
             });
             const customer = await seedCustomerWithProviderId(storage);
 
-            const first = await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' });
-            const second = await billing.subscriptions.create({ customerId: customer.id, planId: 'pro-paid', mode: 'paid' });
+            const first = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                productDomain: 'test-domain',
+                mode: 'paid'
+            });
+            const second = await billing.subscriptions.create({
+                customerId: customer.id,
+                planId: 'pro-paid',
+                productDomain: 'test-domain',
+                mode: 'paid'
+            });
 
             expect(first.id).not.toBe(second.id);
             expect(subscriptionAdapter.create).toHaveBeenCalledTimes(2);
@@ -2451,6 +2534,7 @@ describe('billing.subscriptions', () => {
             const created = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid'
             });
 
@@ -2489,6 +2573,7 @@ describe('billing.subscriptions', () => {
             const created = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid'
             });
 
@@ -2517,7 +2602,8 @@ describe('billing.subscriptions', () => {
             // Default (non-paid) create does not wire a provider subscription id.
             const created = await billing.subscriptions.create({
                 customerId: customer.id,
-                planId: 'pro-paid'
+                planId: 'pro-paid',
+                productDomain: 'test-domain'
             });
 
             const paused = await billing.subscriptions.pause(created.id);
@@ -2557,6 +2643,7 @@ describe('billing.subscriptions', () => {
             const created = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid'
             });
 
@@ -2597,6 +2684,7 @@ describe('billing.subscriptions', () => {
             const created = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid'
             });
 
@@ -2636,6 +2724,7 @@ describe('billing.subscriptions', () => {
             const created = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid'
             });
 
@@ -2666,7 +2755,8 @@ describe('billing.subscriptions', () => {
             // Default (non-paid) create does not wire a provider subscription id.
             const created = await billing.subscriptions.create({
                 customerId: customer.id,
-                planId: 'pro-paid'
+                planId: 'pro-paid',
+                productDomain: 'test-domain'
             });
 
             const canceled = await billing.subscriptions.cancel(created.id);
@@ -2706,6 +2796,7 @@ describe('billing.subscriptions', () => {
             const created = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid'
             });
 
@@ -2749,6 +2840,7 @@ describe('billing.subscriptions', () => {
             const created = await billing.subscriptions.create({
                 customerId: customer.id,
                 planId: 'pro-paid',
+                productDomain: 'test-domain',
                 mode: 'paid'
             });
 
@@ -2760,7 +2852,7 @@ describe('billing.subscriptions', () => {
         it('writes the provider subscription ID to the local record', async () => {
             const storage = createMockStorage();
             const billing = createQZPayBilling({ storage, plans: mockPlans });
-            const created = await billing.subscriptions.create({ customerId: 'cus_link', planId: 'pro' });
+            const created = await billing.subscriptions.create({ customerId: 'cus_link', planId: 'pro', productDomain: 'test-domain' });
 
             const linked = await billing.subscriptions.linkProviderId({
                 localSubscriptionId: created.id,
@@ -2774,7 +2866,7 @@ describe('billing.subscriptions', () => {
         it('works for any provider key (forward compat)', async () => {
             const storage = createMockStorage();
             const billing = createQZPayBilling({ storage, plans: mockPlans });
-            const created = await billing.subscriptions.create({ customerId: 'cus_link', planId: 'pro' });
+            const created = await billing.subscriptions.create({ customerId: 'cus_link', planId: 'pro', productDomain: 'test-domain' });
 
             const linked = await billing.subscriptions.linkProviderId({
                 localSubscriptionId: created.id,
@@ -2788,7 +2880,7 @@ describe('billing.subscriptions', () => {
         it('emits subscription.linked', async () => {
             const storage = createMockStorage();
             const billing = createQZPayBilling({ storage, plans: mockPlans });
-            const created = await billing.subscriptions.create({ customerId: 'cus_link', planId: 'pro' });
+            const created = await billing.subscriptions.create({ customerId: 'cus_link', planId: 'pro', productDomain: 'test-domain' });
             const handler = vi.fn();
             billing.on('subscription.linked', handler);
 

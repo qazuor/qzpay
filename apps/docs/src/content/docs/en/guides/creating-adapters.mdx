@@ -155,7 +155,7 @@ interface PaymentProvider {
 
      async create(input: CreateSubscriptionInput): Promise<Subscription> {
        const response = await this.client.subscriptions.create({
-         plan_id: input.planId,
+         plan_id: input.planId, productDomain: 'saas',
          subscriber: {
            email_address: input.customerEmail
          },

@@ -62,6 +62,10 @@ export async function registerOrganization(data: {
         subscription = await billing.subscriptions.create({
             customerId: customer.id,
             planId: planIds[data.planTier],
+            // The product line this subscription belongs to. Required, and
+            // distinct from the add-on domain below, so a query scoped to
+            // real plans never counts an add-on as one.
+            productDomain: 'assistance',
             priceId,
             metadata: { tier: data.planTier, billingCycle: data.billingCycle || 'monthly' }
         });
@@ -149,6 +153,7 @@ export async function changePlan(
     return billing.subscriptions.create({
         customerId,
         planId: planIds[newTier],
+        productDomain: 'assistance',
         priceId: newPriceId,
         metadata: { tier: newTier, billingCycle }
     });
@@ -214,6 +219,10 @@ export async function subscribeToAddOn(customerId: string, addOn: AsistiaAddOn):
     return billing.subscriptions.create({
         customerId,
         planId: '',
+        // An add-on is its own product line, not the plan's: filing it under
+        // `assistance` would make it compete with the customer's real plan
+        // in any read scoped to that domain.
+        productDomain: 'addon',
         priceId,
         metadata: { type: 'addon', addonKey: addOn }
     });

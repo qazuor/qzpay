@@ -27,6 +27,16 @@ import { OneTimePaymentModal } from './OneTimePaymentModal';
 import { PaymentModal, type PaymentResult } from './PaymentModal';
 
 /**
+ * Product domain every subscription the playground simulates belongs to.
+ *
+ * `billing.subscriptions.create()` requires the caller to name a product
+ * line, and the playground has exactly one: itself. Naming it once here is
+ * the single-product-line case the requirement is meant to be cheap for —
+ * the point is that the value is *stated*, not that it is varied.
+ */
+const PLAYGROUND_PRODUCT_DOMAIN = 'playground';
+
+/**
  * Safely convert a value to Date
  * Handles both Date objects and ISO strings
  */
@@ -384,6 +394,7 @@ export function SubscriptionsView() {
                 await billing.subscriptions.create({
                     customerId: formData.customerId,
                     planId: selectedPrice.planId,
+                    productDomain: PLAYGROUND_PRODUCT_DOMAIN,
                     priceId: formData.priceId,
                     trialDays: selectedPrice.trialDays ?? undefined
                 });
@@ -437,6 +448,7 @@ export function SubscriptionsView() {
                     await billing.subscriptions.create({
                         customerId: pendingSubscription.customerId,
                         planId: pendingSubscription.planId,
+                        productDomain: PLAYGROUND_PRODUCT_DOMAIN,
                         priceId: pendingSubscription.priceId,
                         trialDays: pendingSubscription.trialDays,
                         metadata: {
@@ -466,6 +478,7 @@ export function SubscriptionsView() {
                     await billing.subscriptions.create({
                         customerId: pendingSubscription.customerId,
                         planId: pendingSubscription.planId,
+                        productDomain: PLAYGROUND_PRODUCT_DOMAIN,
                         priceId: pendingSubscription.priceId,
                         metadata: {
                             firstPaymentId: result.paymentId,

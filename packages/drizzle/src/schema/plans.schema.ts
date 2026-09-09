@@ -34,6 +34,13 @@ export const billingPlans = pgTable(
          * value set; the consuming application defines and interprets its
          * own domain values, e.g. to exclude plans in one domain from a
          * public listing scoped to another.
+         *
+         * **The `.default()` is deprecated and scheduled for removal**, for
+         * the reasons spelled out on `billingSubscriptions.productDomain`:
+         * it names one specific application's product line inside a generic
+         * payments package, and a plan that omits the column is not filed
+         * under "no domain" — it is filed under that one. Every plan write
+         * must state its own domain.
          */
         productDomain: varchar('product_domain', { length: 32 }).notNull().default('accommodation'),
         livemode: boolean('livemode').notNull().default(true),

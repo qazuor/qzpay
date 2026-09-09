@@ -62,6 +62,11 @@ await billing.customers.delete('cus_123');
 const subscription = await billing.subscriptions.create({
   customerId: 'cus_123',
   priceId: 'price_123',
+  // Required. The product/business line this subscription belongs to —
+  // free-form, defined by your application, never by QZPay. An app with a
+  // single product line names it once; an app with several can no longer
+  // create a subscription without saying which one it meant.
+  productDomain: 'saas',
   trialDays: 14
 });
 

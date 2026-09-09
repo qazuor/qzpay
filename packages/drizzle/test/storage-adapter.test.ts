@@ -149,6 +149,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
             const created = await adapter.subscriptions.create({
                 customerId,
                 planId,
+                productDomain: 'test-domain',
                 status: 'active',
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -172,6 +173,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
             await adapter.subscriptions.create({
                 customerId,
                 planId,
+                productDomain: 'test-domain',
                 status: 'active',
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -190,6 +192,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
             const created = await adapter.subscriptions.create({
                 customerId,
                 planId,
+                productDomain: 'test-domain',
                 status: 'active',
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -211,6 +214,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
             const created = await adapter.subscriptions.create({
                 customerId,
                 planId,
+                productDomain: 'test-domain',
                 status: 'active',
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -228,6 +232,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
             const created = await adapter.subscriptions.create({
                 customerId,
                 planId,
+                productDomain: 'test-domain',
                 status: 'active',
                 billingInterval: 'month',
                 intervalCount: 1,
@@ -263,6 +268,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
             const created = await adapter.subscriptions.create({
                 customerId,
                 planId,
+                productDomain: 'test-domain',
                 status: 'active',
                 billingInterval: 'month',
                 intervalCount: 1,

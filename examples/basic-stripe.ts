@@ -57,6 +57,10 @@ async function main() {
     const subscription = await billing.subscriptions.create({
         customerId: customer.id,
         planId: plan.id,
+        // Required: the product/business line this subscription belongs to.
+        // QZPay defines no vocabulary for it — an app with a single product
+        // line, like this one, just names it once.
+        productDomain: 'saas',
         priceId: price.id
     });
     console.log('Subscription created:', subscription.id);

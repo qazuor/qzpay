@@ -40,7 +40,8 @@ export class QZPaySubscriptionsController {
     async create(@Body() dto: CreateSubscriptionDto) {
         const input: QZPayCreateSubscriptionServiceInput = {
             customerId: dto.customerId,
-            planId: dto.planId
+            planId: dto.planId,
+            productDomain: dto.productDomain
         };
         if (dto.priceId !== undefined) {
             input.priceId = dto.priceId;

@@ -212,6 +212,7 @@ const { data, total } = await storage.customers.list({ limit: 10, offset: 0 });
 const sub = await storage.subscriptions.create({
   customerId,
   planId: 'pro',
+  productDomain: 'saas',
   status: 'active'
 });
 
@@ -288,7 +289,8 @@ await storage.transaction(async (tx) => {
   // Crear suscripcion
   await tx.subscriptions.create({
     customerId: customer.id,
-    planId: 'pro'
+    planId: 'pro',
+    productDomain: 'saas'
   });
 
   // Si alguna operacion falla, todas se revierten

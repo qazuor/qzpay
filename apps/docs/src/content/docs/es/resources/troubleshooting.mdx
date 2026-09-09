@@ -120,7 +120,8 @@ const customer = await billing.customers.create({
 // Then create subscription with customer ID
 const subscription = await billing.subscriptions.create({
   customerId: customer.id,
-  planId: 'pro_monthly'
+  planId: 'pro_monthly',
+  productDomain: 'saas'
 });
 ```
 
@@ -193,7 +194,8 @@ if (!plan) {
 // Create with valid plan
 await billing.subscriptions.create({
   customerId,
-  planId: plan.id
+  planId: plan.id,
+  productDomain: 'saas'
 });
 ```
 

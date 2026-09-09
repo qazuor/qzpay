@@ -150,7 +150,8 @@ describe('Core + Drizzle Integration', () => {
         it('should create a subscription', async () => {
             const subscription = await billing.subscriptions.create({
                 customerId,
-                planId
+                planId,
+                productDomain: 'test-domain'
             });
 
             expect(subscription.id).toBeDefined();
@@ -163,6 +164,7 @@ describe('Core + Drizzle Integration', () => {
             const subscription = await billing.subscriptions.create({
                 customerId,
                 planId,
+                productDomain: 'test-domain',
                 trialDays: 14
             });
 
@@ -173,7 +175,8 @@ describe('Core + Drizzle Integration', () => {
         it('should get subscription by ID', async () => {
             const created = await billing.subscriptions.create({
                 customerId,
-                planId
+                planId,
+                productDomain: 'test-domain'
             });
 
             const fetched = await billing.subscriptions.get(created.id);
@@ -182,7 +185,7 @@ describe('Core + Drizzle Integration', () => {
         });
 
         it('should get subscriptions by customer ID', async () => {
-            await billing.subscriptions.create({ customerId, planId });
+            await billing.subscriptions.create({ customerId, planId, productDomain: 'test-domain' });
 
             const subscriptions = await billing.subscriptions.getByCustomerId(customerId);
             expect(subscriptions).toHaveLength(1);
@@ -192,7 +195,8 @@ describe('Core + Drizzle Integration', () => {
         it('should cancel a subscription', async () => {
             const subscription = await billing.subscriptions.create({
                 customerId,
-                planId
+                planId,
+                productDomain: 'test-domain'
             });
 
             const canceled = await billing.subscriptions.cancel(subscription.id);
@@ -202,7 +206,8 @@ describe('Core + Drizzle Integration', () => {
         it('should cancel subscription at period end', async () => {
             const subscription = await billing.subscriptions.create({
                 customerId,
-                planId
+                planId,
+                productDomain: 'test-domain'
             });
 
             const canceled = await billing.subscriptions.cancel(subscription.id, {
@@ -217,7 +222,8 @@ describe('Core + Drizzle Integration', () => {
         it('should pause and resume a subscription', async () => {
             const subscription = await billing.subscriptions.create({
                 customerId,
-                planId
+                planId,
+                productDomain: 'test-domain'
             });
 
             const paused = await billing.subscriptions.pause(subscription.id);
@@ -585,7 +591,8 @@ describe('Core + Drizzle Integration', () => {
             // Create a subscription to apply the promo code to
             const subscription = await billing.subscriptions.create({
                 customerId,
-                planId
+                planId,
+                productDomain: 'test-domain'
             });
 
             // Apply increments redemption count
@@ -634,7 +641,8 @@ describe('Core + Drizzle Integration', () => {
 
             const sub = await billing.subscriptions.create({
                 customerId: customer.id,
-                planId: plan.id
+                planId: plan.id,
+                productDomain: 'test-domain'
             });
 
             await billing.subscriptions.cancel(sub.id);
@@ -699,7 +707,8 @@ describe('Core + Drizzle Integration', () => {
             // 4. Create subscription
             const subscription = await billing.subscriptions.create({
                 customerId: customer.id,
-                planId: plan.id
+                planId: plan.id,
+                productDomain: 'test-domain'
             });
 
             expect(subscription.status).toBe('active');

@@ -46,14 +46,25 @@ export const billingSubscriptions = pgTable(
         mpSubscriptionId: varchar('mp_subscription_id', { length: 255 }),
         /**
          * Free-form discriminator for the product/business line this
-         * subscription belongs to (e.g. a consuming app with multiple
-         * distinct offerings — accommodation vs. commerce vs. partner
-         * tiers). QZPay itself has no opinion on the value set; the
-         * consuming application defines and interprets its own domain
-         * values. Default 'accommodation' matches the first adopter's
-         * (Hospeda) primary product line — consumers that don't need
-         * multi-domain scoping can ignore it and always get the same
-         * value back.
+         * subscription belongs to — a consuming app with several distinct
+         * offerings uses it to keep them apart. QZPay itself has no opinion
+         * on the value set: the consuming application defines and
+         * interprets its own domain values.
+         *
+         * **The `.default()` is deprecated and scheduled for removal.** It
+         * holds one specific application's product line, which a generic
+         * payments package has no business knowing, and it does not do what
+         * a default appears to do here: a caller that omits the column does
+         * not get "no domain", it gets that one — so an application's
+         * secondary product lines end up filed under its primary one, in
+         * every row, without a single line of code being wrong. That is not
+         * a hypothetical; it is what this default did in production before
+         * `QZPayCreateSubscriptionInput.productDomain` was made required.
+         *
+         * Consumers must state a domain on every write. Once every consumer
+         * does, the default goes and an omitted write becomes a `NOT NULL`
+         * violation at the first insert — loud, immediate and impossible to
+         * mistake for a correct row.
          */
         productDomain: varchar('product_domain', { length: 32 }).notNull().default('accommodation'),
         /**

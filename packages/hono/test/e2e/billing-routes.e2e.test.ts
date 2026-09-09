@@ -203,7 +203,8 @@ describe('Billing Routes E2E', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     customerId,
-                    planId
+                    planId,
+                    productDomain: 'test-domain'
                 })
             });
 
@@ -219,7 +220,7 @@ describe('Billing Routes E2E', () => {
             const createResponse = await routes.request('/billing/subscriptions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ customerId, planId })
+                body: JSON.stringify({ customerId, planId, productDomain: 'test-domain' })
             });
             const { data: subscription } = await createResponse.json();
 
@@ -236,7 +237,7 @@ describe('Billing Routes E2E', () => {
             const createResponse = await routes.request('/billing/subscriptions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ customerId, planId })
+                body: JSON.stringify({ customerId, planId, productDomain: 'test-domain' })
             });
             const { data: subscription } = await createResponse.json();
 
@@ -257,7 +258,7 @@ describe('Billing Routes E2E', () => {
             await routes.request('/billing/subscriptions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ customerId, planId })
+                body: JSON.stringify({ customerId, planId, productDomain: 'test-domain' })
             });
 
             // Create another plan for second subscription
@@ -270,7 +271,7 @@ describe('Billing Routes E2E', () => {
             await routes.request('/billing/subscriptions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ customerId, planId: plan2.id })
+                body: JSON.stringify({ customerId, planId: plan2.id, productDomain: 'test-domain' })
             });
 
             // List by customer using query parameter

@@ -591,6 +591,7 @@ async function createSubscriptionWithNewCard(
   const subscription = await billing.subscriptions.create({
     customerId,
     planId,
+    productDomain: 'saas',
     paymentMethodId: card.id,
   });
 

@@ -148,7 +148,11 @@ Your QZPay setup is ready. The CLI creates a `qzpay.config.ts` file you can impo
    // First, ensure you have a plan configured in Stripe
    const subscription = await billing.subscriptions.create({
      customerId: customer.id,
-     planId: 'price_xxx' // Your Stripe price ID
+     planId: 'price_xxx', // Your Stripe price ID
+     // Required: the product line this subscription belongs to.
+     // Free-form and defined by your app — QZPay has no vocabulary
+     // for it, and no default, so it can never answer for you.
+     productDomain: 'saas'
    });
 
    console.log('Subscription created:', subscription.status);

@@ -297,7 +297,8 @@ describe('Error Handling Integration', () => {
         it('should handle canceling already canceled subscription', async () => {
             const subscription = await billing.subscriptions.create({
                 customerId,
-                planId
+                planId,
+                productDomain: 'test-domain'
             });
 
             // First cancel
@@ -311,7 +312,8 @@ describe('Error Handling Integration', () => {
         it('should handle pausing already paused subscription', async () => {
             const subscription = await billing.subscriptions.create({
                 customerId,
-                planId
+                planId,
+                productDomain: 'test-domain'
             });
 
             // First pause
@@ -325,7 +327,8 @@ describe('Error Handling Integration', () => {
         it('should handle resuming active subscription', async () => {
             const subscription = await billing.subscriptions.create({
                 customerId,
-                planId
+                planId,
+                productDomain: 'test-domain'
             });
 
             // Resume without pausing first

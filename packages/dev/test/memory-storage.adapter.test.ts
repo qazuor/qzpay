@@ -42,7 +42,8 @@ describe('createMemoryStorageAdapter', () => {
             const subscription = await adapter.subscriptions.create({
                 id: 'sub_123',
                 customerId: customer.id,
-                planId: 'plan_123'
+                planId: 'plan_123',
+                productDomain: 'test-domain'
             });
 
             reset();

@@ -246,16 +246,35 @@ describe('Subscription Mapper', () => {
         };
 
         it('should map create input with defaults', () => {
-            const drizzle = mapCoreSubscriptionCreateToDrizzle({ id: 'new-sub-1', customerId: 'cust-123', planId: 'plan-123' }, defaults);
+            const drizzle = mapCoreSubscriptionCreateToDrizzle(
+                { id: 'new-sub-1', customerId: 'cust-123', planId: 'plan-123', productDomain: 'accommodation' },
+                defaults
+            );
 
             expect(drizzle.id).toBe('new-sub-1');
             expect(drizzle.customerId).toBe('cust-123');
             expect(drizzle.planId).toBe('plan-123');
+            expect(drizzle.productDomain).toBe('accommodation');
             expect(drizzle.status).toBe('active');
             expect(drizzle.livemode).toBe(true);
             expect(drizzle.billingInterval).toBe('month');
             expect(drizzle.mpSubscriptionId).toBeUndefined();
             expect(drizzle.stripeSubscriptionId).toBeUndefined();
+        });
+
+        it('carries a non-accommodation domain through instead of substituting one', () => {
+            // The column still declares `.default('accommodation')`, so a
+            // mapper that dropped the field would produce rows that look
+            // correct for the majority product line and silently wrong for
+            // every other one — the exact defect this field was made
+            // required to end. Asserting a value the default could never
+            // have supplied is what distinguishes the two.
+            const drizzle = mapCoreSubscriptionCreateToDrizzle(
+                { id: 'new-sub-tourist', customerId: 'cust-123', planId: 'plan-tourist', productDomain: 'tourist' },
+                defaults
+            );
+
+            expect(drizzle.productDomain).toBe('tourist');
         });
 
         it('splits providerSubscriptionIds.mercadopago into mpSubscriptionId column', () => {
@@ -264,6 +283,7 @@ describe('Subscription Mapper', () => {
                     id: 'new-sub-mp',
                     customerId: 'cust-123',
                     planId: 'plan-123',
+                    productDomain: 'accommodation',
                     providerSubscriptionIds: { mercadopago: 'preapproval_mp_abc' }
                 },
                 defaults
@@ -279,6 +299,7 @@ describe('Subscription Mapper', () => {
                     id: 'new-sub-stripe',
                     customerId: 'cust-123',
                     planId: 'plan-123',
+                    productDomain: 'accommodation',
                     providerSubscriptionIds: { stripe: 'sub_stripe_xyz' }
                 },
                 defaults
@@ -294,6 +315,7 @@ describe('Subscription Mapper', () => {
                     id: 'new-sub-dual',
                     customerId: 'cust-123',
                     planId: 'plan-123',
+                    productDomain: 'accommodation',
                     providerSubscriptionIds: { stripe: 'sub_s', mercadopago: 'sub_mp' }
                 },
                 defaults
@@ -309,6 +331,7 @@ describe('Subscription Mapper', () => {
                     id: 'new-sub-unk',
                     customerId: 'cust-123',
                     planId: 'plan-123',
+                    productDomain: 'accommodation',
                     providerSubscriptionIds: { paypal: 'sub_pp_999' }
                 },
                 defaults

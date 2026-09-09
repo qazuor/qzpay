@@ -91,7 +91,7 @@ export class BillingService {
   }
 
   async createSubscription(customerId: string, planId: string) {
-    return this.qzpay.subscriptions.create({ customerId, planId });
+    return this.qzpay.subscriptions.create({ customerId, planId, productDomain: 'saas' });
   }
 
   async processPayment(customerId: string, amount: number) {

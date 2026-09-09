@@ -41,6 +41,7 @@ This guide covers managing subscriptions from creation to cancellation.
 const subscription = await billing.subscriptions.create({
   customerId: 'cus_123',
   planId: 'price_pro_monthly',
+  productDomain: 'saas',
   paymentMethodId: 'pm_card_visa'
 });
 ```
@@ -51,6 +52,7 @@ const subscription = await billing.subscriptions.create({
 const subscription = await billing.subscriptions.create({
   customerId: 'cus_123',
   planId: 'price_pro_monthly',
+  productDomain: 'saas',
   trialDays: 14 // 14-day trial
 });
 
@@ -64,6 +66,7 @@ const subscription = await billing.subscriptions.create({
 const subscription = await billing.subscriptions.create({
   customerId: 'cus_123',
   planId: 'price_pro_monthly',
+  productDomain: 'saas',
   promoCodeId: 'LAUNCH50' // 50% off first month
 });
 ```

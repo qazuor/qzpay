@@ -48,8 +48,14 @@ describe('memory storage adapter — list() filters', () => {
 
     describe('subscriptions.list — status filter', () => {
         it('a scalar status excludes subscriptions with a different status', async () => {
-            await adapter.subscriptions.create({ id: 'sub_active', customerId: 'cus_1', planId: 'plan_1' });
-            await adapter.subscriptions.create({ id: 'sub_trial', customerId: 'cus_1', planId: 'plan_1', trialDays: 14 });
+            await adapter.subscriptions.create({ id: 'sub_active', customerId: 'cus_1', planId: 'plan_1', productDomain: 'test-domain' });
+            await adapter.subscriptions.create({
+                id: 'sub_trial',
+                customerId: 'cus_1',
+                planId: 'plan_1',
+                productDomain: 'test-domain',
+                trialDays: 14
+            });
 
             const unfiltered = await adapter.subscriptions.list({ limit: 100 });
             expect(unfiltered.data.map((s) => s.id).sort()).toEqual(['sub_active', 'sub_trial']);
@@ -61,8 +67,14 @@ describe('memory storage adapter — list() filters', () => {
         });
 
         it('an array status keeps only subscriptions whose status is in the set', async () => {
-            await adapter.subscriptions.create({ id: 'sub_active', customerId: 'cus_1', planId: 'plan_1' });
-            await adapter.subscriptions.create({ id: 'sub_trial', customerId: 'cus_1', planId: 'plan_1', trialDays: 14 });
+            await adapter.subscriptions.create({ id: 'sub_active', customerId: 'cus_1', planId: 'plan_1', productDomain: 'test-domain' });
+            await adapter.subscriptions.create({
+                id: 'sub_trial',
+                customerId: 'cus_1',
+                planId: 'plan_1',
+                productDomain: 'test-domain',
+                trialDays: 14
+            });
             await adapter.subscriptions.update('sub_active', { status: 'canceled' });
 
             const result = await adapter.subscriptions.list({
@@ -78,8 +90,8 @@ describe('memory storage adapter — list() filters', () => {
 
     describe('subscriptions.list — equality filter', () => {
         it('customerId excludes subscriptions belonging to a different customer', async () => {
-            await adapter.subscriptions.create({ id: 'sub_1', customerId: 'cus_a', planId: 'plan_1' });
-            await adapter.subscriptions.create({ id: 'sub_2', customerId: 'cus_b', planId: 'plan_1' });
+            await adapter.subscriptions.create({ id: 'sub_1', customerId: 'cus_a', planId: 'plan_1', productDomain: 'test-domain' });
+            await adapter.subscriptions.create({ id: 'sub_2', customerId: 'cus_b', planId: 'plan_1', productDomain: 'test-domain' });
 
             const unfiltered = await adapter.subscriptions.list({ limit: 100 });
             expect(unfiltered.data).toHaveLength(2);
@@ -354,9 +366,9 @@ describe('memory storage adapter — listAll()', () => {
     });
 
     it('applies filters and returns every matching row as a flat array', async () => {
-        await adapter.subscriptions.create({ id: 'sub_a1', customerId: 'cus_a', planId: 'plan_1' });
-        await adapter.subscriptions.create({ id: 'sub_a2', customerId: 'cus_a', planId: 'plan_1' });
-        await adapter.subscriptions.create({ id: 'sub_b1', customerId: 'cus_b', planId: 'plan_1' });
+        await adapter.subscriptions.create({ id: 'sub_a1', customerId: 'cus_a', planId: 'plan_1', productDomain: 'test-domain' });
+        await adapter.subscriptions.create({ id: 'sub_a2', customerId: 'cus_a', planId: 'plan_1', productDomain: 'test-domain' });
+        await adapter.subscriptions.create({ id: 'sub_b1', customerId: 'cus_b', planId: 'plan_1', productDomain: 'test-domain' });
 
         const result = await adapter.subscriptions.listAll({ filters: { customerId: 'cus_a' } });
 
@@ -416,8 +428,8 @@ describe('memory storage adapter — listAll()', () => {
             });
         }
         it('subscriptions.list — planId excludes subscriptions on other plans', async () => {
-            await adapter.subscriptions.create({ id: 'sub_a', customerId: 'cus_1', planId: 'plan_basic' });
-            await adapter.subscriptions.create({ id: 'sub_b', customerId: 'cus_1', planId: 'plan_pro' });
+            await adapter.subscriptions.create({ id: 'sub_a', customerId: 'cus_1', planId: 'plan_basic', productDomain: 'test-domain' });
+            await adapter.subscriptions.create({ id: 'sub_b', customerId: 'cus_1', planId: 'plan_pro', productDomain: 'test-domain' });
 
             const unfiltered = await adapter.subscriptions.list({ limit: 100 });
             expect(unfiltered.data.map((s) => s.id).sort()).toEqual(['sub_a', 'sub_b']);
@@ -432,17 +444,24 @@ describe('memory storage adapter — listAll()', () => {
         });
 
         it('subscriptions.list — planId combines with status rather than replacing it', async () => {
-            await adapter.subscriptions.create({ id: 'sub_pro_active', customerId: 'cus_1', planId: 'plan_pro' });
+            await adapter.subscriptions.create({
+                id: 'sub_pro_active',
+                customerId: 'cus_1',
+                planId: 'plan_pro',
+                productDomain: 'test-domain'
+            });
             await adapter.subscriptions.create({
                 id: 'sub_pro_trial',
                 customerId: 'cus_1',
                 planId: 'plan_pro',
+                productDomain: 'test-domain',
                 trialDays: 14
             });
             await adapter.subscriptions.create({
                 id: 'sub_basic_trial',
                 customerId: 'cus_1',
                 planId: 'plan_basic',
+                productDomain: 'test-domain',
                 trialDays: 14
             });
 
@@ -457,8 +476,8 @@ describe('memory storage adapter — listAll()', () => {
         });
 
         it('subscriptions.listAll — planId applies there too', async () => {
-            await adapter.subscriptions.create({ id: 'sub_a', customerId: 'cus_1', planId: 'plan_basic' });
-            await adapter.subscriptions.create({ id: 'sub_b', customerId: 'cus_1', planId: 'plan_pro' });
+            await adapter.subscriptions.create({ id: 'sub_a', customerId: 'cus_1', planId: 'plan_basic', productDomain: 'test-domain' });
+            await adapter.subscriptions.create({ id: 'sub_b', customerId: 'cus_1', planId: 'plan_pro', productDomain: 'test-domain' });
 
             const all = await adapter.subscriptions.listAll({ filters: { planId: 'plan_basic' } });
 
