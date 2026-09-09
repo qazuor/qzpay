@@ -51,22 +51,32 @@ export const billingSubscriptions = pgTable(
          * on the value set: the consuming application defines and
          * interprets its own domain values.
          *
-         * **The `.default()` is deprecated and scheduled for removal.** It
-         * holds one specific application's product line, which a generic
-         * payments package has no business knowing, and it does not do what
-         * a default appears to do here: a caller that omits the column does
-         * not get "no domain", it gets that one — so an application's
-         * secondary product lines end up filed under its primary one, in
-         * every row, without a single line of code being wrong. That is not
-         * a hypothetical; it is what this default did in production before
-         * `QZPayCreateSubscriptionInput.productDomain` was made required.
+         * **There is no default, deliberately.** There used to be one, and it
+         * held one specific application's product line — which a generic
+         * payments package has no business knowing. Worse, it did not do what
+         * a default appears to do here: a caller that omitted the column did
+         * not get "no domain", it got that one. An application's secondary
+         * product lines were therefore filed under its primary one, in every
+         * row, without a single line of code being wrong. That is not a
+         * hypothetical — it is what this default did in production, across two
+         * databases, for as long as those product lines had existed.
          *
-         * Consumers must state a domain on every write. Once every consumer
-         * does, the default goes and an omitted write becomes a `NOT NULL`
-         * violation at the first insert — loud, immediate and impossible to
-         * mistake for a correct row.
+         * With the column `NOT NULL` and no default, an omitted write is a
+         * `NOT NULL` violation at the first insert: loud, immediate, and
+         * impossible to mistake for a correct row. State the domain on every
+         * write; `QZPayCreateSubscriptionInput.productDomain` is required for
+         * the same reason.
+         *
+         * **Upgrading does not by itself change an existing database.**
+         * Dropping the default here changes the DDL emitted for a NEW
+         * database; a database created before this version keeps its column
+         * default until the consumer runs `ALTER TABLE billing_subscriptions
+         * ALTER COLUMN product_domain DROP DEFAULT`. Until that migration
+         * runs, an omitted write still silently succeeds. Verify every write
+         * states the domain BEFORE dropping it — afterwards, one that does not
+         * takes down the checkout it sits in.
          */
-        productDomain: varchar('product_domain', { length: 32 }).notNull().default('accommodation'),
+        productDomain: varchar('product_domain', { length: 32 }).notNull(),
         /**
          * Plan change scheduled to apply at a future point in time
          * (typically `current_period_end`). Stored as JSONB so the

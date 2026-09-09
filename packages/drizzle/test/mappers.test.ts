@@ -263,12 +263,18 @@ describe('Subscription Mapper', () => {
         });
 
         it('carries a non-accommodation domain through instead of substituting one', () => {
-            // The column still declares `.default('accommodation')`, so a
-            // mapper that dropped the field would produce rows that look
-            // correct for the majority product line and silently wrong for
-            // every other one — the exact defect this field was made
-            // required to end. Asserting a value the default could never
-            // have supplied is what distinguishes the two.
+            // Asserts a value no default could have supplied, which is what
+            // separates "the mapper carried the field through" from "something
+            // downstream filled it in".
+            //
+            // The column no longer declares `.default('accommodation')`, so a
+            // mapper that dropped the field now fails a NOT NULL constraint
+            // rather than producing a plausible wrong row. That makes this test
+            // cheaper to satisfy than it was — and it stays, because the DEFAULT
+            // only leaves an existing database once the consumer runs the
+            // `DROP DEFAULT` migration (0008). Until every consumer has, the old
+            // silent-substitution failure is still reachable in the wild, and
+            // this is the assertion that names it.
             const drizzle = mapCoreSubscriptionCreateToDrizzle(
                 { id: 'new-sub-tourist', customerId: 'cust-123', planId: 'plan-tourist', productDomain: 'tourist' },
                 defaults

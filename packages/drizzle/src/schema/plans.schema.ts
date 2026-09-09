@@ -35,14 +35,19 @@ export const billingPlans = pgTable(
          * own domain values, e.g. to exclude plans in one domain from a
          * public listing scoped to another.
          *
-         * **The `.default()` is deprecated and scheduled for removal**, for
-         * the reasons spelled out on `billingSubscriptions.productDomain`:
-         * it names one specific application's product line inside a generic
-         * payments package, and a plan that omits the column is not filed
-         * under "no domain" — it is filed under that one. Every plan write
-         * must state its own domain.
+         * **There is no default, deliberately**, for the reasons spelled out
+         * on `billingSubscriptions.productDomain`: the one there used to be
+         * named a specific application's product line inside a generic
+         * payments package, and a plan that omitted the column was not filed
+         * under "no domain" — it was filed under that one. Every plan write
+         * states its own domain, and one that does not is a `NOT NULL`
+         * violation rather than a plausible wrong row.
+         *
+         * The same upgrade caveat applies: an existing database keeps its
+         * column default until the consumer runs `ALTER TABLE billing_plans
+         * ALTER COLUMN product_domain DROP DEFAULT`.
          */
-        productDomain: varchar('product_domain', { length: 32 }).notNull().default('accommodation'),
+        productDomain: varchar('product_domain', { length: 32 }).notNull(),
         livemode: boolean('livemode').notNull().default(true),
         version: uuid('version').notNull().defaultRandom(),
         createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
