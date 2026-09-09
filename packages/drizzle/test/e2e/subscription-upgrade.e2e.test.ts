@@ -57,6 +57,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
 
         // Setup: Create tiered plans
         const basicPlan = await plansRepo.create({
+            productDomain: 'test',
             name: 'Basic Plan',
             description: 'Entry level plan',
             active: true,
@@ -65,6 +66,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
         basicPlanId = basicPlan.id;
 
         const proPlan = await plansRepo.create({
+            productDomain: 'test',
             name: 'Pro Plan',
             description: 'Professional plan',
             active: true,
@@ -73,6 +75,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
         proPlanId = proPlan.id;
 
         const enterprisePlan = await plansRepo.create({
+            productDomain: 'test',
             name: 'Enterprise Plan',
             description: 'Enterprise level plan',
             active: true,
@@ -120,6 +123,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             periodEnd.setMonth(periodEnd.getMonth() + 1);
 
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: basicPlanId,
                 status: 'active',
@@ -185,6 +189,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             periodEnd.setMonth(periodEnd.getMonth() + 1);
 
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: basicPlanId,
                 status: 'active',
@@ -211,6 +216,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
 
             // Start with Pro plan
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'active',
@@ -235,6 +241,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             periodEnd.setMonth(periodEnd.getMonth() + 1);
 
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'active',
@@ -257,6 +264,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             periodEnd.setMonth(periodEnd.getMonth() + 1);
 
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'active',
@@ -282,6 +290,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             periodEnd.setMonth(periodEnd.getMonth() + 1);
 
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: basicPlanId,
                 status: 'active',
@@ -344,6 +353,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
 
             // Create monthly subscription
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'active',
@@ -373,6 +383,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
 
             // Create trial subscription
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'trialing',
@@ -415,6 +426,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             trialEnd.setDate(trialEnd.getDate() - 1); // Trial ended yesterday
 
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'trialing',
@@ -438,6 +450,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             periodEnd.setMonth(periodEnd.getMonth() + 1);
 
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'past_due',
@@ -465,6 +478,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             periodEnd.setMonth(periodEnd.getMonth() + 1);
 
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'past_due',
@@ -490,6 +504,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             periodEnd.setMonth(periodEnd.getMonth() + 1);
 
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'past_due',
@@ -514,6 +529,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             soonEnd.setDate(soonEnd.getDate() + 5); // Expires in 5 days
 
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'active',
@@ -533,6 +549,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             trialEnd.setDate(trialEnd.getDate() + 3); // Trial ends in 3 days
 
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'trialing',
@@ -553,6 +570,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             periodEnd.setMonth(periodEnd.getMonth() + 1);
 
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'past_due',
@@ -572,6 +590,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             periodEnd.setMonth(periodEnd.getMonth() + 1);
 
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'active',
@@ -595,6 +614,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
 
             // Create various subscriptions
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: proPlanId,
                 status: 'active',
@@ -605,6 +625,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             });
 
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: basicPlanId,
                 status: 'trialing',
@@ -615,6 +636,7 @@ describe('Subscription Upgrade/Downgrade E2E', () => {
             });
 
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 planId: enterprisePlanId,
                 status: 'canceled',

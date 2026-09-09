@@ -189,11 +189,7 @@ describe('Billing Routes E2E', () => {
             customerId = customerData.data.id;
 
             // Create plan directly
-            const plan = await storageAdapter.plans.create({
-                name: 'E2E Test Plan',
-                active: true,
-                livemode: true
-            });
+            const plan = await storageAdapter.plans.create({ productDomain: 'test', name: 'E2E Test Plan', active: true, livemode: true });
             planId = plan.id;
         });
 
@@ -262,11 +258,7 @@ describe('Billing Routes E2E', () => {
             });
 
             // Create another plan for second subscription
-            const plan2 = await storageAdapter.plans.create({
-                name: 'E2E Plan 2',
-                active: true,
-                livemode: true
-            });
+            const plan2 = await storageAdapter.plans.create({ productDomain: 'test', name: 'E2E Plan 2', active: true, livemode: true });
 
             await routes.request('/billing/subscriptions', {
                 method: 'POST',
@@ -583,7 +575,7 @@ async function createSchema(sql: ReturnType<typeof postgres>): Promise<void> {
             display_name VARCHAR(255) NOT NULL DEFAULT '',
             monthly_price_ars INTEGER NOT NULL DEFAULT 0,
             annual_price_ars INTEGER,
-            product_domain VARCHAR(32) NOT NULL DEFAULT 'accommodation',
+            product_domain VARCHAR(32) NOT NULL,
             livemode BOOLEAN NOT NULL DEFAULT true,
             version UUID NOT NULL DEFAULT gen_random_uuid(),
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -637,7 +629,7 @@ async function createSchema(sql: ReturnType<typeof postgres>): Promise<void> {
             next_retry_at TIMESTAMPTZ,
             stripe_subscription_id VARCHAR(255),
             mp_subscription_id VARCHAR(255),
-            product_domain VARCHAR(32) NOT NULL DEFAULT 'accommodation',
+            product_domain VARCHAR(32) NOT NULL,
             scheduled_plan_change JSONB,
             promo_effect_remaining_cycles INTEGER,
             courtesy_starts_at TIMESTAMPTZ,

@@ -60,10 +60,7 @@ describe('useSubscription', () => {
 
             let created: ReturnType<typeof createMockSubscription> | undefined;
             await waitFor(async () => {
-                created = await result.current.create({
-                    customerId: 'cus_123',
-                    planId: 'plan_123'
-                });
+                created = await result.current.create({ productDomain: 'test', customerId: 'cus_123', planId: 'plan_123' });
             });
 
             expect(created).toEqual(mockSubscription);
@@ -195,7 +192,9 @@ describe('useSubscription', () => {
                 expect(result.current.isLoading).toBe(false);
             });
 
-            await expect(result.current.create({ customerId: 'cus_123', planId: 'plan_123' })).rejects.toThrow('Create failed');
+            await expect(result.current.create({ productDomain: 'test', customerId: 'cus_123', planId: 'plan_123' })).rejects.toThrow(
+                'Create failed'
+            );
         });
     });
 

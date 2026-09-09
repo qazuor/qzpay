@@ -43,6 +43,27 @@ export interface QZPayPlanFeature {
 
 export interface QZPayCreatePlanInput {
     name: string;
+    /**
+     * Product/business line this plan belongs to. QZPay has no opinion on the
+     * value set — the consuming application defines and interprets its own —
+     * and persists it verbatim (the drizzle adapter's column caps it at 32
+     * characters). See `QZPayCreateSubscriptionInput.productDomain`, which
+     * carries the same contract for the subscription side.
+     *
+     * **Required, and deliberately so**, for the reason the subscription field
+     * states: an optional field is satisfied by omission, and an omitted domain
+     * still has to become *some* value at the storage layer — one product line
+     * silently answering for every other.
+     *
+     * Until this field existed, a caller could not state a plan's domain even
+     * when it wanted to. `mapCorePlanCreateToDrizzle` builds the insert
+     * field-by-field off this interface, so a `productDomain` handed to
+     * `plans.create()` was dropped on the floor and the column default answered
+     * instead — silently, and for every plan of every secondary product line.
+     * That is the same defect the subscription side fixed one release earlier;
+     * this is the half that was missed.
+     */
+    productDomain: string;
     description?: string;
     features?: QZPayPlanFeature[];
     entitlements?: string[];

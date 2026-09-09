@@ -209,8 +209,8 @@ describe('memory storage adapter — list() filters', () => {
 
     describe('plans.list — query and equality filters', () => {
         it('active excludes plans with a different active flag', async () => {
-            const activePlan = await adapter.plans.create({ id: 'plan_active', name: 'Pro Plan' });
-            const inactivePlan = await adapter.plans.create({ id: 'plan_inactive', name: 'Legacy Plan' });
+            const activePlan = await adapter.plans.create({ productDomain: 'test', id: 'plan_active', name: 'Pro Plan' });
+            const inactivePlan = await adapter.plans.create({ productDomain: 'test', id: 'plan_inactive', name: 'Legacy Plan' });
             await adapter.plans.update(inactivePlan.id, { active: false });
 
             const unfiltered = await adapter.plans.list({ limit: 100 });
@@ -222,8 +222,8 @@ describe('memory storage adapter — list() filters', () => {
         });
 
         it('query matches name/description partially and case-insensitively', async () => {
-            await adapter.plans.create({ id: 'plan_pro', name: 'Pro Plan' });
-            await adapter.plans.create({ id: 'plan_basic', name: 'Basic Plan' });
+            await adapter.plans.create({ productDomain: 'test', id: 'plan_pro', name: 'Pro Plan' });
+            await adapter.plans.create({ productDomain: 'test', id: 'plan_basic', name: 'Basic Plan' });
 
             const result = await adapter.plans.list({ limit: 100, filters: { query: 'PRO' } });
 
@@ -233,7 +233,7 @@ describe('memory storage adapter — list() filters', () => {
 
     describe('prices.list — equality filters', () => {
         it('billingInterval excludes prices with a different interval', async () => {
-            const plan = await adapter.plans.create({ id: 'plan_1', name: 'Pro Plan' });
+            const plan = await adapter.plans.create({ productDomain: 'test', id: 'plan_1', name: 'Pro Plan' });
             await adapter.prices.create({
                 id: 'price_month',
                 planId: plan.id,

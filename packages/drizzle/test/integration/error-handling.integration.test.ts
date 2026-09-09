@@ -287,6 +287,7 @@ describe('Error Handling Integration', () => {
             customerId = customer.id;
 
             const plan = await storageAdapter.plans.create({
+                productDomain: 'test',
                 name: 'Error Test Plan',
                 active: true,
                 livemode: true

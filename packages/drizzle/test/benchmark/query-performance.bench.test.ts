@@ -208,6 +208,7 @@ describe('Query Performance Benchmarks', () => {
             customerId = customer.id;
 
             const plan = await storageAdapter.plans.create({
+                productDomain: 'test',
                 name: 'Benchmark Plan',
                 active: true,
                 livemode: false
@@ -558,6 +559,7 @@ describe('Query Performance Benchmarks', () => {
 
                     // Create plan
                     const plan = await storageAdapter.plans.create({
+                        productDomain: 'test',
                         name: `Plan ${timestamp}`,
                         active: true,
                         livemode: false

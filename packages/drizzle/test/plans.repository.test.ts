@@ -25,6 +25,7 @@ describe('QZPayPlansRepository', () => {
         it('should create a new plan', async () => {
             const input = {
                 id: crypto.randomUUID(),
+                productDomain: 'test',
                 name: 'Basic Plan',
                 description: 'A basic plan for starters',
                 active: true,
@@ -44,6 +45,7 @@ describe('QZPayPlansRepository', () => {
         it('should create plan with features', async () => {
             const input = {
                 id: crypto.randomUUID(),
+                productDomain: 'test',
                 name: 'Pro Plan',
                 features: [{ name: 'Feature 1' }, { name: 'Feature 2' }],
                 active: true,
@@ -58,6 +60,7 @@ describe('QZPayPlansRepository', () => {
         it('should create plan with entitlements and limits', async () => {
             const input = {
                 id: crypto.randomUUID(),
+                productDomain: 'test',
                 name: 'Enterprise Plan',
                 entitlements: ['api_access', 'premium_support'],
                 limits: { api_calls: 10000, storage_gb: 100 },
@@ -75,6 +78,7 @@ describe('QZPayPlansRepository', () => {
     describe('findById', () => {
         it('should find plan by ID', async () => {
             const created = await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Find Test Plan',
                 active: true,
@@ -95,6 +99,7 @@ describe('QZPayPlansRepository', () => {
 
         it('should not find soft-deleted plans', async () => {
             const created = await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Deleted Plan',
                 active: true,
@@ -111,24 +116,28 @@ describe('QZPayPlansRepository', () => {
     describe('findActive', () => {
         beforeEach(async () => {
             await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Active Plan 1',
                 active: true,
                 livemode: true
             });
             await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Active Plan 2',
                 active: true,
                 livemode: true
             });
             await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Inactive Plan',
                 active: false,
                 livemode: true
             });
             await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Test Mode Plan',
                 active: true,
@@ -155,6 +164,7 @@ describe('QZPayPlansRepository', () => {
     describe('update', () => {
         it('should update plan fields', async () => {
             const created = await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Original Name',
                 description: 'Original description',
@@ -180,6 +190,7 @@ describe('QZPayPlansRepository', () => {
     describe('softDelete', () => {
         it('should soft delete a plan and deactivate it', async () => {
             const created = await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'To Delete',
                 active: true,
@@ -200,6 +211,7 @@ describe('QZPayPlansRepository', () => {
     describe('activate / deactivate', () => {
         it('should activate a plan', async () => {
             const created = await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Inactive Plan',
                 active: false,
@@ -213,6 +225,7 @@ describe('QZPayPlansRepository', () => {
 
         it('should deactivate a plan', async () => {
             const created = await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Active Plan',
                 active: true,
@@ -228,6 +241,7 @@ describe('QZPayPlansRepository', () => {
     describe('search', () => {
         beforeEach(async () => {
             await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Basic Plan',
                 description: 'For beginners',
@@ -235,6 +249,7 @@ describe('QZPayPlansRepository', () => {
                 livemode: true
             });
             await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Pro Plan',
                 description: 'For professionals',
@@ -242,6 +257,7 @@ describe('QZPayPlansRepository', () => {
                 livemode: true
             });
             await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Enterprise Plan',
                 description: 'For large teams',
@@ -292,6 +308,7 @@ describe('QZPayPlansRepository', () => {
     describe('updateFeatures', () => {
         it('should update plan features', async () => {
             const created = await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Features Plan',
                 features: [{ name: 'Old Feature' }],
@@ -308,6 +325,7 @@ describe('QZPayPlansRepository', () => {
     describe('updateEntitlements', () => {
         it('should update plan entitlements', async () => {
             const created = await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Entitlements Plan',
                 entitlements: ['old_entitlement'],
@@ -324,6 +342,7 @@ describe('QZPayPlansRepository', () => {
     describe('updateLimits', () => {
         it('should update plan limits', async () => {
             const created = await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Limits Plan',
                 limits: { old_limit: 100 },
@@ -340,6 +359,7 @@ describe('QZPayPlansRepository', () => {
     describe('updateMetadata', () => {
         it('should update plan metadata', async () => {
             const created = await repository.create({
+                productDomain: 'test',
                 id: crypto.randomUUID(),
                 name: 'Metadata Plan',
                 metadata: { initial: true },
@@ -355,10 +375,10 @@ describe('QZPayPlansRepository', () => {
 
     describe('count', () => {
         beforeEach(async () => {
-            await repository.create({ id: crypto.randomUUID(), name: 'P1', active: true, livemode: true });
-            await repository.create({ id: crypto.randomUUID(), name: 'P2', active: true, livemode: true });
-            await repository.create({ id: crypto.randomUUID(), name: 'P3', active: false, livemode: true });
-            await repository.create({ id: crypto.randomUUID(), name: 'P4', active: true, livemode: false });
+            await repository.create({ productDomain: 'test', id: crypto.randomUUID(), name: 'P1', active: true, livemode: true });
+            await repository.create({ productDomain: 'test', id: crypto.randomUUID(), name: 'P2', active: true, livemode: true });
+            await repository.create({ productDomain: 'test', id: crypto.randomUUID(), name: 'P3', active: false, livemode: true });
+            await repository.create({ productDomain: 'test', id: crypto.randomUUID(), name: 'P4', active: true, livemode: false });
         });
 
         it('should count plans with filters', async () => {

@@ -83,6 +83,7 @@ describe('Transaction Rollback', () => {
                 });
 
                 const plan = await plansRepo.create({
+                    productDomain: 'test',
                     name: 'Multi Op Plan',
                     description: 'Created in transaction',
                     active: true,

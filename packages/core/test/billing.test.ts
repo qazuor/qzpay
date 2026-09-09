@@ -2246,7 +2246,7 @@ describe('billing.subscriptions', () => {
         });
 
         // Regression guard for the storage-fallback bug: prior to this fix,
-        // `subscriptions.create({ mode: 'paid' })` only checked `planMap` (the
+        // `subscriptions.create({ productDomain: 'test', mode: 'paid' })` only checked `planMap` (the
         // in-memory snapshot of `config.plans`) and threw
         // `QZPayValidationError('Cannot create paid subscription: plan ... is
         // not configured')` for any plan that lived only in storage. Hosts

@@ -71,6 +71,7 @@ describe('QZPayAddonsRepository', () => {
                 const addonId = randomUUID();
 
                 const created = await repository.create({
+                    productDomain: 'test',
                     id: addonId,
                     name: 'Test',
                     description: null,
@@ -101,6 +102,7 @@ describe('QZPayAddonsRepository', () => {
                 const inactiveAddonId = randomUUID();
 
                 await repository.create({
+                    productDomain: 'test',
                     id: activeAddonId,
                     name: 'Active',
                     description: null,
@@ -118,6 +120,7 @@ describe('QZPayAddonsRepository', () => {
                     livemode: true
                 });
                 await repository.create({
+                    productDomain: 'test',
                     id: inactiveAddonId,
                     name: 'Inactive',
                     description: null,
@@ -147,6 +150,7 @@ describe('QZPayAddonsRepository', () => {
                 const addonId = randomUUID();
 
                 const created = await repository.create({
+                    productDomain: 'test',
                     id: addonId,
                     name: 'Original',
                     description: null,
@@ -179,6 +183,7 @@ describe('QZPayAddonsRepository', () => {
                 const addonId = randomUUID();
 
                 const created = await repository.create({
+                    productDomain: 'test',
                     id: addonId,
                     name: 'Delete Me',
                     description: null,
@@ -208,6 +213,7 @@ describe('QZPayAddonsRepository', () => {
                 const addonId = randomUUID();
 
                 const created = await repository.create({
+                    productDomain: 'test',
                     id: addonId,
                     name: 'Test',
                     description: null,
@@ -246,6 +252,7 @@ describe('QZPayAddonsRepository', () => {
 
             // Create plan
             const plan = await plansRepository.create({
+                productDomain: 'test',
                 id: randomUUID(),
                 name: 'Test Plan',
                 active: true,
@@ -266,6 +273,7 @@ describe('QZPayAddonsRepository', () => {
 
             // Create subscription
             const subscription = await subscriptionsRepository.create({
+                productDomain: 'test',
                 id: randomUUID(),
                 customerId: customer.id,
                 planId: plan.id,
@@ -281,6 +289,7 @@ describe('QZPayAddonsRepository', () => {
 
             // Create addon
             const addon = await repository.create({
+                productDomain: 'test',
                 id: randomUUID(),
                 name: 'Test Addon',
                 description: 'Test',
@@ -327,6 +336,7 @@ describe('QZPayAddonsRepository', () => {
             it('should find all addons for subscription', async () => {
                 // Create second addon
                 const addon2 = await repository.create({
+                    productDomain: 'test',
                     id: randomUUID(),
                     name: 'Addon 2',
                     description: null,
@@ -378,6 +388,7 @@ describe('QZPayAddonsRepository', () => {
 
                 // Create addon 1
                 const addon1 = await repository.create({
+                    productDomain: 'test',
                     id: randomUUID(),
                     name: 'Addon 1 for Active Test',
                     description: null,
@@ -397,6 +408,7 @@ describe('QZPayAddonsRepository', () => {
 
                 // Create addon 2
                 const addon2 = await repository.create({
+                    productDomain: 'test',
                     id: randomUUID(),
                     name: 'Addon 2 for Active Test',
                     description: null,
@@ -494,6 +506,7 @@ describe('QZPayAddonsRepository', () => {
 
                 // Create addon 1
                 const addon1 = await repository.create({
+                    productDomain: 'test',
                     id: randomUUID(),
                     name: 'Addon 1 for Calc Test',
                     description: null,
@@ -513,6 +526,7 @@ describe('QZPayAddonsRepository', () => {
 
                 // Create addon 2
                 const addon2 = await repository.create({
+                    productDomain: 'test',
                     id: randomUUID(),
                     name: 'Addon 2 for Calc Test',
                     description: null,

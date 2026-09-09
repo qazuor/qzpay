@@ -94,6 +94,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
     describe('plans storage', () => {
         it('should create and retrieve a plan', async () => {
             const created = await adapter.plans.create({
+                productDomain: 'test',
                 name: 'Pro Plan',
                 description: 'Professional features',
                 features: [{ name: 'Feature 1', included: true }],
@@ -110,12 +111,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
         });
 
         it('should list active plans', async () => {
-            await adapter.plans.create({
-                name: 'Active Plan',
-                features: [],
-                entitlements: [],
-                limits: {}
-            });
+            await adapter.plans.create({ productDomain: 'test', name: 'Active Plan', features: [], entitlements: [], limits: {} });
 
             const result = await adapter.plans.list({ active: true });
             expect(result.data.length).toBeGreaterThanOrEqual(1);
@@ -134,6 +130,7 @@ describe('QZPayDrizzleStorageAdapter', () => {
             customerId = customer.id;
 
             const plan = await adapter.plans.create({
+                productDomain: 'test',
                 name: 'Subscription Plan',
                 features: [],
                 entitlements: [],

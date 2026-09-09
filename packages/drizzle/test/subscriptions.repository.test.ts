@@ -41,6 +41,7 @@ describe('QZPaySubscriptionsRepository', () => {
 
         // Create a plan for subscriptions
         const plan = await plansRepo.create({
+            productDomain: 'test',
             name: 'Test Plan',
             description: 'A test plan for subscriptions',
             active: true,
@@ -58,6 +59,7 @@ describe('QZPaySubscriptionsRepository', () => {
             const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'active',
@@ -81,6 +83,7 @@ describe('QZPaySubscriptionsRepository', () => {
             const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
             const subscription = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'trialing',
@@ -105,6 +108,7 @@ describe('QZPaySubscriptionsRepository', () => {
             const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
             const created = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'active',
@@ -136,6 +140,7 @@ describe('QZPaySubscriptionsRepository', () => {
 
             // Create multiple subscriptions
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'active',
@@ -147,6 +152,7 @@ describe('QZPaySubscriptionsRepository', () => {
             });
 
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'canceled',
@@ -170,6 +176,7 @@ describe('QZPaySubscriptionsRepository', () => {
             const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
             const created = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'active',
@@ -193,6 +200,7 @@ describe('QZPaySubscriptionsRepository', () => {
             const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
             const created = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'active',
@@ -216,6 +224,7 @@ describe('QZPaySubscriptionsRepository', () => {
             const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
             const created = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'active',
@@ -241,6 +250,7 @@ describe('QZPaySubscriptionsRepository', () => {
             const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
             const created = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'active',
@@ -265,6 +275,7 @@ describe('QZPaySubscriptionsRepository', () => {
 
             // Create subscriptions with different statuses
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'active',
@@ -276,6 +287,7 @@ describe('QZPaySubscriptionsRepository', () => {
             });
 
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'canceled',
@@ -302,6 +314,7 @@ describe('QZPaySubscriptionsRepository', () => {
             // Create 5 subscriptions
             for (let i = 0; i < 5; i++) {
                 await subscriptionsRepo.create({
+                    productDomain: 'test',
                     customerId,
                     planId,
                     status: 'active',
@@ -331,6 +344,7 @@ describe('QZPaySubscriptionsRepository', () => {
 
             // Create active subscription
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'active',
@@ -343,6 +357,7 @@ describe('QZPaySubscriptionsRepository', () => {
 
             // Create canceled subscription
             await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId,
                 planId,
                 status: 'canceled',

@@ -40,17 +40,14 @@ describe('QZPayUsageRecordsRepository', () => {
             livemode: true
         });
 
-        const plan = await plansRepository.create({
-            name: 'Usage Test Plan',
-            active: true,
-            livemode: true
-        });
+        const plan = await plansRepository.create({ productDomain: 'test', name: 'Usage Test Plan', active: true, livemode: true });
 
         const now = new Date();
         const periodEnd = new Date(now);
         periodEnd.setMonth(periodEnd.getMonth() + 1);
 
         const subscription = await subscriptionsRepository.create({
+            productDomain: 'test',
             customerId: customer.id,
             planId: plan.id,
             status: 'active',
