@@ -1,5 +1,12 @@
 # @qazuor/qzpay-mercadopago
 
+## 2.11.2
+
+### Patch Changes
+
+- Updated dependencies [7240dca]
+  - @qazuor/qzpay-core@7.0.0
+
 ## 2.11.1
 
 ### Patch Changes
