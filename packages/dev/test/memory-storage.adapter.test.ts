@@ -58,10 +58,7 @@ describe('createMemoryStorageAdapter', () => {
                 email: 'test@example.com'
             });
 
-            await adapter.plans.create({
-                id: 'plan_123',
-                name: 'Test Plan'
-            });
+            await adapter.plans.create({ productDomain: 'test', id: 'plan_123', name: 'Test Plan' });
 
             reset();
 

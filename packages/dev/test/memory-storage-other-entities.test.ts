@@ -419,10 +419,7 @@ describe('adapter.plans', () => {
 
     describe('create', () => {
         it('should create a plan', async () => {
-            const plan = await adapter.plans.create({
-                id: 'plan_123',
-                name: 'Pro Plan'
-            });
+            const plan = await adapter.plans.create({ productDomain: 'test', id: 'plan_123', name: 'Pro Plan' });
 
             expect(plan.id).toBe('plan_123');
             expect(plan.name).toBe('Pro Plan');
@@ -432,10 +429,7 @@ describe('adapter.plans', () => {
 
     describe('update', () => {
         it('should update plan', async () => {
-            const plan = await adapter.plans.create({
-                id: 'plan_123',
-                name: 'Pro Plan'
-            });
+            const plan = await adapter.plans.create({ productDomain: 'test', id: 'plan_123', name: 'Pro Plan' });
 
             const updated = await adapter.plans.update(plan.id, {
                 active: false
@@ -454,10 +448,7 @@ describe('adapter.prices', () => {
         const storage = createMemoryStorageAdapter();
         adapter = storage.adapter;
 
-        const plan = await adapter.plans.create({
-            id: 'plan_123',
-            name: 'Pro Plan'
-        });
+        const plan = await adapter.plans.create({ productDomain: 'test', id: 'plan_123', name: 'Pro Plan' });
         planId = plan.id;
     });
 

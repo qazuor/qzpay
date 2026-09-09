@@ -152,11 +152,7 @@ describe('QZPay NestJS E2E Tests', () => {
             customerId = customer.id;
 
             // Create a plan directly in storage
-            const plan = await storageAdapter.plans.create({
-                name: 'Test Plan',
-                active: true,
-                livemode: false
-            });
+            const plan = await storageAdapter.plans.create({ productDomain: 'test', name: 'Test Plan', active: true, livemode: false });
             planId = plan.id;
         });
 

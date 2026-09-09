@@ -125,6 +125,7 @@ describe('Core + Drizzle Integration', () => {
 
             // Create plan
             const plan = await storageAdapter.plans.create({
+                productDomain: 'test',
                 name: 'Pro Plan',
                 description: 'Professional features',
                 active: true,
@@ -511,11 +512,7 @@ describe('Core + Drizzle Integration', () => {
             });
             customerId = customer.id;
 
-            const plan = await storageAdapter.plans.create({
-                name: 'Standard Plan',
-                active: true,
-                livemode: true
-            });
+            const plan = await storageAdapter.plans.create({ productDomain: 'test', name: 'Standard Plan', active: true, livemode: true });
             planId = plan.id;
         });
 
@@ -633,11 +630,7 @@ describe('Core + Drizzle Integration', () => {
                 name: 'Sub Event Customer'
             });
 
-            const plan = await storageAdapter.plans.create({
-                name: 'Event Plan',
-                active: true,
-                livemode: true
-            });
+            const plan = await storageAdapter.plans.create({ productDomain: 'test', name: 'Event Plan', active: true, livemode: true });
 
             const sub = await billing.subscriptions.create({
                 customerId: customer.id,
@@ -684,6 +677,7 @@ describe('Core + Drizzle Integration', () => {
 
             // 2. Create plan and price
             const plan = await storageAdapter.plans.create({
+                productDomain: 'test',
                 name: 'Premium Plan',
                 active: true,
                 entitlements: ['premium_access'],

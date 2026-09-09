@@ -339,6 +339,7 @@ describeWithStripe('Stripe Sandbox Integration Tests', () => {
             });
 
             const subscriptionId = await adapter.subscriptions.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 priceId: testPriceId,
                 trialDays: 7
@@ -367,6 +368,7 @@ describeWithStripe('Stripe Sandbox Integration Tests', () => {
             });
 
             const subscriptionId = await adapter.subscriptions.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 priceId: testPriceId,
                 trialDays: 14
@@ -396,6 +398,7 @@ describeWithStripe('Stripe Sandbox Integration Tests', () => {
             });
 
             const subscriptionId = await adapter.subscriptions.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 priceId: testPriceId,
                 trialDays: 7
@@ -423,6 +426,7 @@ describeWithStripe('Stripe Sandbox Integration Tests', () => {
             });
 
             const subscriptionId = await adapter.subscriptions.create({
+                productDomain: 'test',
                 customerId: testCustomerId,
                 priceId: testPriceId,
                 trialDays: 14

@@ -41,6 +41,7 @@ describe('QZPaySubscriptionPollingJobsRepository', () => {
         });
         const now = new Date();
         const subscription = await subscriptionsRepo.create({
+            productDomain: 'test',
             customerId: customer.id,
             planId: 'plan_test',
             status: 'incomplete',
@@ -412,6 +413,7 @@ describe('QZPaySubscriptionPollingJobsRepository', () => {
             });
             const now = new Date();
             const sub2 = await subscriptionsRepo.create({
+                productDomain: 'test',
                 customerId: customer2.id,
                 planId: 'plan_test',
                 status: 'incomplete',

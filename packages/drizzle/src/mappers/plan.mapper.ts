@@ -42,6 +42,11 @@ export function mapCorePlanCreateToDrizzle(input: QZPayCreatePlanInput & { id: s
     return {
         id: input.id,
         name: input.name,
+        // Carried through explicitly. This mapper builds the row field-by-field,
+        // so a field it does not name is a field the caller cannot set — which
+        // is how a stated productDomain used to be dropped here and answered by
+        // the column default instead.
+        productDomain: input.productDomain,
         description: input.description ?? null,
         active: true,
         features: input.features ?? [],

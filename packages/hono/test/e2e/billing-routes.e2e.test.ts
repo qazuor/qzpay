@@ -189,11 +189,7 @@ describe('Billing Routes E2E', () => {
             customerId = customerData.data.id;
 
             // Create plan directly
-            const plan = await storageAdapter.plans.create({
-                name: 'E2E Test Plan',
-                active: true,
-                livemode: true
-            });
+            const plan = await storageAdapter.plans.create({ productDomain: 'test', name: 'E2E Test Plan', active: true, livemode: true });
             planId = plan.id;
         });
 
@@ -262,11 +258,7 @@ describe('Billing Routes E2E', () => {
             });
 
             // Create another plan for second subscription
-            const plan2 = await storageAdapter.plans.create({
-                name: 'E2E Plan 2',
-                active: true,
-                livemode: true
-            });
+            const plan2 = await storageAdapter.plans.create({ productDomain: 'test', name: 'E2E Plan 2', active: true, livemode: true });
 
             await routes.request('/billing/subscriptions', {
                 method: 'POST',

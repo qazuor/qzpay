@@ -25,6 +25,7 @@ describe('QZPayPricesRepository', () => {
         await clearTestData();
         // Create a test plan for prices
         const plan = await plansRepository.create({
+            productDomain: 'test',
             id: crypto.randomUUID(),
             name: 'Test Plan',
             active: true,

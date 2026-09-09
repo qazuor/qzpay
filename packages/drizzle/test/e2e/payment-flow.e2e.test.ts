@@ -64,17 +64,14 @@ describe('Payment Flow E2E', () => {
         testPaymentMethodId = paymentMethod.id;
 
         // Setup: Create plan and subscription
-        const plan = await plansRepo.create({
-            name: 'Payment Flow Test Plan',
-            active: true,
-            livemode: true
-        });
+        const plan = await plansRepo.create({ productDomain: 'test', name: 'Payment Flow Test Plan', active: true, livemode: true });
 
         const now = new Date();
         const periodEnd = new Date(now);
         periodEnd.setMonth(periodEnd.getMonth() + 1);
 
         const subscription = await subscriptionsRepo.create({
+            productDomain: 'test',
             customerId: testCustomerId,
             planId: plan.id,
             status: 'active',

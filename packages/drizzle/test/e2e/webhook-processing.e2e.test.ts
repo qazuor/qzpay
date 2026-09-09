@@ -50,11 +50,7 @@ describe('Webhook Processing E2E', () => {
         testCustomerId = customer.id;
 
         // Setup: Create plan
-        const plan = await plansRepo.create({
-            name: 'Webhook Test Plan',
-            active: true,
-            livemode: true
-        });
+        const plan = await plansRepo.create({ productDomain: 'test', name: 'Webhook Test Plan', active: true, livemode: true });
         testPlanId = plan.id;
 
         // Setup: Create subscription
@@ -63,6 +59,7 @@ describe('Webhook Processing E2E', () => {
         periodEnd.setMonth(periodEnd.getMonth() + 1);
 
         const subscription = await subscriptionsRepo.create({
+            productDomain: 'test',
             customerId: testCustomerId,
             planId: testPlanId,
             status: 'active',

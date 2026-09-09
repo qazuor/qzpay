@@ -96,6 +96,7 @@ describe('Transaction Utilities', () => {
                 });
 
                 const plan = await plansRepoTx.create({
+                    productDomain: 'test',
                     name: 'Multi Op Plan',
                     description: 'Created in transaction',
                     active: true,
@@ -131,6 +132,7 @@ describe('Transaction Utilities', () => {
                     customerId = customer.id;
 
                     const plan = await plansRepoTx.create({
+                        productDomain: 'test',
                         name: 'Partial Fail Plan',
                         description: 'Should be rolled back',
                         active: true,
@@ -171,6 +173,7 @@ describe('Transaction Utilities', () => {
                 async (tx) => {
                     const repo = new QZPayPlansRepository(tx as unknown as PostgresJsDatabase);
                     return repo.create({
+                        productDomain: 'test',
                         name: 'Sequential Plan',
                         description: 'Created sequentially',
                         active: true,
